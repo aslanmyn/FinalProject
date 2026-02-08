@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KBTU - Kazakhstan-British Technical University</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <div class="logo">
+                <h1>KBTU</h1>
+                <span class="tagline">Kazakhstan-British Technical University</span>
+            </div>
+            <nav class="main-nav">
+                <a href="/">Home</a>
+                <a href="/login" class="btn-login">Sign In</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="hero">
+        <div class="hero-content">
+            <h2>Excellence in Technical Education</h2>
+            <p class="hero-subtitle">Building the future of Kazakhstan through innovation and academic rigor</p>
+            <a href="/login" class="cta-button">Student & Faculty Portal</a>
+        </div>
+    </main>
+
+    <section class="quick-links">
+        <div class="container">
+            <div class="links-grid">
+                <a href="/login" class="link-card">
+                    <span class="link-icon">👤</span>
+                    <h3>Student Portal</h3>
+                    <p>Access courses, grades, and resources</p>
+                </a>
+                <a href="/login" class="link-card">
+                    <span class="link-icon">📚</span>
+                    <h3>Faculty Portal</h3>
+                    <p>Manage classes and academic materials</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="site-footer">
+        <p>© 2025 KBTU. Almaty, Kazakhstan.</p>
+    </footer>
+</body>
+</html>
