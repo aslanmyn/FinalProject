@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News - KBTU Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <a href="/" class="logo">
+                <h1>KBTU</h1>
+                <span class="tagline">Portal</span>
+            </a>
+            <nav class="main-nav">
+                <a href="/">Home</a>
+                <a href="/news" class="active">News</a>
+                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? 'student' : (userRole == 'TEACHER' ? 'teacher' : '')}"
+                      th:text="${userRole}">Role</span>
+                <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="news-main">
+        <div class="container">
+            <h2>University News</h2>
+            <p class="welcome-msg" th:if="${userRole == 'STUDENT'}">
+                Welcome, Student! Here are the latest updates for you.
+            </p>
+            <p class="welcome-msg" th:if="${userRole == 'TEACHER'}">
+                Welcome, Professor! Here are the latest updates for faculty.
+            </p>
+
+            <section class="news-list">
+                <article class="news-card">
+                    <span class="news-date">Feb 8, 2025</span>
+                    <h3>Spring Semester Registration Opens</h3>
+                    <p>Registration for the Spring 2025 semester is now open. Students can access the portal to select courses and manage their schedules.</p>
+                </article>
+                <article class="news-card">
+                    <span class="news-date">Feb 5, 2025</span>
+                    <h3>New Research Lab Inauguration</h3>
+                    <p>KBTU celebrates the opening of the new Digital Innovation Lab, equipped with state-of-the-art computing resources for research and development.</p>
+                </article>
+                <article class="news-card">
+                    <span class="news-date">Feb 1, 2025</span>
+                    <h3>Faculty Development Workshop</h3>
+                    <p>All faculty members are invited to the upcoming workshop on modern teaching methodologies and digital tools, scheduled for February 15.</p>
+                </article>
+            </section>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <p>© 2025 KBTU. Almaty, Kazakhstan.</p>
+    </footer>
+</body>
+</html>
