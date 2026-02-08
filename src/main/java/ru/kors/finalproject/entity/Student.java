@@ -2,6 +2,7 @@ package ru.kors.finalproject.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import ru.kors.finalproject.entity.Faculty;
 
 @Entity
 @Table(name = "students", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
