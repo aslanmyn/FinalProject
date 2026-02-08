@@ -29,14 +29,22 @@
 
     <main class="news-main">
         <div class="container">
-            <h2>University News</h2>
+            <h2>Portal</h2>
             <p class="welcome-msg" th:if="${userRole == 'STUDENT'}">
-                Welcome, Student! Here are the latest updates for you.
+                Welcome, Student! Choose a section below.
             </p>
             <p class="welcome-msg" th:if="${userRole == 'TEACHER'}">
-                Welcome, Professor! Here are the latest updates for faculty.
+                Welcome, Professor! Choose a section below.
             </p>
 
+            <section class="portal-grid">
+                <a th:each="item : ${portalSections}"
+                   th:href="@{/portal/{slug}(slug=${item.slug})}"
+                   th:text="${item.title}"
+                   class="portal-link">Section</a>
+            </section>
+
+            <h3 class="section-heading">University News</h3>
             <section class="news-list">
                 <article class="news-card">
                     <span class="news-date">Feb 8, 2025</span>
