@@ -46,20 +46,13 @@
 
             <h3 class="section-heading">University News</h3>
             <section class="news-list">
-                <article class="news-card">
-                    <span class="news-date">Feb 8, 2025</span>
-                    <h3>Spring Semester Registration Opens</h3>
-                    <p>Registration for the Spring 2025 semester is now open. Students can access the portal to select courses and manage their schedules.</p>
+                <article th:each="n : ${newsList}" class="news-card">
+                    <span class="news-date" th:text="${#temporals.format(n.createdAt, 'MMM d, yyyy')}">Date</span>
+                    <h3 th:text="${n.title}">Title</h3>
+                    <p th:text="${n.content}">Content</p>
                 </article>
-                <article class="news-card">
-                    <span class="news-date">Feb 5, 2025</span>
-                    <h3>New Research Lab Inauguration</h3>
-                    <p>KBTU celebrates the opening of the new Digital Innovation Lab, equipped with state-of-the-art computing resources for research and development.</p>
-                </article>
-                <article class="news-card">
-                    <span class="news-date">Feb 1, 2025</span>
-                    <h3>Faculty Development Workshop</h3>
-                    <p>All faculty members are invited to the upcoming workshop on modern teaching methodologies and digital tools, scheduled for February 15.</p>
+                <article th:if="${#lists.isEmpty(newsList)}" class="news-card">
+                    <p>No news yet.</p>
                 </article>
             </section>
         </div>

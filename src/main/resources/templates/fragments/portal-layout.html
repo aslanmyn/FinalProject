@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${section != null ? section.title + ' - KBTU Portal' : 'Portal'}">Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+            <nav class="main-nav">
+                <a href="/news">Portal &amp; News</a>
+                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? 'student' : (userRole == 'TEACHER' ? 'teacher' : '')}" th:text="${userRole}">Role</span>
+                <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+    <main class="news-main section-page">
+        <div class="container">
+            <nav class="breadcrumb" th:if="${section}">
+                <a href="/news">Portal</a><span class="sep">›</span><span th:text="${section.title}">Section</span>
+            </nav>
+            <div th:replace="~{::content}">Content</div>
+        </div>
+    </main>
+    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+</body>
+</html>

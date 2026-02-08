@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Requests - KBTU Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+            <nav class="main-nav">
+                <a href="/news">Portal</a>
+                <span class="user-badge student">STUDENT</span>
+                <span class="user-email" th:text="${userEmail}"></span>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+    <main class="news-main section-page">
+        <div class="container">
+            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Student Requests</span></nav>
+            <h2>Student Requests</h2>
+            <p th:if="${requestCreated}" class="alert alert-success">Request submitted successfully.</p>
+            <div class="section-content">
+                <form th:action="@{/portal/student-requests/create}" method="post" class="inline-form">
+                    <h3>Create Request</h3>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select name="category" required>
+                            <option value="Reference">Reference</option>
+                            <option value="Academic">Academic</option>
+                            <option value="Retake">Retake</option>
+                            <option value="Data Change">Data Change</option>
+                            <option value="Payment">Payment</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea name="description" required rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit">Submit</button>
+                </form>
+                <h3>My Requests</h3>
+                <table class="data-table">
+                    <thead><tr><th>Category</th><th>Description</th><th>Status</th><th>Date</th></tr></thead>
+                    <tbody>
+                        <tr th:each="req : ${requests}">
+                            <td th:text="${req.category}"></td>
+                            <td th:text="${req.description}"></td>
+                            <td th:text="${req.status}"></td>
+                            <td th:text="${#temporals.format(req.createdAt, 'yyyy-MM-dd')}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(requests)}"><td colspan="4">No requests</td></tr>
+                    </tbody>
+                </table>
+                <a href="/news" class="back-link">← Back to Portal</a>
+            </div>
+        </div>
+    </main>
+    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+</body>
+</html>

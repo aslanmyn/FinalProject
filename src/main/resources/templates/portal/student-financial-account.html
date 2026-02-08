@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Financial Account - KBTU Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+            <nav class="main-nav">
+                <a href="/news">Portal</a>
+                <span class="user-badge student">STUDENT</span>
+                <span class="user-email" th:text="${userEmail}"></span>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+    <main class="news-main section-page">
+        <div class="container">
+            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Student Financial Account</span></nav>
+            <h2>Student Financial Account</h2>
+            <div class="section-content">
+                <p class="balance" th:if="${balance != null}"><strong>Balance due:</strong> <span th:text="${balance} + ' KZT'"></span></p>
+                <h3>Charges</h3>
+                <table class="data-table">
+                    <thead><tr><th>Description</th><th>Amount</th><th>Due Date</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <tr th:each="c : ${charges}">
+                            <td th:text="${c.description}"></td>
+                            <td th:text="${c.amount} + ' KZT'"></td>
+                            <td th:text="${#temporals.format(c.dueDate, 'yyyy-MM-dd')}"></td>
+                            <td th:text="${c.status}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(charges)}"><td colspan="4">No charges</td></tr>
+                    </tbody>
+                </table>
+                <h3>Payment History</h3>
+                <table class="data-table">
+                    <thead><tr><th>Amount</th><th>Date</th></tr></thead>
+                    <tbody>
+                        <tr th:each="p : ${payments}">
+                            <td th:text="${p.amount} + ' KZT'"></td>
+                            <td th:text="${#temporals.format(p.date, 'yyyy-MM-dd')}"></td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(payments)}"><td colspan="2">No payments</td></tr>
+                    </tbody>
+                </table>
+                <a href="/news" class="back-link">← Back to Portal</a>
+            </div>
+        </div>
+    </main>
+    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+</body>
+</html>

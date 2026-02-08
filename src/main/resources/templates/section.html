@@ -34,8 +34,8 @@
                 <span th:text="${section.title}">Section</span>
             </nav>
             <h2 th:text="${section.title}">Section Title</h2>
-            <div class="section-placeholder">
-                <p>Content for <strong th:text="${section.title}">Section</strong> will appear here.</p>
+            <div class="section-content">
+                <div class="section-description" th:utext="${section.descriptionHtml}"></div>
                 <a href="/news" class="back-link">← Back to Portal</a>
             </div>
         </div>
