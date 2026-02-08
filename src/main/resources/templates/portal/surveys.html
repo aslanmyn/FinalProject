@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surveys - KBTU Portal</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-content">
+            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+            <nav class="main-nav">
+                <a href="/news">Portal</a>
+                <span class="user-badge student">STUDENT</span>
+                <span class="user-email" th:text="${userEmail}"></span>
+                <a href="/logout" class="btn-logout">Logout</a>
+            </nav>
+        </div>
+    </header>
+    <main class="news-main section-page">
+        <div class="container">
+            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Surveys</span></nav>
+            <h2>Surveys</h2>
+            <div class="section-content">
+                <ul class="survey-list">
+                    <li th:each="s : ${surveys}">
+                        <span th:text="${s.title}"></span>
+                        <span th:if="${completedSurveyIds != null and completedSurveyIds.contains(s.id)}" class="badge">Completed</span>
+                    </li>
+                    <li th:if="${#lists.isEmpty(surveys)}">No surveys available</li>
+                </ul>
+                <a href="/news" class="back-link">← Back to Portal</a>
+            </div>
+        </div>
+    </main>
+    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+</body>
+</html>

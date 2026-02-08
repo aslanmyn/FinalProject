@@ -266,6 +266,12 @@ body {
     border: 1px solid rgba(231, 76, 60, 0.3);
 }
 
+.alert-success {
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
 .login-form .form-group {
     margin-bottom: 1.25rem;
 }
@@ -416,7 +422,8 @@ body {
     margin: 0 0.4rem;
 }
 
-.section-placeholder {
+.section-placeholder,
+.section-content {
     background: var(--color-surface);
     border: 1px solid rgba(201, 162, 39, 0.15);
     border-radius: 8px;
@@ -424,6 +431,15 @@ body {
     color: var(--color-text-muted);
 }
 
+.section-description {
+    line-height: 1.7;
+}
+
+.section-description strong {
+    color: var(--color-accent);
+}
+
+.section-content .back-link,
 .section-placeholder .back-link {
     display: inline-block;
     margin-top: 1rem;
@@ -431,8 +447,95 @@ body {
     text-decoration: none;
 }
 
-.section-placeholder .back-link:hover {
+.section-placeholder .back-link:hover,
+.section-content .back-link:hover {
     text-decoration: underline;
+}
+
+.data-table, .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.data-table th, .data-table td, .info-table th, .info-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(201, 162, 39, 0.15);
+}
+
+.data-table th, .info-table th {
+    color: var(--color-accent);
+    font-weight: 600;
+}
+
+.portal-section {
+    margin-bottom: 2rem;
+}
+
+.portal-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.btn-small {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.85rem;
+    background: var(--color-accent);
+    color: var(--color-bg);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-small.btn-danger {
+    background: var(--color-error);
+}
+
+.info-card .info-table td {
+    color: var(--color-text-muted);
+}
+
+.info-card .alert {
+    color: var(--color-error);
+}
+
+.survey-list {
+    list-style: none;
+    padding: 0;
+}
+
+.survey-list li {
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.survey-list .badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border-radius: 4px;
+}
+
+.inline-form {
+    margin-bottom: 2rem;
+}
+
+.inline-form .form-group {
+    margin-bottom: 1rem;
+}
+
+.inline-form select, .inline-form textarea {
+    width: 100%;
+    max-width: 400px;
+    padding: 0.5rem;
+    background: var(--color-bg);
+    border: 1px solid rgba(201, 162, 39, 0.2);
+    border-radius: 4px;
+    color: var(--color-text);
 }
 
 /* Footer */

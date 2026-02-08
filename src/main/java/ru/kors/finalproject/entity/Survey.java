@@ -1,0 +1,32 @@
+package ru.kors.finalproject.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "surveys")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Survey {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String title;
+    private LocalDate startDate;
+    private LocalDate endDate;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "semester_id")
+    private Semester semester;
+
+    @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<SurveyQuestion> questions = new ArrayList<>();
+}

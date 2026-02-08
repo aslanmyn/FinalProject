@@ -1,14 +1,21 @@
 package ru.kors.finalproject.controller;
 
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import ru.kors.finalproject.model.PortalSection;
+import ru.kors.finalproject.service.PortalDataService;
+import ru.kors.finalproject.service.SessionService;
 
 @Controller
+@RequiredArgsConstructor
 public class PortalController {
+
+    private final PortalDataService portalDataService;
+    private final SessionService sessionService;
 
     @GetMapping("/portal/{slug}")
     public String section(@PathVariable String slug, HttpSession session, Model model) {
@@ -19,11 +26,16 @@ public class PortalController {
         if (section == null) {
             return "redirect:/news";
         }
-        String email = (String) session.getAttribute("userEmail");
-        String role = (String) session.getAttribute("userRole");
         model.addAttribute("section", section);
-        model.addAttribute("userEmail", email != null ? email : "Guest");
-        model.addAttribute("userRole", role != null ? role : "UNKNOWN");
+
+        if (portalDataService.loadData(slug, session, model)) {
+            return "portal/" + slug;
+        }
+        if (sessionService.getEmail(session) == null) {
+            return "redirect:/login";
+        }
+        model.addAttribute("userEmail", sessionService.getEmail(session));
+        model.addAttribute("userRole", sessionService.getRole(session));
         return "section";
     }
 }
