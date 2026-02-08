@@ -24,6 +24,7 @@ public class MobilityApplication {
     private String universityName;
     @Column(columnDefinition = "TEXT")
     private String disciplinesMapping;
+
     @Enumerated(EnumType.STRING)
     private MobilityStatus status;
     private Instant createdAt;
