@@ -3,43 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Journal - KBTU Portal</title>
+    <title>Student Journal</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
-            <nav class="main-nav">
-                <a href="/news">Portal</a>
-                <span class="user-badge student">STUDENT</span>
-                <span class="user-email" th:text="${userEmail}"></span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
-    <main class="news-main section-page">
-        <div class="container">
-            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Student Journal</span></nav>
-            <h2>Student Journal</h2>
-            <div class="section-content">
-                <table class="data-table">
-                    <thead><tr><th>Subject</th><th>Type</th><th>Score</th><th>Max</th><th>Date</th></tr></thead>
-                    <tbody>
-                        <tr th:each="g : ${grades}">
-                            <td th:text="${g.subjectOffering.subject.name}"></td>
-                            <td th:text="${g.type}"></td>
-                            <td th:text="${g.value}"></td>
-                            <td th:text="${g.maxValue}"></td>
-                            <td th:text="${g.createdAt != null ? #temporals.format(g.createdAt, 'yyyy-MM-dd') : '—'}"></td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(grades)}"><td colspan="5">No grades</td></tr>
-                    </tbody>
-                </table>
-                <a href="/news" class="back-link">← Back to Portal</a>
-            </div>
-        </div>
-    </main>
-    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Student Portal</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <span class="user-badge student">STUDENT</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/news">Portal</a> / Student Journal</div>
+        <h2>Student Journal (Published Components)</h2>
+        <section class="card">
+            <table class="data-table">
+                <thead><tr><th>Course</th><th>Component</th><th>Grade</th><th>Comment</th><th>Date</th></tr></thead>
+                <tbody>
+                <tr th:each="g : ${grades}">
+                    <td th:text="${g.subjectOffering.subject.code}"></td>
+                    <td th:text="${g.component != null ? g.component.name : g.type}"></td>
+                    <td th:text="${g.gradeValue + ' / ' + g.maxGradeValue}"></td>
+                    <td th:text="${g.comment != null ? g.comment : '-'}"></td>
+                    <td th:text="${#temporals.format(g.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(grades)}"><td colspan="5">No published grades yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
 </body>
 </html>

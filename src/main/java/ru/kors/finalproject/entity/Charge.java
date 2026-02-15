@@ -1,5 +1,7 @@
 package ru.kors.finalproject.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,6 +22,7 @@ public class Charge {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
@@ -30,6 +33,7 @@ public class Charge {
     @Enumerated(EnumType.STRING)
     private ChargeStatus status;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "charge", cascade = CascadeType.ALL)
     @Builder.Default
     private List<Payment> payments = new ArrayList<>();

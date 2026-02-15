@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Holds - Admin</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Admin Portal</span></a>
+        <nav class="main-nav">
+            <a href="/admin/dashboard">Dashboard</a>
+            <span class="user-badge admin">ADMIN</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2>Holds Management</h2>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+        <section class="portal-section">
+            <h3>Create Hold</h3>
+            <form method="post" action="/admin/holds/create" class="form-inline">
+                <select name="studentId" required>
+                    <option value="">Select Student</option>
+                    <option th:each="s : ${students}" th:value="${s.id}" th:text="${s.name + ' (' + s.email + ')'}"></option>
+                </select>
+                <select name="type" required>
+                    <option value="FINANCIAL">FINANCIAL</option>
+                    <option value="ACADEMIC">ACADEMIC</option>
+                    <option value="DISCIPLINARY">DISCIPLINARY</option>
+                    <option value="MANUAL">MANUAL</option>
+                </select>
+                <input type="text" name="reason" placeholder="Reason" required>
+                <button type="submit" class="btn-small">Create Hold</button>
+            </form>
+        </section>
+
+        <section class="portal-section">
+            <h3>Active Holds</h3>
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Student</th><th>Type</th><th>Reason</th><th>Created</th><th>Action</th></tr></thead>
+                <tbody>
+                <tr th:each="h : ${activeHolds}">
+                    <td th:text="${h.id}"></td>
+                    <td th:text="${h.student.name}"></td>
+                    <td th:text="${h.type}"></td>
+                    <td th:text="${h.reason}"></td>
+                    <td th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd')}"></td>
+                    <td>
+                        <form method="post" th:action="@{/admin/holds/{id}/remove(id=${h.id})}" style="display:inline;">
+                            <input type="text" name="removalReason" placeholder="Removal reason" required>
+                            <button type="submit" class="btn-small btn-danger">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(activeHolds)}"><td colspan="6">No active holds.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
+</body>
+</html>

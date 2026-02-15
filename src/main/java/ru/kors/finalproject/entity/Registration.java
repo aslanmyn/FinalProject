@@ -1,5 +1,6 @@
 package ru.kors.finalproject.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,10 +18,12 @@ public class Registration {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_id", nullable = false)
     private Student student;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_offering_id", nullable = false)
     private SubjectOffering subjectOffering;
@@ -30,5 +33,10 @@ public class Registration {
 
     private Instant createdAt;
 
-    public enum RegistrationStatus { DRAFT, SUBMITTED, CONFIRMED }
+    private Instant droppedAt;
+
+    @Column(length = 500)
+    private String dropReason;
+
+    public enum RegistrationStatus { DRAFT, SUBMITTED, CONFIRMED, DROPPED }
 }

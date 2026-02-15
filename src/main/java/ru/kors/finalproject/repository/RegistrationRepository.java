@@ -13,9 +13,14 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject WHERE r.student.id = :studentId")
     List<Registration> findByStudentIdWithDetails(Long studentId);
 
+    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject WHERE r.student.id = :studentId AND r.status <> 'DROPPED'")
+    List<Registration> findActiveByStudentIdWithDetails(Long studentId);
+
     Optional<Registration> findByStudentIdAndSubjectOfferingId(Long studentId, Long subjectOfferingId);
 
     boolean existsByStudentIdAndSubjectOfferingId(Long studentId, Long subjectOfferingId);
 
     long countBySubjectOfferingIdAndStatusIn(Long subjectOfferingId, List<Registration.RegistrationStatus> statuses);
+
+    List<Registration> findBySubjectOfferingIdAndStatusIn(Long subjectOfferingId, List<Registration.RegistrationStatus> statuses);
 }

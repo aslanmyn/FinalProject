@@ -3,43 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Course Registration - KBTU Portal</title>
+    <title>Course Registration</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
-            <nav class="main-nav">
-                <a href="/news">Portal</a>
-                <span class="user-badge student">STUDENT</span>
-                <span class="user-email" th:text="${userEmail}"></span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
-    <main class="news-main section-page">
-        <div class="container">
-            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Course Registration</span></nav>
-            <h2>Course Registration</h2>
-            <div class="section-content">
-                <p th:if="${financialLock}" class="alert alert-error">Registration is locked due to financial debt.</p>
-                <p>Use <a href="/portal/add-drop-courses">Add/Drop Courses</a> to manage your registrations.</p>
-                <table class="data-table">
-                    <thead><tr><th>Subject</th><th>Status</th></tr></thead>
-                    <tbody>
-                        <tr th:each="r : ${registrations}">
-                            <td th:text="${r.subjectOffering.subject.name}"></td>
-                            <td th:text="${r.status}"></td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(registrations)}"><td colspan="2">No registrations. Go to Add/Drop Courses.</td></tr>
-                    </tbody>
-                </table>
-                <a href="/portal/add-drop-courses" class="btn-submit">Add/Drop Courses</a>
-                <a href="/news" class="back-link">← Back to Portal</a>
-            </div>
-        </div>
-    </main>
-    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Student Portal</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <span class="user-badge student">STUDENT</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/news">Portal</a> / Course Registration</div>
+        <h2>Course Registration</h2>
+        <p th:if="${registrationMessage}" th:class="${registrationSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${registrationMessage}"></p>
+
+        <section class="portal-section">
+            <h3>Current Enrollments</h3>
+            <table class="data-table">
+                <thead><tr><th>Course</th><th>Status</th><th>Credits</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${registrations}">
+                    <td th:text="${r.subjectOffering.subject.code + ' - ' + r.subjectOffering.subject.name}"></td>
+                    <td th:text="${r.status}"></td>
+                    <td th:text="${r.subjectOffering.subject.credits}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(registrations)}"><td colspan="3">No enrollments.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Available Sections</h3>
+            <table class="data-table">
+                <thead><tr><th>Course</th><th>Teacher</th><th>Capacity</th><th>Action</th></tr></thead>
+                <tbody>
+                <tr th:each="so : ${available}">
+                    <td th:text="${so.subject.code + ' - ' + so.subject.name}"></td>
+                    <td th:text="${so.teacher != null ? so.teacher.name : '-'}"></td>
+                    <td th:text="${so.capacity}"></td>
+                    <td>
+                        <form th:action="@{/portal/course-registration/submit}" method="post">
+                            <input type="hidden" name="subjectOfferingId" th:value="${so.id}">
+                            <button class="btn-small" type="submit">Submit Registration</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(available)}"><td colspan="4">No available sections.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
 </body>
 </html>

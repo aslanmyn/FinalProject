@@ -3,63 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News - KBTU Portal</title>
+    <title>Portal & News</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo">
-                <h1>KBTU</h1>
-                <span class="tagline">Portal</span>
-            </a>
-            <nav class="main-nav">
-                <a href="/">Home</a>
-                <a href="/news" class="active">News</a>
-                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? 'student' : (userRole == 'TEACHER' ? 'teacher' : '')}"
-                      th:text="${userRole}">Role</span>
-                <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+        <nav class="main-nav">
+            <a href="/">Home</a>
+            <a href="/news">Portal</a>
+            <span class="user-badge"
+                  th:classappend="${userRole == 'STUDENT' ? ' student' : (userRole == 'PROFESSOR' ? ' professor' : (userRole == 'ADMIN' ? ' admin' : ''))}"
+                  th:text="${userRole}">ROLE</span>
+            <span class="user-email" th:text="${userEmail}">Guest</span>
+            <a href="/logout" class="btn-logout" th:if="${userEmail != 'Guest'}">Logout</a>
+            <a href="/login" class="btn" th:if="${userEmail == 'Guest'}">Login</a>
+        </nav>
+    </div>
+</header>
 
-    <main class="news-main">
-        <div class="container">
-            <h2>Portal</h2>
-            <p class="welcome-msg" th:if="${userRole == 'STUDENT'}">
-                Welcome, Student! Choose a section below.
-            </p>
-            <p class="welcome-msg" th:if="${userRole == 'TEACHER'}">
-                Welcome, Professor! Choose a section below.
-            </p>
+<main class="page">
+    <div class="container">
+        <h2 th:if="${isStudent}">Student Portal Sections</h2>
+        <h2 th:if="${isProfessor}">Professor Portal</h2>
+        <h2 th:if="${isAdmin}">Admin Portal</h2>
+        <h2 th:if="${!isStudent and !isProfessor and !isAdmin}">Portal</h2>
 
-            <section class="portal-grid">
-                <a th:each="item : ${portalSections}"
-                   th:href="@{/portal/{slug}(slug=${item.slug})}"
-                   th:text="${item.title}"
-                   class="portal-link">Section</a>
-            </section>
+        <section class="portal-grid" th:if="${isStudent}">
+            <a href="/professors" class="portal-link">Professor Directory</a>
+            <a th:each="item : ${portalSections}"
+               th:href="@{/portal/{slug}(slug=${item.slug})}"
+               th:text="${item.title}"
+               class="portal-link">Section</a>
+        </section>
+        <section class="portal-grid" th:if="${isProfessor}">
+            <a href="/professor/dashboard" class="portal-link">Professor Dashboard</a>
+            <a href="/professor/courses" class="portal-link">My Sections</a>
+        </section>
+        <section class="portal-grid" th:if="${isAdmin}">
+            <a href="/admin/dashboard" class="portal-link">Admin Dashboard</a>
+        </section>
+        <section class="card" th:if="${!isStudent and !isProfessor and !isAdmin}">
+            <p>Sign in to access your role-based portal.</p>
+            <a href="/login" class="btn">Login</a>
+        </section>
 
-            <h3 class="section-heading">University News</h3>
-            <section class="news-list">
-                <article th:each="n : ${newsList}" class="news-card">
-                    <span class="news-date" th:text="${#temporals.format(n.createdAt, 'MMM d, yyyy')}">Date</span>
-                    <h3 th:text="${n.title}">Title</h3>
-                    <p th:text="${n.content}">Content</p>
-                </article>
-                <article th:if="${#lists.isEmpty(newsList)}" class="news-card">
-                    <p>No news yet.</p>
-                </article>
-            </section>
-        </div>
-    </main>
+        <h3 class="section-heading">Latest News</h3>
+        <section class="grid">
+            <article th:each="n : ${newsList}" class="news-card">
+                <small class="user-email" th:text="${#temporals.format(n.createdAt, 'yyyy-MM-dd HH:mm')}">date</small>
+                <h4 th:text="${n.title}">Title</h4>
+                <p th:text="${n.content}">Content</p>
+                <small class="user-badge" th:text="${n.category}">Category</small>
+            </article>
+            <article th:if="${#lists.isEmpty(newsList)}" class="news-card">
+                <p>No news yet.</p>
+            </article>
+        </section>
+    </div>
+</main>
 
-    <footer class="site-footer">
-        <p>© 2025 KBTU. Almaty, Kazakhstan.</p>
-    </footer>
+<footer class="site-footer">
+    <p>&copy; KBTU Portal</p>
+</footer>
 </body>
 </html>

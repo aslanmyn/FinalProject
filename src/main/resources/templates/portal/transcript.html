@@ -3,42 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transcript - KBTU Portal</title>
+    <title>Transcript</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
-            <nav class="main-nav">
-                <a href="/news">Portal</a>
-                <span class="user-badge student">STUDENT</span>
-                <span class="user-email" th:text="${userEmail}"></span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
-    <main class="news-main section-page">
-        <div class="container">
-            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Transcript</span></nav>
-            <h2>Transcript</h2>
-            <div class="section-content">
-                <table class="data-table">
-                    <thead><tr><th>Subject</th><th>Type</th><th>Score</th><th>Max</th></tr></thead>
-                    <tbody>
-                        <tr th:each="g : ${grades}">
-                            <td th:text="${g.subjectOffering.subject.name}"></td>
-                            <td th:text="${g.type}"></td>
-                            <td th:text="${g.value}"></td>
-                            <td th:text="${g.maxValue}"></td>
-                        </tr>
-                        <tr th:if="${#lists.isEmpty(grades)}"><td colspan="4">No grades recorded</td></tr>
-                    </tbody>
-                </table>
-                <a href="/news" class="back-link">← Back to Portal</a>
-            </div>
-        </div>
-    </main>
-    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Student Portal</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <span class="user-badge student">STUDENT</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/news">Portal</a> / Transcript</div>
+        <h2>Academic Transcript (Unofficial)</h2>
+        <section class="card">
+            <table class="data-table">
+                <thead><tr><th>Course</th><th>Numeric</th><th>Letter</th><th>Points</th></tr></thead>
+                <tbody>
+                <tr th:each="f : ${finalGrades}">
+                    <td th:text="${f.subjectOffering.subject.code + ' - ' + f.subjectOffering.subject.name}"></td>
+                    <td th:text="${f.numericValue}"></td>
+                    <td th:text="${f.letterValue != null ? f.letterValue : '-'}"></td>
+                    <td th:text="${f.points}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(finalGrades)}"><td colspan="4">No published final grades.</td></tr>
+                </tbody>
+            </table>
+            <p class="user-email">For official signed transcript, submit a request in Student Requests.</p>
+        </section>
+    </div>
+</main>
 </body>
 </html>

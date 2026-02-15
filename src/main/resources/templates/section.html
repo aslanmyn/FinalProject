@@ -3,46 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title th:text="${section.title} + ' - KBTU Portal'">Section - KBTU Portal</title>
+    <title th:text="${section.title}">Section</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo">
-                <h1>KBTU</h1>
-                <span class="tagline">Portal</span>
-            </a>
-            <nav class="main-nav">
-                <a href="/news">Portal &amp; News</a>
-                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? 'student' : (userRole == 'TEACHER' ? 'teacher' : '')}"
-                      th:text="${userRole}">Role</span>
-                <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <span class="user-badge" th:text="${userRole}">ROLE</span>
+            <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
 
-    <main class="news-main section-page">
-        <div class="container">
-            <nav class="breadcrumb">
-                <a href="/news">Portal</a>
-                <span class="sep">›</span>
-                <span th:text="${section.title}">Section</span>
-            </nav>
-            <h2 th:text="${section.title}">Section Title</h2>
-            <div class="section-content">
-                <div class="section-description" th:utext="${section.descriptionHtml}"></div>
-                <a href="/news" class="back-link">← Back to Portal</a>
-            </div>
-        </div>
-    </main>
-
-    <footer class="site-footer">
-        <p>© 2025 KBTU. Almaty, Kazakhstan.</p>
-    </footer>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/news">Portal</a> / <span th:text="${section.title}">Section</span></div>
+        <section class="card">
+            <h2 th:text="${section.title}">Section</h2>
+            <p th:utext="${section.descriptionHtml}"></p>
+            <p><a href="/news">Back to portal</a></p>
+        </section>
+    </div>
+</main>
 </body>
 </html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${teacher.name}">Professor Profile</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Professor Profile</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <a href="/professors">All Professors</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/professors">Professors</a> / <span th:text="${teacher.name}"></span></div>
+        <section class="card">
+            <h2 th:text="${teacher.name}">Teacher Name</h2>
+            <p class="user-email" th:text="${teacher.positionTitle != null ? teacher.positionTitle : 'Professor'}"></p>
+            <p><strong>Department:</strong> <span th:text="${teacher.department != null ? teacher.department : (teacher.faculty != null ? teacher.faculty.name : '-')}"></span></p>
+            <p><strong>Public Email:</strong> <span th:text="${teacher.publicEmail != null ? teacher.publicEmail : teacher.email}"></span></p>
+            <p><strong>Office:</strong> <span th:text="${teacher.officeRoom != null ? teacher.officeRoom : '-'}"></span></p>
+            <p><strong>Office Hours:</strong> <span th:text="${teacher.officeHours != null ? teacher.officeHours : 'Not specified'}"></span></p>
+            <p th:text="${teacher.bio != null ? teacher.bio : 'No bio available yet.'}"></p>
+        </section>
+
+        <section class="portal-section">
+            <h3>Current Semester Courses</h3>
+            <table class="data-table">
+                <thead><tr><th>Code</th><th>Course</th><th>Section</th><th>Schedule</th></tr></thead>
+                <tbody>
+                <tr th:each="s : ${currentSections}">
+                    <td th:text="${s.subject.code}"></td>
+                    <td th:text="${s.subject.name}"></td>
+                    <td th:text="${s.id}"></td>
+                    <td th:text="${s.dayOfWeek != null ? (s.dayOfWeek + ' ' + s.startTime + '-' + s.endTime + ' ' + s.room) : 'See syllabus'}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(currentSections)}"><td colspan="4">No current courses.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Public Announcements</h3>
+            <div class="grid">
+                <article class="news-card" th:each="a : ${announcements}">
+                    <h4 th:text="${a.title}">Title</h4>
+                    <p th:text="${a.content}">Content</p>
+                    <small class="user-email" th:text="${a.publishedAt != null ? #temporals.format(a.publishedAt, 'yyyy-MM-dd HH:mm') : '-'}"></small>
+                </article>
+                <article class="news-card" th:if="${#lists.isEmpty(announcements)}">
+                    <p>No public announcements yet.</p>
+                </article>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>
