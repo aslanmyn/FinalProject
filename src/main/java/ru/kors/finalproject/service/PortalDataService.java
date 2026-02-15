@@ -81,7 +81,7 @@ public class PortalDataService {
     }
 
     private boolean loadStudentRequests(Student s, Model model) {
-        model.addAttribute("requests", studentRequestRepository.findByStudentIdOrderByCreatedAtDesc(s.getId()));
+        model.addAttribute("requests", studentRequestRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(s.getId()));
         return true;
     }
 
@@ -100,7 +100,7 @@ public class PortalDataService {
 
     private boolean loadStudentJournal(Student s, Model model) {
         if (s.getCurrentSemester() == null) return true;
-        List<Grade> publishedGrades = gradeRepository.findByStudentIdAndSubjectOffering_SemesterId(s.getId(), s.getCurrentSemester().getId())
+        List<Grade> publishedGrades = gradeRepository.findByStudentIdAndSemesterIdWithDetails(s.getId(), s.getCurrentSemester().getId())
                 .stream()
                 .filter(Grade::isPublished)
                 .toList();
@@ -109,8 +109,8 @@ public class PortalDataService {
     }
 
     private boolean loadFinancialAccount(Student s, Model model) {
-        model.addAttribute("charges", chargeRepository.findByStudentIdOrderByDueDateDesc(s.getId()));
-        model.addAttribute("payments", paymentRepository.findByStudentIdOrderByDateDesc(s.getId()));
+        model.addAttribute("charges", chargeRepository.findByStudentIdWithDetailsOrderByDueDateDesc(s.getId()));
+        model.addAttribute("payments", paymentRepository.findByStudentIdWithDetailsOrderByDateDesc(s.getId()));
         model.addAttribute("balance", financialService.getBalance(s));
         return true;
     }
@@ -130,30 +130,30 @@ public class PortalDataService {
     }
 
     private boolean loadAssessmentResults(Student s, Model model) {
-        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrue(s.getId()));
+        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId()));
         return true;
     }
 
     private boolean loadAttendance(Student s, Model model) {
-        model.addAttribute("attendance", attendanceRepository.findByStudentId(s.getId()));
+        model.addAttribute("attendance", attendanceRepository.findByStudentIdWithDetails(s.getId()));
         return true;
     }
 
     private boolean loadExamSchedule(Model model) {
         var sem = semesterRepository.findByCurrentTrue();
         if (sem.isPresent()) {
-            model.addAttribute("exams", examScheduleRepository.findBySubjectOffering_SemesterIdOrderByExamDateAsc(sem.get().getId()));
+            model.addAttribute("exams", examScheduleRepository.findBySemesterIdWithDetails(sem.get().getId()));
         }
         return true;
     }
 
     private boolean loadMobility(Student s, Model model) {
-        model.addAttribute("applications", mobilityApplicationRepository.findByStudentIdOrderByCreatedAtDesc(s.getId()));
+        model.addAttribute("applications", mobilityApplicationRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(s.getId()));
         return true;
     }
 
     private boolean loadClearance(Student s, Model model) {
-        clearanceSheetRepository.findByStudentId(s.getId()).ifPresent(cs -> model.addAttribute("clearanceSheet", cs));
+        clearanceSheetRepository.findByStudentIdWithDetails(s.getId()).ifPresent(cs -> model.addAttribute("clearanceSheet", cs));
         return true;
     }
 
@@ -169,7 +169,7 @@ public class PortalDataService {
 
     private boolean loadTranscript(Student s, Model model) {
         model.addAttribute("registrations", registrationRepository.findActiveByStudentIdWithDetails(s.getId()));
-        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrue(s.getId()));
+        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId()));
         return true;
     }
 
@@ -179,7 +179,7 @@ public class PortalDataService {
     }
 
     private boolean loadFxRegistration(Student s, Model model) {
-        model.addAttribute("fxRegistrations", fxRegistrationRepository.findByStudentIdOrderByCreatedAtDesc(s.getId()));
+        model.addAttribute("fxRegistrations", fxRegistrationRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(s.getId()));
         return true;
     }
 

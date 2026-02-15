@@ -23,6 +23,10 @@
         <h2 th:text="${course.subject.code + ' - ' + course.subject.name}">Course</h2>
         <p class="user-email" th:text="'Section: ' + ${course.id}"></p>
 
+        <div style="margin-bottom:16px;">
+            <a th:href="@{/professor/course/{id}/export-grades(id=${course.id})}" class="btn">Export Grades (Excel)</a>
+        </div>
+
         <section class="portal-section">
             <h3>Roster</h3>
             <table class="data-table">
@@ -54,13 +58,15 @@
                     <td th:text="${c.published}"></td>
                     <td th:text="${c.locked}"></td>
                     <td>
-                        <form action="/professor/component/publish" method="post" style="display:inline;">
+                        <form method="post" th:action="@{/professor/component/publish}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="offeringId" th:value="${course.id}">
                             <input type="hidden" name="componentId" th:value="${c.id}">
                             <input type="hidden" name="published" th:value="${!c.published}">
                             <button class="btn-small" type="submit" th:text="${c.published ? 'Unpublish' : 'Publish'}"></button>
                         </form>
-                        <form action="/professor/component/lock" method="post" style="display:inline;">
+                        <form method="post" th:action="@{/professor/component/lock}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="offeringId" th:value="${course.id}">
                             <input type="hidden" name="componentId" th:value="${c.id}">
                             <input type="hidden" name="locked" th:value="${!c.locked}">
@@ -71,7 +77,8 @@
                 <tr th:if="${#lists.isEmpty(components)}"><td colspan="8">No components yet.</td></tr>
                 </tbody>
             </table>
-            <form action="/professor/component" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/component}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Component Name</label>
@@ -98,7 +105,8 @@
 
         <section class="portal-section">
             <h3>Quick Grade Entry</h3>
-            <form action="/professor/grade" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/grade}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Student ID</label>
@@ -140,7 +148,8 @@
         <section class="portal-section">
             <h3>Attendance</h3>
             <p th:if="${attendanceMessage}" th:class="${attendanceSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${attendanceMessage}"></p>
-            <form action="/professor/attendance" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/attendance}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Student ID</label>
@@ -182,7 +191,8 @@
         <section class="portal-section">
             <h3>Final Grades</h3>
             <p th:if="${finalGradeMessage}" th:class="${finalGradeSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${finalGradeMessage}"></p>
-            <form action="/professor/final-grade" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/final-grade}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Student ID</label>
@@ -213,7 +223,8 @@
                     <td th:text="${fg.status}"></td>
                     <td th:text="${fg.published}"></td>
                     <td>
-                        <form action="/professor/final-grade/publish" method="post">
+                        <form method="post" th:action="@{/professor/final-grade/publish}">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="offeringId" th:value="${course.id}">
                             <input type="hidden" name="studentId" th:value="${fg.student.id}">
                             <button class="btn-small" type="submit" th:if="${!fg.published}">Publish</button>
@@ -228,7 +239,8 @@
         <section class="portal-section">
             <h3>Section Announcement</h3>
             <p th:if="${announceMessage}" th:class="${announceSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${announceMessage}"></p>
-            <form action="/professor/announcement" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/announcement}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Title</label>
@@ -266,7 +278,8 @@
         <section class="portal-section">
             <h3>Student Risk Notes (internal)</h3>
             <p th:if="${noteMessage}" th:class="${noteSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${noteMessage}"></p>
-            <form action="/professor/student-note" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/student-note}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Student ID</label>
@@ -304,7 +317,8 @@
         <section class="portal-section">
             <h3>Grade Change Request</h3>
             <p th:if="${gradeChangeMessage}" th:class="${gradeChangeSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${gradeChangeMessage}"></p>
-            <form action="/professor/grade-change-request" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/grade-change-request}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Grade ID</label>
@@ -330,7 +344,8 @@
         <section class="portal-section">
             <h3>Add File To Student Files</h3>
             <p th:if="${fileUploadMessage}" th:class="${fileUploadSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${fileUploadMessage}"></p>
-            <form action="/professor/student-file" method="post" class="form-grid">
+            <form method="post" th:action="@{/professor/student-file}" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
                     <label>Student ID</label>

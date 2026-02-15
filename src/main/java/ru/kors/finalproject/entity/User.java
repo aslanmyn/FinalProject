@@ -3,7 +3,6 @@ package ru.kors.finalproject.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -56,19 +55,8 @@ public class User {
         CONTENT
     }
 
-    public User(String email, String password, String fullName, UserRole role) {
-        this.email = email;
-        this.password = new BCryptPasswordEncoder().encode(password);
-        this.fullName = fullName;
-        this.role = role;
-        this.adminPermissions = role == UserRole.ADMIN
-                ? EnumSet.of(AdminPermission.SUPER)
-                : EnumSet.noneOf(AdminPermission.class);
-        this.enabled = true;
-    }
-
     public boolean validatePassword(String rawPassword) {
-        return new BCryptPasswordEncoder().matches(rawPassword, this.password);
+        return new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().matches(rawPassword, this.password);
     }
 
     public boolean hasPermission(AdminPermission permission) {

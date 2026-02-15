@@ -20,7 +20,8 @@
             <h2>Create Account</h2>
             <p class="user-email">Email format determines role: `admin...`, `a_name...` student, `z.name...` professor.</p>
             <p th:if="${error}" class="alert alert-error" th:text="${error}"></p>
-            <form action="/do-register" method="post" class="form-grid">
+            <form th:action="@{/do-register}" method="post" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <div class="form-group">
                     <label>Full Name</label>
                     <input type="text" name="fullName" required>

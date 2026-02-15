@@ -77,7 +77,7 @@ public class CourseMaterialService {
 
     public List<CourseMaterial> listForSection(Teacher teacher, Long sectionId) {
         getTeacherSection(teacher, sectionId);
-        return courseMaterialRepository.findBySubjectOfferingIdOrderByCreatedAtDesc(sectionId);
+        return courseMaterialRepository.findBySubjectOfferingIdWithDetailsOrderByCreatedAtDesc(sectionId);
     }
 
     public List<CourseMaterial> listPublishedForSection(Long sectionId) {
@@ -91,7 +91,7 @@ public class CourseMaterialService {
     }
 
     private SubjectOffering getTeacherSection(Teacher teacher, Long sectionId) {
-        SubjectOffering section = subjectOfferingRepository.findById(sectionId)
+        SubjectOffering section = subjectOfferingRepository.findByIdWithDetails(sectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
         if (section.getTeacher() == null || !section.getTeacher().getId().equals(teacher.getId())) {
             throw new IllegalArgumentException("Section is not assigned to current teacher");

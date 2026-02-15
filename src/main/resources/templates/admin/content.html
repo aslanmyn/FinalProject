@@ -25,7 +25,8 @@
 
         <section class="portal-section">
             <h3>Create News</h3>
-            <form method="post" action="/admin/content/news">
+            <form method="post" th:action="@{/admin/content/news}">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="text" name="title" placeholder="Title" required style="width:100%;margin-bottom:8px;">
                 <textarea name="content" placeholder="Content" required rows="4" style="width:100%;margin-bottom:8px;"></textarea>
                 <input type="text" name="category" placeholder="Category (optional)" style="margin-bottom:8px;">
@@ -50,7 +51,8 @@
 
         <section class="portal-section">
             <h3>Create Survey</h3>
-            <form method="post" action="/admin/content/survey" class="form-inline">
+            <form method="post" th:action="@{/admin/content/survey}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="text" name="title" placeholder="Survey Title" required>
                 <input type="date" name="startDate" required>
                 <input type="date" name="endDate" required>
@@ -72,6 +74,7 @@
                     <td th:text="${s.anonymous}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/content/survey/{id}/close(id=${s.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <button type="submit" class="btn-small btn-danger">Close</button>
                         </form>
                     </td>

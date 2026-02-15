@@ -29,13 +29,14 @@
                 <tbody>
                 <tr th:each="r : ${requests}">
                     <td th:text="${r.id}"></td>
-                    <td th:text="${r.student.name}"></td>
+                    <td th:text="${r.student != null ? r.student.name : '-'}"></td>
                     <td th:text="${r.category}"></td>
                     <td th:text="${r.status}"></td>
                     <td th:text="${r.assignedTo != null ? r.assignedTo.fullName : 'Unassigned'}"></td>
                     <td th:text="${#temporals.format(r.createdAt, 'yyyy-MM-dd')}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/requests/{id}/assign(id=${r.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <select name="userId">
                                 <option th:each="a : ${admins}" th:value="${a.id}" th:text="${a.fullName}"></option>
                             </select>
@@ -44,6 +45,7 @@
                     </td>
                     <td>
                         <form method="post" th:action="@{/admin/requests/{id}/status(id=${r.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <select name="status">
                                 <option value="NEW">NEW</option>
                                 <option value="IN_REVIEW">IN_REVIEW</option>

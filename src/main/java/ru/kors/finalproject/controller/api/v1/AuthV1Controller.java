@@ -1,5 +1,6 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +19,7 @@ public class AuthV1Controller {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ApiUnauthorizedException("Invalid credentials"));
         if (!user.isEnabled() || !user.validatePassword(request.password())) {
@@ -33,6 +34,12 @@ public class AuthV1Controller {
         ));
     }
 
-    public record LoginRequest(String email, String password) {
+    public record LoginRequest(
+            @jakarta.validation.constraints.NotBlank(message = "Email is required")
+            @jakarta.validation.constraints.Email
+            String email,
+            @jakarta.validation.constraints.NotBlank(message = "Password is required")
+            @jakarta.validation.constraints.Size(min = 6)
+            String password) {
     }
 }

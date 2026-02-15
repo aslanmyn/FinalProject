@@ -75,11 +75,11 @@ public class AnnouncementService {
     }
 
     public List<CourseAnnouncement> listPublicByTeacher(Long teacherId) {
-        return announcementRepository.findByTeacherIdAndPublicVisibleTrueAndPublishedTrueOrderByPinnedDescPublishedAtDesc(teacherId);
+        return announcementRepository.findByTeacherIdAndPublicVisibleTrueAndPublishedTrueWithDetails(teacherId);
     }
 
     public List<CourseAnnouncement> listForTeacher(Teacher teacher) {
-        return announcementRepository.findByTeacherIdOrderByPinnedDescPublishedAtDesc(teacher.getId());
+        return announcementRepository.findByTeacherIdWithDetailsOrderByPinnedDescPublishedAtDesc(teacher.getId());
     }
 
     public List<CourseAnnouncement> listForSection(Teacher teacher, Long sectionId) {

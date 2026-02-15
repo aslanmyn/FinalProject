@@ -27,6 +27,7 @@
         <section class="portal-section">
             <h3>Create New Request</h3>
             <form th:action="@{/portal/student-requests/create}" method="post" class="form-grid">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <div class="form-group">
                     <label>Category</label>
                     <select name="category" required>

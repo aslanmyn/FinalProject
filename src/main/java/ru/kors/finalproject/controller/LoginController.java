@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.UserRole;
@@ -18,6 +19,7 @@ import ru.kors.finalproject.service.UserRoleDetector;
 @RequiredArgsConstructor
 public class LoginController {
 
+    private final PasswordEncoder passwordEncoder;
     private final UserRoleDetector roleDetector;
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
@@ -112,8 +114,17 @@ public class LoginController {
             return "redirect:/register";
         }
 
-        // Create user
-        User user = new User(email, password, fullName, User.UserRole.valueOf(role.name()));
+        // Create user with encoded password
+        User user = User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .fullName(fullName)
+                .role(User.UserRole.valueOf(role.name()))
+                .adminPermissions(role == UserRole.ADMIN
+                        ? java.util.EnumSet.allOf(User.AdminPermission.class)
+                        : java.util.EnumSet.noneOf(User.AdminPermission.class))
+                .enabled(true)
+                .build();
         userRepository.save(user);
 
         // Create related entities for students and professors

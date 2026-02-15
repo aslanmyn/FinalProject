@@ -1,6 +1,7 @@
 package ru.kors.finalproject.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import ru.kors.finalproject.entity.CourseAnnouncement;
@@ -11,9 +12,13 @@ import java.util.List;
 public interface CourseAnnouncementRepository extends JpaRepository<CourseAnnouncement, Long> {
     List<CourseAnnouncement> findByTeacherIdOrderByPinnedDescPublishedAtDesc(Long teacherId);
 
+    @Query("SELECT a FROM CourseAnnouncement a LEFT JOIN FETCH a.teacher LEFT JOIN FETCH a.subjectOffering WHERE a.teacher.id = :teacherId ORDER BY a.pinned DESC, a.publishedAt DESC")
+    List<CourseAnnouncement> findByTeacherIdWithDetailsOrderByPinnedDescPublishedAtDesc(Long teacherId);
+
     List<CourseAnnouncement> findBySubjectOfferingIdOrderByPinnedDescPublishedAtDesc(Long subjectOfferingId);
 
-    List<CourseAnnouncement> findByTeacherIdAndPublicVisibleTrueAndPublishedTrueOrderByPinnedDescPublishedAtDesc(Long teacherId);
+    @Query("SELECT a FROM CourseAnnouncement a LEFT JOIN FETCH a.teacher LEFT JOIN FETCH a.subjectOffering WHERE a.teacher.id = :teacherId AND a.publicVisible = true AND a.published = true ORDER BY a.pinned DESC, a.publishedAt DESC")
+    List<CourseAnnouncement> findByTeacherIdAndPublicVisibleTrueAndPublishedTrueWithDetails(Long teacherId);
 
     List<CourseAnnouncement> findBySubjectOfferingIdInAndPublishedTrueOrderByPinnedDescPublishedAtDesc(List<Long> offeringIds);
 

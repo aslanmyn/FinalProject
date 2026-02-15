@@ -35,6 +35,7 @@
                     <td th:text="${r.status}"></td>
                     <td>
                         <form th:action="@{/portal/add-drop-courses/drop}" method="post">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="subjectOfferingId" th:value="${r.subjectOffering.id}">
                             <button type="submit" class="btn-small btn-danger">Drop</button>
                         </form>
@@ -55,6 +56,7 @@
                     <td th:text="${so.teacher != null ? so.teacher.name : '-'}"></td>
                     <td>
                         <form th:action="@{/portal/add-drop-courses/add}" method="post">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="subjectOfferingId" th:value="${so.id}">
                             <button type="submit" class="btn-small">Add</button>
                         </form>

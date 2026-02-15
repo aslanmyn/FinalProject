@@ -22,7 +22,7 @@
     <div class="container">
         <h2>Mobility Applications</h2>
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
         <section class="portal-section">
             <table class="data-table">
@@ -30,12 +30,13 @@
                 <tbody>
                 <tr th:each="a : ${applications}">
                     <td th:text="${a.id}"></td>
-                    <td th:text="${a.student.name}"></td>
+                    <td th:text="${a.student != null ? a.student.name : '-'}"></td>
                     <td th:text="${a.universityName}"></td>
                     <td th:text="${a.status}"></td>
                     <td th:text="${#temporals.format(a.createdAt, 'yyyy-MM-dd')}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/mobility/{id}/status(id=${a.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <select name="status">
                                 <option value="IN_REVIEW">IN_REVIEW</option>
                                 <option value="APPROVED">APPROVED</option>

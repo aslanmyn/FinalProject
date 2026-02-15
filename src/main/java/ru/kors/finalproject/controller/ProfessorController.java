@@ -1,5 +1,6 @@
 package ru.kors.finalproject.controller;
 
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -16,6 +17,7 @@ import ru.kors.finalproject.service.NotificationService;
 import ru.kors.finalproject.service.TeacherAcademicService;
 import ru.kors.finalproject.service.SessionService;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -26,6 +28,7 @@ import java.time.ZoneId;
 public class ProfessorController {
 
     private final SessionService sessionService;
+    private final TeacherRepository teacherRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final StudentRequestRepository studentRequestRepository;
     private final AttendanceRepository attendanceRepository;
@@ -51,7 +54,7 @@ public class ProfessorController {
         model.addAttribute("userEmail", sessionService.getEmail(session));
         model.addAttribute("fullName", sessionService.getFullName(session));
         model.addAttribute("courses", teacherAcademicService.getMySections(teacher.get()));
-        model.addAttribute("requests", studentRequestRepository.findAll());
+        model.addAttribute("requests", studentRequestRepository.findAllWithDetails());
         model.addAttribute("announcements", announcementService.listForTeacher(teacher.get()));
         model.addAttribute("gradeChangeRequests", gradeChangeService.listForTeacher(teacher.get()));
         model.addAttribute("notifications", notificationService.listForEmail(teacher.get().getEmail()).stream().limit(10).toList());
@@ -89,7 +92,7 @@ public class ProfessorController {
             return "redirect:/login";
         }
         
-        var course = subjectOfferingRepository.findById(id);
+        var course = subjectOfferingRepository.findByIdWithDetails(id);
         if (course.isEmpty()) {
             return "redirect:/professor/courses";
         }
@@ -100,9 +103,9 @@ public class ProfessorController {
         model.addAttribute("course", course.get());
         model.addAttribute("roster", teacherAcademicService.getRoster(teacher.get(), id));
         model.addAttribute("components", teacherAcademicService.componentsForOffering(teacher.get(), id));
-        model.addAttribute("grades", gradeRepository.findBySubjectOfferingId(id));
-        model.addAttribute("attendanceRecords", attendanceRepository.findBySubjectOfferingIdOrderByDateDesc(id));
-        model.addAttribute("finalGrades", finalGradeRepository.findBySubjectOfferingId(id));
+        model.addAttribute("grades", gradeRepository.findBySubjectOfferingIdWithDetails(id));
+        model.addAttribute("attendanceRecords", attendanceRepository.findBySubjectOfferingIdOrderByDateDescWithDetails(id));
+        model.addAttribute("finalGrades", finalGradeRepository.findBySubjectOfferingIdWithDetails(id));
         model.addAttribute("notes", teacherAcademicService.notesForSection(teacher.get(), id));
         model.addAttribute("announcements", announcementService.listForSection(teacher.get(), id));
         model.addAttribute("materials", courseMaterialService.listForSection(teacher.get(), id));
@@ -503,5 +506,46 @@ public class ProfessorController {
         }
 
         return "redirect:/professor/course/" + offeringId;
+    }
+
+    @GetMapping("/course/{id}/export-grades")
+    public void exportGrades(@PathVariable Long id, HttpServletResponse response, HttpSession session) throws IOException {
+        // Get teacher from session
+        String email = (String) session.getAttribute("userEmail");
+        if (email == null) { response.sendRedirect("/login"); return; }
+        var teacher = teacherRepository.findByEmail(email).orElse(null);
+        if (teacher == null) { response.sendRedirect("/login"); return; }
+
+        // Get grades
+        var grades = teacherAcademicService.getGradesForSection(id);
+        var offering = subjectOfferingRepository.findById(id).orElse(null);
+        if (offering == null) { response.sendRedirect("/professor/courses"); return; }
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=grades_" + offering.getSubject().getCode() + ".xlsx");
+
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            var sheet = workbook.createSheet("Grades");
+            var headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Student ID");
+            headerRow.createCell(1).setCellValue("Student Name");
+            headerRow.createCell(2).setCellValue("Component");
+            headerRow.createCell(3).setCellValue("Grade");
+            headerRow.createCell(4).setCellValue("Max Grade");
+            headerRow.createCell(5).setCellValue("Comment");
+
+            int rowIdx = 1;
+            for (var g : grades) {
+                var row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(g.getStudent().getId());
+                row.createCell(1).setCellValue(g.getStudent().getName());
+                row.createCell(2).setCellValue(g.getComponent() != null ? g.getComponent().getName() : (g.getType() != null ? g.getType().name() : ""));
+                row.createCell(3).setCellValue(g.getGradeValue());
+                row.createCell(4).setCellValue(g.getMaxGradeValue());
+                row.createCell(5).setCellValue(g.getComment() != null ? g.getComment() : "");
+            }
+            for (int i = 0; i < 6; i++) sheet.autoSizeColumn(i);
+            workbook.write(response.getOutputStream());
+        }
     }
 }

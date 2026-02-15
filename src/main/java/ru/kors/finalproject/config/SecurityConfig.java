@@ -8,7 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -17,6 +17,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final WebSessionFilter webSessionFilter;
+    private final LoginRateLimitFilter loginRateLimitFilter;
 
     @Bean
     @Order(1)
@@ -31,7 +32,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/student/**").hasRole("STUDENT")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
+            .addFilterBefore(jwtAuthenticationFilter, AuthorizationFilter.class)
             .csrf(csrf -> csrf.disable())
             .headers(headers -> headers.frameOptions(frame -> frame.disable()));
         return http.build();
@@ -46,7 +48,9 @@ public class SecurityConfig {
                     "/", "/login", "/register", "/do-login", "/do-register", "/logout",
                     "/news", "/professors", "/professors/**",
                     "/css/**", "/js/**", "/images/**",
-                    "/h2-console/**"
+                    "/h2-console/**",
+                    "/actuator/health", "/actuator/info",
+                    "/swagger-ui/**", "/v3/api-docs/**"
                 ).permitAll()
                 // Protected areas — Spring Security permits them, but WebSessionFilter
                 // enforces session-based auth + role check before the request hits controllers.
@@ -54,10 +58,11 @@ public class SecurityConfig {
                                  "/api/admin/**", "/api/professor/**", "/api/student/**").permitAll()
                 .anyRequest().permitAll()
             )
-            .addFilterBefore(webSessionFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
+            .addFilterBefore(webSessionFilter, AuthorizationFilter.class)
             .formLogin(form -> form.disable())
             .logout(logout -> logout.disable())
-            .csrf(csrf -> csrf.disable());
+            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**", "/h2-console/**"));
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
         return http.build();
     }

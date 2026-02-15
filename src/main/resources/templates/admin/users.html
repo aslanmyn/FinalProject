@@ -22,7 +22,7 @@
     <div class="container">
         <h2>User Management</h2>
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
         <section class="portal-section">
             <table class="data-table">
@@ -37,6 +37,7 @@
                     <td th:text="${u.enabled}"></td>
                     <td th:if="${u.role.name() == 'ADMIN'}">
                         <form method="post" th:action="@{/admin/users/{id}/permissions(id=${u.id})}">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <label><input type="checkbox" name="permissions" value="SUPER" th:checked="${u.adminPermissions.contains(T(ru.kors.finalproject.entity.User.AdminPermission).SUPER)}"> SUPER</label>
                             <label><input type="checkbox" name="permissions" value="REGISTRAR" th:checked="${u.adminPermissions.contains(T(ru.kors.finalproject.entity.User.AdminPermission).REGISTRAR)}"> REGISTRAR</label>
                             <label><input type="checkbox" name="permissions" value="FINANCE" th:checked="${u.adminPermissions.contains(T(ru.kors.finalproject.entity.User.AdminPermission).FINANCE)}"> FINANCE</label>

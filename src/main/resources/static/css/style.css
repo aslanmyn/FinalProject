@@ -250,3 +250,124 @@ input, select, textarea {
         flex-direction: column;
     }
 }
+
+/* Toast Notifications */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: slideIn 0.3s ease, fadeOut 0.3s ease 3.7s forwards;
+    max-width: 400px;
+}
+
+.toast-success { background: #067647; }
+.toast-error { background: #b42318; }
+.toast-info { background: #0f4c81; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+/* Loading spinner */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Form loading state */
+form.loading button[type="submit"] {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Responsive tables */
+@media (max-width: 768px) {
+    .data-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .form-inline {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .form-inline .btn-small {
+        width: 100%;
+    }
+}
+
+/* Better form-inline layout */
+.form-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.form-inline input, .form-inline select {
+    width: auto;
+    min-width: 140px;
+    flex: 1;
+}
+
+/* Alert dismiss */
+.alert {
+    position: relative;
+}
+
+/* Stat card styling */
+.stat-card {
+    text-align: center;
+    padding: 20px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 32px;
+}
+
+/* Badge styles */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-success { background: #ecfdf3; color: #067647; }
+.badge-warning { background: #fff4e5; color: #b54708; }
+.badge-danger { background: #fef3f2; color: #b42318; }
+.badge-info { background: #eef5ff; color: #0f4c81; }

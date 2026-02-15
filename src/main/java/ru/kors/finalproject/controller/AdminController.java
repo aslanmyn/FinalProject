@@ -33,6 +33,7 @@ public class AdminController {
     private final ChecklistService checklistService;
     private final RequestService requestService;
     private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
     private final UserRepository userRepository;
     private final SemesterRepository semesterRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
@@ -45,10 +46,12 @@ public class AdminController {
         if (!requireAdmin(session)) return "redirect:/login";
         model.addAttribute("userEmail", sessionService.getEmail(session));
         model.addAttribute("totalStudents", studentRepository.count());
+        model.addAttribute("totalTeachers", teacherRepository.count());
         model.addAttribute("totalSections", subjectOfferingRepository.count());
         model.addAttribute("pendingGradeChanges", gradeChangeService.listPending());
         model.addAttribute("activeHoldsCount", holdService.listAllActiveHolds().size());
-        model.addAttribute("pendingRequests", studentRequestRepository.findByStatusOrderByCreatedAtDesc(
+        model.addAttribute("activeHolds", holdService.listAllActiveHolds().size());
+        model.addAttribute("pendingRequests", studentRequestRepository.findByStatusWithStudentOrderByCreatedAtDesc(
                 StudentRequest.RequestStatus.NEW));
         model.addAttribute("currentUser", sessionService.getCurrentUser(session).orElse(null));
         return "admin/dashboard";
@@ -139,7 +142,7 @@ public class AdminController {
     public String finance(HttpSession session, Model model) {
         if (!requireAdminPermission(session, User.AdminPermission.FINANCE)) return "redirect:/login";
         model.addAttribute("userEmail", sessionService.getEmail(session));
-        model.addAttribute("students", studentRepository.findAll());
+        model.addAttribute("students", studentRepository.findAllWithDetails());
         model.addAttribute("activeHolds", holdService.listAllActiveHolds());
         return "admin/finance";
     }
@@ -170,7 +173,7 @@ public class AdminController {
         if (!requireAdminPermission(session, User.AdminPermission.FINANCE)) return "redirect:/login";
         model.addAttribute("userEmail", sessionService.getEmail(session));
         model.addAttribute("activeHolds", holdService.listAllActiveHolds());
-        model.addAttribute("students", studentRepository.findAll());
+        model.addAttribute("students", studentRepository.findAllWithDetails());
         return "admin/holds";
     }
 
@@ -238,7 +241,7 @@ public class AdminController {
     public String requests(HttpSession session, Model model) {
         if (!requireAdminPermission(session, User.AdminPermission.SUPPORT)) return "redirect:/login";
         model.addAttribute("userEmail", sessionService.getEmail(session));
-        model.addAttribute("requests", studentRequestRepository.findAll());
+        model.addAttribute("requests", studentRequestRepository.findAllWithDetails());
         model.addAttribute("admins", userRepository.findAll().stream()
                 .filter(u -> u.getRole() == User.UserRole.ADMIN).toList());
         return "admin/requests";

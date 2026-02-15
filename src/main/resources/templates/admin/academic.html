@@ -22,11 +22,12 @@
     <div class="container">
         <h2>Academic Setup (Registrar)</h2>
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
         <section class="portal-section">
             <h3>Create Term</h3>
-            <form method="post" action="/admin/academic/term" class="form-inline">
+            <form method="post" th:action="@{/admin/academic/term}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="text" name="name" placeholder="e.g. Fall 2026" required>
                 <input type="date" name="startDate" required>
                 <input type="date" name="endDate" required>
@@ -53,7 +54,8 @@
 
         <section class="portal-section">
             <h3>Create Section</h3>
-            <form method="post" action="/admin/academic/section" class="form-inline">
+            <form method="post" th:action="@{/admin/academic/section}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <select name="subjectId" required>
                     <option value="">Select Subject</option>
                     <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.code + ' - ' + s.name}"></option>
@@ -83,7 +85,7 @@
                 <tbody>
                 <tr th:each="s : ${sections}">
                     <td th:text="${s.id}"></td>
-                    <td th:text="${s.subject.code + ' - ' + s.subject.name}"></td>
+                    <td th:text="${s.subject != null ? s.subject.code + ' - ' + s.subject.name : '-'}"></td>
                     <td th:text="${s.teacher != null ? s.teacher.name : 'Unassigned'}"></td>
                     <td th:text="${s.capacity}"></td>
                     <td th:text="${s.lessonType}"></td>
@@ -94,10 +96,11 @@
 
         <section class="portal-section">
             <h3>Add Meeting Time</h3>
-            <form method="post" action="/admin/academic/meeting-time" class="form-inline">
+            <form method="post" th:action="@{/admin/academic/meeting-time}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <select name="sectionId" required>
                     <option value="">Select Section</option>
-                    <option th:each="s : ${sections}" th:value="${s.id}" th:text="${'#' + s.id + ' ' + s.subject.code}"></option>
+                    <option th:each="s : ${sections}" th:value="${s.id}" th:text="${'#' + s.id + ' ' + (s.subject != null ? s.subject.code : '')}"></option>
                 </select>
                 <select name="dayOfWeek" required>
                     <option value="MONDAY">Monday</option>
@@ -121,7 +124,8 @@
 
         <section class="portal-section">
             <h3>Registration Windows</h3>
-            <form method="post" action="/admin/academic/window" class="form-inline">
+            <form method="post" th:action="@{/admin/academic/window}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <select name="semesterId" required>
                     <option value="">Select Semester</option>
                     <option th:each="t : ${terms}" th:value="${t.id}" th:text="${t.name}"></option>
@@ -141,7 +145,8 @@
 
         <section class="portal-section">
             <h3>Manual Enrollment Override</h3>
-            <form method="post" action="/admin/academic/override-enroll" class="form-inline">
+            <form method="post" th:action="@{/admin/academic/override-enroll}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="number" name="studentId" placeholder="Student ID" required>
                 <input type="number" name="sectionId" placeholder="Section ID" required>
                 <input type="text" name="reason" placeholder="Reason" required>

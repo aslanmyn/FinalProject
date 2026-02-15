@@ -11,6 +11,7 @@
     <div class="header-content">
         <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Admin Portal</span></a>
         <nav class="main-nav">
+            <a href="/admin/dashboard">Dashboard</a>
             <span class="user-badge admin">ADMIN</span>
             <span class="user-email" th:text="${userEmail}"></span>
             <a href="/logout" class="btn-logout">Logout</a>
@@ -22,13 +23,32 @@
         <h2>Admin Dashboard</h2>
 
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
-        <section class="card">
-            <p><strong>Total Students:</strong> <span th:text="${totalStudents}"></span></p>
-            <p><strong>Total Sections:</strong> <span th:text="${totalSections}"></span></p>
-            <p><strong>Active Holds:</strong> <span th:text="${activeHoldsCount}"></span></p>
-        </section>
+        <div class="grid grid-3" style="margin-bottom:20px;">
+            <div class="stat-card">
+                <h4 style="margin:0;color:var(--muted);">Students</h4>
+                <p style="font-size:28px;font-weight:700;margin:4px 0;" th:text="${totalStudents}">0</p>
+            </div>
+            <div class="stat-card">
+                <h4 style="margin:0;color:var(--muted);">Teachers</h4>
+                <p style="font-size:28px;font-weight:700;margin:4px 0;" th:text="${totalTeachers}">0</p>
+            </div>
+            <div class="stat-card">
+                <h4 style="margin:0;color:var(--muted);">Active Sections</h4>
+                <p style="font-size:28px;font-weight:700;margin:4px 0;" th:text="${totalSections}">0</p>
+            </div>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:20px;">
+            <div class="stat-card">
+                <h4 style="margin:0;color:var(--muted);">Pending Requests</h4>
+                <p style="font-size:28px;font-weight:700;margin:4px 0;" th:text="${#lists.size(pendingRequests)}">0</p>
+            </div>
+            <div class="stat-card">
+                <h4 style="margin:0;color:var(--muted);">Active Holds</h4>
+                <p style="font-size:28px;font-weight:700;margin:4px 0;" th:text="${activeHolds}">0</p>
+            </div>
+        </div>
 
         <section class="portal-section">
             <h3>Quick Navigation</h3>
@@ -54,18 +74,20 @@
                 <tbody>
                 <tr th:each="g : ${pendingGradeChanges}">
                     <td th:text="${g.id}"></td>
-                    <td th:text="${g.teacher.name}"></td>
-                    <td th:text="${g.student.name}"></td>
-                    <td th:text="${g.subjectOffering.subject.code}"></td>
+                    <td th:text="${g.teacher != null ? g.teacher.name : '-'}"></td>
+                    <td th:text="${g.student != null ? g.student.name : '-'}"></td>
+                    <td th:text="${g.subjectOffering != null and g.subjectOffering.subject != null ? g.subjectOffering.subject.code : '-'}"></td>
                     <td th:text="${g.oldValue}"></td>
                     <td th:text="${g.newValue}"></td>
                     <td th:text="${g.reason}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/grade-change/{id}/review(id=${g.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="approve" value="true">
                             <button type="submit" class="btn-small">Approve</button>
                         </form>
                         <form method="post" th:action="@{/admin/grade-change/{id}/review(id=${g.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="approve" value="false">
                             <button type="submit" class="btn-small btn-danger">Reject</button>
                         </form>
@@ -83,7 +105,7 @@
                 <tbody>
                 <tr th:each="r : ${pendingRequests}">
                     <td th:text="${r.id}"></td>
-                    <td th:text="${r.student.name}"></td>
+                    <td th:text="${r.student != null ? r.student.name : '-'}"></td>
                     <td th:text="${r.category}"></td>
                     <td th:text="${r.status}"></td>
                     <td th:text="${#temporals.format(r.createdAt, 'yyyy-MM-dd')}"></td>
@@ -94,5 +116,6 @@
         </section>
     </div>
 </main>
+<script th:src="@{/js/app.js}"></script>
 </body>
 </html>
