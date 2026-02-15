@@ -2,6 +2,7 @@ package ru.kors.finalproject.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import ru.kors.finalproject.entity.*;
@@ -20,6 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
+    private final PasswordEncoder passwordEncoder;
     private final FacultyRepository facultyRepository;
     private final ProgramRepository programRepository;
     private final SemesterRepository semesterRepository;
@@ -64,11 +66,35 @@ public class DataInitializer implements CommandLineRunner {
 
         LocalDate today = LocalDate.now();
 
-        User admin = new User("admin@kbtu.kz", "admin123", "System Administrator", User.UserRole.ADMIN);
-        admin.setAdminPermissions(java.util.EnumSet.allOf(User.AdminPermission.class));
-        User profUser = new User("z.professor@kbtu.kz", "prof123", "Dr. Z. Professor", User.UserRole.PROFESSOR);
-        User taUser = new User("t.assistant@kbtu.kz", "ta12345", "T. Assistant", User.UserRole.PROFESSOR);
-        User studentUser = new User("a_mustafayev@kbtu.kz", "student123", "Aidar Mustafayev", User.UserRole.STUDENT);
+        User admin = User.builder()
+                .email("admin@kbtu.kz")
+                .password(passwordEncoder.encode("admin123"))
+                .fullName("System Administrator")
+                .role(User.UserRole.ADMIN)
+                .adminPermissions(java.util.EnumSet.allOf(User.AdminPermission.class))
+                .enabled(true)
+                .build();
+        User profUser = User.builder()
+                .email("z.professor@kbtu.kz")
+                .password(passwordEncoder.encode("prof123"))
+                .fullName("Dr. Z. Professor")
+                .role(User.UserRole.PROFESSOR)
+                .enabled(true)
+                .build();
+        User taUser = User.builder()
+                .email("t.assistant@kbtu.kz")
+                .password(passwordEncoder.encode("ta12345"))
+                .fullName("T. Assistant")
+                .role(User.UserRole.PROFESSOR)
+                .enabled(true)
+                .build();
+        User studentUser = User.builder()
+                .email("a_mustafayev@kbtu.kz")
+                .password(passwordEncoder.encode("student123"))
+                .fullName("Aidar Mustafayev")
+                .role(User.UserRole.STUDENT)
+                .enabled(true)
+                .build();
         userRepository.saveAll(List.of(admin, profUser, taUser, studentUser));
 
         Faculty fit = facultyRepository.save(Faculty.builder().name("Faculty of Information Technology").build());

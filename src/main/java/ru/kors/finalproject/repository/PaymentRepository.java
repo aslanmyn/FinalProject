@@ -10,6 +10,9 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByStudentIdOrderByDateDesc(Long studentId);
 
+    @Query("SELECT p FROM Payment p LEFT JOIN FETCH p.student LEFT JOIN FETCH p.charge WHERE p.student.id = :studentId ORDER BY p.date DESC")
+    List<Payment> findByStudentIdWithDetailsOrderByDateDesc(Long studentId);
+
     List<Payment> findByChargeId(Long chargeId);
 
     /** Sum of all payments for a given charge (returns 0 if none). */

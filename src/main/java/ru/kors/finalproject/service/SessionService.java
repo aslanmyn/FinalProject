@@ -39,13 +39,13 @@ public class SessionService {
     public Optional<Student> getCurrentStudent(HttpSession session) {
         String email = getEmail(session);
         if (email == null || !"STUDENT".equals(getRole(session))) return Optional.empty();
-        return studentRepository.findByEmail(email);
+        return studentRepository.findByEmailWithDetails(email);
     }
 
     public Optional<Teacher> getCurrentTeacher(HttpSession session) {
         String email = getEmail(session);
         if (email == null || !"PROFESSOR".equals(getRole(session))) return Optional.empty();
-        return teacherRepository.findByEmail(email);
+        return teacherRepository.findByEmailWithDetails(email);
     }
 
     public Optional<User> getCurrentUser(HttpSession session) {

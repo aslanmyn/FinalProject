@@ -22,11 +22,12 @@
     <div class="container">
         <h2>Holds Management</h2>
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
         <section class="portal-section">
             <h3>Create Hold</h3>
-            <form method="post" action="/admin/holds/create" class="form-inline">
+            <form method="post" th:action="@{/admin/holds/create}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <select name="studentId" required>
                     <option value="">Select Student</option>
                     <option th:each="s : ${students}" th:value="${s.id}" th:text="${s.name + ' (' + s.email + ')'}"></option>
@@ -49,12 +50,13 @@
                 <tbody>
                 <tr th:each="h : ${activeHolds}">
                     <td th:text="${h.id}"></td>
-                    <td th:text="${h.student.name}"></td>
+                    <td th:text="${h.student != null ? h.student.name : '-'}"></td>
                     <td th:text="${h.type}"></td>
                     <td th:text="${h.reason}"></td>
                     <td th:text="${#temporals.format(h.createdAt, 'yyyy-MM-dd')}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/holds/{id}/remove(id=${h.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="text" name="removalReason" placeholder="Removal reason" required>
                             <button type="submit" class="btn-small btn-danger">Remove</button>
                         </form>

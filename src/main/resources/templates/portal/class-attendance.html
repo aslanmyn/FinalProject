@@ -28,7 +28,7 @@
                 <tbody>
                 <tr th:each="a : ${attendance}">
                     <td th:text="${a.date}"></td>
-                    <td th:text="${a.subjectOffering.subject.code + ' - ' + a.subjectOffering.subject.name}"></td>
+                    <td th:text="${a.subjectOffering != null and a.subjectOffering.subject != null ? (a.subjectOffering.subject.code + ' - ' + a.subjectOffering.subject.name) : '-'}"></td>
                     <td th:text="${a.status}"></td>
                     <td th:text="${a.reason != null ? a.reason : '-'}"></td>
                 </tr>

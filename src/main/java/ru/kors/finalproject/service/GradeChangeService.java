@@ -114,10 +114,10 @@ public class GradeChangeService {
     }
 
     public List<GradeChangeRequest> listForTeacher(Teacher teacher) {
-        return gradeChangeRequestRepository.findByTeacherIdOrderByCreatedAtDesc(teacher.getId());
+        return gradeChangeRequestRepository.findByTeacherIdWithDetailsOrderByCreatedAtDesc(teacher.getId());
     }
 
     public List<GradeChangeRequest> listPending() {
-        return gradeChangeRequestRepository.findByStatusOrderByCreatedAtDesc(GradeChangeRequest.RequestStatus.SUBMITTED);
+        return gradeChangeRequestRepository.findByStatusWithDetailsOrderByCreatedAtDesc(GradeChangeRequest.RequestStatus.SUBMITTED);
     }
 }

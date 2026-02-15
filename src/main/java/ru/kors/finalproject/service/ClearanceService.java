@@ -21,7 +21,7 @@ public class ClearanceService {
     private final NotificationService notificationService;
 
     public List<ClearanceSheet> listAll() {
-        return clearanceSheetRepository.findAll();
+        return clearanceSheetRepository.findAllWithStudentAndCheckpoints();
     }
 
     public List<ClearanceSheet> listByStatus(ClearanceSheet.ClearanceStatus status) {

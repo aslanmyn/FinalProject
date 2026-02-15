@@ -19,7 +19,7 @@ public class MobilityService {
     private final NotificationService notificationService;
 
     public List<MobilityApplication> listAll() {
-        return mobilityApplicationRepository.findAll();
+        return mobilityApplicationRepository.findAllWithStudent();
     }
 
     public List<MobilityApplication> listByStatus(MobilityApplication.MobilityStatus status) {

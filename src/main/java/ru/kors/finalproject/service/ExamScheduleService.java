@@ -22,7 +22,7 @@ public class ExamScheduleService {
     private final AuditService auditService;
 
     public List<ExamSchedule> listBySemester(Long semesterId) {
-        return examScheduleRepository.findBySubjectOffering_SemesterIdOrderByExamDateAsc(semesterId);
+        return examScheduleRepository.findBySemesterIdWithDetails(semesterId);
     }
 
     @Transactional

@@ -50,6 +50,7 @@
                     <td th:text="${so.capacity}"></td>
                     <td>
                         <form th:action="@{/portal/course-registration/submit}" method="post">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <input type="hidden" name="subjectOfferingId" th:value="${so.id}">
                             <button class="btn-small" type="submit">Submit Registration</button>
                         </form>

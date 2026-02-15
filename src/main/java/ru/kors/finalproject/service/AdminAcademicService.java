@@ -239,7 +239,7 @@ public class AdminAcademicService {
 
     public List<SubjectOffering> listSections(Long semesterId) {
         if (semesterId != null) {
-            return subjectOfferingRepository.findBySemesterId(semesterId);
+            return subjectOfferingRepository.findBySemesterIdWithDetails(semesterId);
         }
         return subjectOfferingRepository.findAll();
     }

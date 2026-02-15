@@ -2,13 +2,24 @@ package ru.kors.finalproject.web.api.v1;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestControllerAdvice(basePackages = "ru.kors.finalproject.controller.api.v1")
 public class ApiV1ExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiError> validationError(MethodArgumentNotValidException ex) {
+        Map<String, Object> errors = new HashMap<>();
+        ex.getBindingResult().getFieldErrors().forEach(e ->
+                errors.put(e.getField(), e.getDefaultMessage() != null ? e.getDefaultMessage() : "invalid"));
+        return ResponseEntity.badRequest()
+                .body(ApiError.of("VALIDATION_ERROR", "Validation failed", errors));
+    }
 
     @ExceptionHandler(ApiUnauthorizedException.class)
     public ResponseEntity<ApiError> unauthorized(ApiUnauthorizedException ex) {

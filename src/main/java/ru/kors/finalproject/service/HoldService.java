@@ -26,9 +26,7 @@ public class HoldService {
     }
 
     public List<Hold> listAllActiveHolds() {
-        return holdRepository.findAll().stream()
-                .filter(Hold::isActive)
-                .toList();
+        return holdRepository.findActiveWithStudent();
     }
 
     @Transactional

@@ -10,10 +10,10 @@ import java.util.Optional;
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
     List<Registration> findByStudentId(Long studentId);
 
-    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject WHERE r.student.id = :studentId")
+    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.teacher LEFT JOIN FETCH so.semester WHERE r.student.id = :studentId")
     List<Registration> findByStudentIdWithDetails(Long studentId);
 
-    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject WHERE r.student.id = :studentId AND r.status <> 'DROPPED'")
+    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.teacher LEFT JOIN FETCH so.semester WHERE r.student.id = :studentId AND r.status <> 'DROPPED'")
     List<Registration> findActiveByStudentIdWithDetails(Long studentId);
 
     Optional<Registration> findByStudentIdAndSubjectOfferingId(Long studentId, Long subjectOfferingId);
@@ -23,4 +23,7 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     long countBySubjectOfferingIdAndStatusIn(Long subjectOfferingId, List<Registration.RegistrationStatus> statuses);
 
     List<Registration> findBySubjectOfferingIdAndStatusIn(Long subjectOfferingId, List<Registration.RegistrationStatus> statuses);
+
+    @Query("SELECT r FROM Registration r LEFT JOIN FETCH r.student LEFT JOIN FETCH r.subjectOffering so LEFT JOIN FETCH so.subject WHERE r.subjectOffering.id = :offeringId AND r.status IN :statuses")
+    List<Registration> findBySubjectOfferingIdAndStatusInWithDetails(Long offeringId, List<Registration.RegistrationStatus> statuses);
 }

@@ -29,12 +29,12 @@ public class TeacherAcademicService {
     private final AuditService auditService;
 
     public List<SubjectOffering> getMySections(Teacher teacher) {
-        return subjectOfferingRepository.findByTeacherId(teacher.getId());
+        return subjectOfferingRepository.findByTeacherIdWithDetails(teacher.getId());
     }
 
     public List<Registration> getRoster(Teacher teacher, Long offeringId) {
         SubjectOffering offering = getTeacherOffering(teacher, offeringId);
-        return registrationRepository.findBySubjectOfferingIdAndStatusIn(
+        return registrationRepository.findBySubjectOfferingIdAndStatusInWithDetails(
                 offering.getId(),
                 List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED)
         );
@@ -289,6 +289,10 @@ public class TeacherAcademicService {
         return saved;
     }
 
+    public List<Grade> getGradesForSection(Long offeringId) {
+        return gradeRepository.findBySubjectOfferingIdWithDetails(offeringId);
+    }
+
     public List<AssessmentComponent> componentsForOffering(Teacher teacher, Long offeringId) {
         getTeacherOffering(teacher, offeringId);
         return assessmentComponentRepository.findBySubjectOfferingIdOrderByCreatedAtAsc(offeringId);
@@ -331,7 +335,7 @@ public class TeacherAcademicService {
 
     public List<TeacherStudentNote> notesForSection(Teacher teacher, Long offeringId) {
         getTeacherOffering(teacher, offeringId);
-        return teacherStudentNoteRepository.findByTeacherIdAndSubjectOfferingIdOrderByCreatedAtDesc(teacher.getId(), offeringId);
+        return teacherStudentNoteRepository.findByTeacherIdAndSubjectOfferingIdWithDetailsOrderByCreatedAtDesc(teacher.getId(), offeringId);
     }
 
     @Transactional
@@ -387,7 +391,7 @@ public class TeacherAcademicService {
     }
 
     private SubjectOffering getTeacherOffering(Teacher teacher, Long offeringId) {
-        SubjectOffering offering = subjectOfferingRepository.findById(offeringId)
+        SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(offeringId)
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
         if (offering.getTeacher() == null || !offering.getTeacher().getId().equals(teacher.getId())) {
             throw new IllegalArgumentException("Section is not assigned to current teacher");

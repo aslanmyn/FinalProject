@@ -22,14 +22,15 @@
     <div class="container">
         <h2>Exam Schedule Management</h2>
         <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
-        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+        <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
 
         <section class="portal-section">
             <h3>Schedule Exam</h3>
-            <form method="post" action="/admin/exams/create" class="form-inline">
+            <form method="post" th:action="@{/admin/exams/create}" class="form-inline">
+                <th:block th:replace="~{fragments/csrf :: input}"/>
                 <select name="sectionId" required>
                     <option value="">Select Section</option>
-                    <option th:each="s : ${sections}" th:value="${s.id}" th:text="${'#' + s.id + ' ' + s.subject.code + ' - ' + s.subject.name}"></option>
+                    <option th:each="s : ${sections}" th:value="${s.id}" th:text="${'#' + s.id + ' ' + (s.subject != null ? s.subject.code + ' - ' + s.subject.name : '')}"></option>
                 </select>
                 <input type="date" name="examDate" required>
                 <input type="time" name="examTime" required>
@@ -46,13 +47,14 @@
                 <tbody>
                 <tr th:each="e : ${exams}">
                     <td th:text="${e.id}"></td>
-                    <td th:text="${e.subjectOffering.subject.code}"></td>
+                    <td th:text="${e.subjectOffering != null and e.subjectOffering.subject != null ? e.subjectOffering.subject.code : '-'}"></td>
                     <td th:text="${e.examDate}"></td>
                     <td th:text="${e.examTime}"></td>
                     <td th:text="${e.room}"></td>
                     <td th:text="${e.format}"></td>
                     <td>
                         <form method="post" th:action="@{/admin/exams/{id}/delete(id=${e.id})}" style="display:inline;">
+                            <th:block th:replace="~{fragments/csrf :: input}"/>
                             <button type="submit" class="btn-small btn-danger">Delete</button>
                         </form>
                     </td>
