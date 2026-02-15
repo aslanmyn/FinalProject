@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professors</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Professors</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <a href="/professors">Professors</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2>Professor Directory</h2>
+        <section class="grid grid-3">
+            <article class="card" th:each="p : ${professors}">
+                <h3 th:text="${p.name}">Professor Name</h3>
+                <p class="user-email" th:text="${p.positionTitle != null ? p.positionTitle : 'Professor'}"></p>
+                <p th:text="${p.department != null ? p.department : (p.faculty != null ? p.faculty.name : 'Department not set')}"></p>
+                <p><a th:href="@{/professors/{id}(id=${p.id})}">Open Profile</a></p>
+            </article>
+            <article class="card" th:if="${#lists.isEmpty(professors)}">
+                <p>No professor profiles available.</p>
+            </article>
+        </section>
+    </div>
+</main>
+</body>
+</html>

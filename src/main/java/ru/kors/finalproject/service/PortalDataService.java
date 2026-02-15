@@ -18,6 +18,7 @@ public class PortalDataService {
     private final SurveyRepository surveyRepository;
     private final SurveyResponseRepository surveyResponseRepository;
     private final GradeRepository gradeRepository;
+    private final FinalGradeRepository finalGradeRepository;
     private final AttendanceRepository attendanceRepository;
     private final FinancialService financialService;
     private final ChargeRepository chargeRepository;
@@ -26,12 +27,14 @@ public class PortalDataService {
     private final MobilityApplicationRepository mobilityApplicationRepository;
     private final ClearanceSheetRepository clearanceSheetRepository;
     private final ChecklistItemRepository checklistItemRepository;
-    private final StudentFileRepository studentFileRepository;
+    private final FileAssetRepository fileAssetRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final SocialActivityRepository socialActivityRepository;
     private final FxRegistrationRepository fxRegistrationRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final SemesterRepository semesterRepository;
+    private final NotificationService notificationService;
+    private final AnnouncementService announcementService;
 
     public boolean loadData(String slug, HttpSession session, Model model) {
         var student = sessionService.getCurrentStudent(session);
@@ -42,6 +45,9 @@ public class PortalDataService {
         model.addAttribute("userRole", sessionService.getRole(session));
         model.addAttribute("student", s);
         model.addAttribute("financialLock", financialService.hasRegistrationLock(s));
+        model.addAttribute("notifications", notificationService.listForEmail(s.getEmail()).stream().limit(10).toList());
+        model.addAttribute("unreadNotifications", notificationService.unreadCount(s.getEmail()));
+        model.addAttribute("courseAnnouncements", announcementService.listForStudent(s).stream().limit(10).toList());
 
         return switch (slug) {
             case "student-information" -> loadStudentInfo(s, model);
@@ -94,7 +100,11 @@ public class PortalDataService {
 
     private boolean loadStudentJournal(Student s, Model model) {
         if (s.getCurrentSemester() == null) return true;
-        model.addAttribute("grades", gradeRepository.findByStudentIdAndSubjectOffering_SemesterId(s.getId(), s.getCurrentSemester().getId()));
+        List<Grade> publishedGrades = gradeRepository.findByStudentIdAndSubjectOffering_SemesterId(s.getId(), s.getCurrentSemester().getId())
+                .stream()
+                .filter(Grade::isPublished)
+                .toList();
+        model.addAttribute("grades", publishedGrades);
         return true;
     }
 
@@ -106,7 +116,8 @@ public class PortalDataService {
     }
 
     private boolean loadStudentSchedule(Student s, Model model) {
-        model.addAttribute("registrations", registrationRepository.findByStudentIdWithDetails(s.getId()));
+        model.addAttribute("registrations", registrationRepository.findActiveByStudentIdWithDetails(s.getId()));
+        model.addAttribute("announcements", announcementService.listForStudent(s));
         return true;
     }
 
@@ -119,13 +130,12 @@ public class PortalDataService {
     }
 
     private boolean loadAssessmentResults(Student s, Model model) {
-        if (s.getCurrentSemester() == null) return true;
-        model.addAttribute("grades", gradeRepository.findByStudentIdAndSubjectOffering_SemesterId(s.getId(), s.getCurrentSemester().getId()));
+        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrue(s.getId()));
         return true;
     }
 
     private boolean loadAttendance(Student s, Model model) {
-        model.addAttribute("registrations", registrationRepository.findByStudentIdWithDetails(s.getId()));
+        model.addAttribute("attendance", attendanceRepository.findByStudentId(s.getId()));
         return true;
     }
 
@@ -153,13 +163,13 @@ public class PortalDataService {
     }
 
     private boolean loadStudentFiles(Student s, Model model) {
-        model.addAttribute("files", studentFileRepository.findByStudentIdOrderByUploadedAtDesc(s.getId()));
+        model.addAttribute("files", fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(s.getId()));
         return true;
     }
 
     private boolean loadTranscript(Student s, Model model) {
-        model.addAttribute("registrations", registrationRepository.findByStudentIdWithDetails(s.getId()));
-        model.addAttribute("grades", gradeRepository.findByStudentId(s.getId()));
+        model.addAttribute("registrations", registrationRepository.findActiveByStudentIdWithDetails(s.getId()));
+        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrue(s.getId()));
         return true;
     }
 
@@ -174,7 +184,7 @@ public class PortalDataService {
     }
 
     private boolean loadCourseRegistration(Student s, Model model) {
-        model.addAttribute("registrations", registrationRepository.findByStudentIdWithDetails(s.getId()));
+        model.addAttribute("registrations", registrationRepository.findActiveByStudentIdWithDetails(s.getId()));
         return true;
     }
 

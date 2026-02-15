@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Professor Portal</span></a>
+        <nav class="main-nav">
+            <a href="/professor/dashboard">Dashboard</a>
+            <a href="/professor/courses">My Sections</a>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2 th:text="${course.subject.code + ' - ' + course.subject.name}">Course</h2>
+        <p class="user-email" th:text="'Section: ' + ${course.id}"></p>
+
+        <section class="portal-section">
+            <h3>Roster</h3>
+            <table class="data-table">
+                <thead><tr><th>Student ID</th><th>Student</th><th>Email</th><th>Status</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${roster}">
+                    <td th:text="${r.student.id}"></td>
+                    <td th:text="${r.student.name}"></td>
+                    <td th:text="${r.student.email}"></td>
+                    <td th:text="${r.status}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(roster)}"><td colspan="4">No students enrolled.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Grade Components</h3>
+            <p th:if="${componentMessage}" th:class="${componentSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${componentMessage}"></p>
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Name</th><th>Type</th><th>Weight</th><th>Status</th><th>Published</th><th>Locked</th><th>Actions</th></tr></thead>
+                <tbody>
+                <tr th:each="c : ${components}">
+                    <td th:text="${c.id}"></td>
+                    <td th:text="${c.name}"></td>
+                    <td th:text="${c.type}"></td>
+                    <td th:text="${c.weightPercent} + '%'"></td>
+                    <td th:text="${c.status}"></td>
+                    <td th:text="${c.published}"></td>
+                    <td th:text="${c.locked}"></td>
+                    <td>
+                        <form action="/professor/component/publish" method="post" style="display:inline;">
+                            <input type="hidden" name="offeringId" th:value="${course.id}">
+                            <input type="hidden" name="componentId" th:value="${c.id}">
+                            <input type="hidden" name="published" th:value="${!c.published}">
+                            <button class="btn-small" type="submit" th:text="${c.published ? 'Unpublish' : 'Publish'}"></button>
+                        </form>
+                        <form action="/professor/component/lock" method="post" style="display:inline;">
+                            <input type="hidden" name="offeringId" th:value="${course.id}">
+                            <input type="hidden" name="componentId" th:value="${c.id}">
+                            <input type="hidden" name="locked" th:value="${!c.locked}">
+                            <button class="btn-small" type="submit" th:text="${c.locked ? 'Unlock' : 'Lock'}"></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(components)}"><td colspan="8">No components yet.</td></tr>
+                </tbody>
+            </table>
+            <form action="/professor/component" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Component Name</label>
+                    <input type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="type" required>
+                        <option value="QUIZ">QUIZ</option>
+                        <option value="MIDTERM">MIDTERM</option>
+                        <option value="FINAL">FINAL</option>
+                        <option value="LAB">LAB</option>
+                        <option value="PROJECT">PROJECT</option>
+                        <option value="OTHER">OTHER</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Weight %</label>
+                    <input type="number" step="0.01" name="weightPercent" min="0" max="100" required>
+                </div>
+                <button class="btn" type="submit">Create Component</button>
+            </form>
+        </section>
+
+        <section class="portal-section">
+            <h3>Quick Grade Entry</h3>
+            <form action="/professor/grade" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="studentId" required>
+                </div>
+                <div class="form-group">
+                    <label>Component ID</label>
+                    <input type="number" name="componentId" required>
+                </div>
+                <div class="form-group">
+                    <label>Grade</label>
+                    <input type="number" step="0.01" name="gradeValue" required>
+                </div>
+                <div class="form-group">
+                    <label>Max Grade</label>
+                    <input type="number" step="0.01" name="maxGradeValue" value="100">
+                </div>
+                <div class="form-group">
+                    <label>Comment</label>
+                    <input type="text" name="comment">
+                </div>
+                <button class="btn" type="submit">Save Grade</button>
+            </form>
+            <table class="data-table">
+                <thead><tr><th>Grade ID</th><th>Student</th><th>Component</th><th>Value</th><th>Published</th></tr></thead>
+                <tbody>
+                <tr th:each="g : ${grades}">
+                    <td th:text="${g.id}"></td>
+                    <td th:text="${g.student.name}"></td>
+                    <td th:text="${g.component != null ? g.component.name : g.type}"></td>
+                    <td th:text="${g.gradeValue + ' / ' + g.maxGradeValue}"></td>
+                    <td th:text="${g.published}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(grades)}"><td colspan="5">No grades yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Attendance</h3>
+            <p th:if="${attendanceMessage}" th:class="${attendanceSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${attendanceMessage}"></p>
+            <form action="/professor/attendance" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="studentId" required>
+                </div>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="classDate" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" required>
+                        <option value="PRESENT">PRESENT</option>
+                        <option value="LATE">LATE</option>
+                        <option value="ABSENT">ABSENT</option>
+                        <option value="EXCUSED">EXCUSED</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <input type="text" name="reason">
+                </div>
+                <button class="btn" type="submit">Save Attendance</button>
+            </form>
+            <table class="data-table">
+                <thead><tr><th>Date</th><th>Student</th><th>Status</th><th>Reason</th></tr></thead>
+                <tbody>
+                <tr th:each="a : ${attendanceRecords}">
+                    <td th:text="${a.date}"></td>
+                    <td th:text="${a.student.name}"></td>
+                    <td th:text="${a.status}"></td>
+                    <td th:text="${a.reason}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(attendanceRecords)}"><td colspan="4">No attendance records.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Final Grades</h3>
+            <p th:if="${finalGradeMessage}" th:class="${finalGradeSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${finalGradeMessage}"></p>
+            <form action="/professor/final-grade" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="studentId" required>
+                </div>
+                <div class="form-group">
+                    <label>Numeric Value</label>
+                    <input type="number" step="0.01" name="numericValue" required>
+                </div>
+                <div class="form-group">
+                    <label>Letter</label>
+                    <input type="text" name="letterValue" placeholder="A-, B+, C">
+                </div>
+                <div class="form-group">
+                    <label>Points</label>
+                    <input type="number" step="0.01" name="points" required>
+                </div>
+                <button class="btn" type="submit">Save Final Grade</button>
+            </form>
+            <table class="data-table">
+                <thead><tr><th>Student</th><th>Numeric</th><th>Letter</th><th>Points</th><th>Status</th><th>Published</th><th>Action</th></tr></thead>
+                <tbody>
+                <tr th:each="fg : ${finalGrades}">
+                    <td th:text="${fg.student.name}"></td>
+                    <td th:text="${fg.numericValue}"></td>
+                    <td th:text="${fg.letterValue}"></td>
+                    <td th:text="${fg.points}"></td>
+                    <td th:text="${fg.status}"></td>
+                    <td th:text="${fg.published}"></td>
+                    <td>
+                        <form action="/professor/final-grade/publish" method="post">
+                            <input type="hidden" name="offeringId" th:value="${course.id}">
+                            <input type="hidden" name="studentId" th:value="${fg.student.id}">
+                            <button class="btn-small" type="submit" th:if="${!fg.published}">Publish</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(finalGrades)}"><td colspan="7">No final grades yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Section Announcement</h3>
+            <p th:if="${announceMessage}" th:class="${announceSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${announceMessage}"></p>
+            <form action="/professor/announcement" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label>Content</label>
+                    <textarea name="content" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" name="publicVisible"> Also show on public professor page</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" name="pinned"> Pin announcement</label>
+                </div>
+                <div class="form-group">
+                    <label>Schedule publish (optional)</label>
+                    <input type="datetime-local" name="scheduledAt">
+                </div>
+                <button class="btn" type="submit">Save Announcement</button>
+            </form>
+            <table class="data-table">
+                <thead><tr><th>Title</th><th>Public</th><th>Published</th></tr></thead>
+                <tbody>
+                <tr th:each="a : ${announcements}">
+                    <td th:text="${a.title}"></td>
+                    <td th:text="${a.publicVisible}"></td>
+                    <td th:text="${a.publishedAt != null ? #temporals.format(a.publishedAt, 'yyyy-MM-dd HH:mm') : 'Scheduled'}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(announcements)}"><td colspan="3">No announcements.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Student Risk Notes (internal)</h3>
+            <p th:if="${noteMessage}" th:class="${noteSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${noteMessage}"></p>
+            <form action="/professor/student-note" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="studentId" required>
+                </div>
+                <div class="form-group">
+                    <label>Risk Flag</label>
+                    <select name="riskFlag" required>
+                        <option value="NONE">NONE</option>
+                        <option value="LOW_ATTENDANCE">LOW_ATTENDANCE</option>
+                        <option value="LOW_GRADES">LOW_GRADES</option>
+                        <option value="COMBINED_RISK">COMBINED_RISK</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Note</label>
+                    <textarea name="note" rows="3" required></textarea>
+                </div>
+                <button class="btn" type="submit">Save Note</button>
+            </form>
+            <table class="data-table">
+                <thead><tr><th>Student</th><th>Risk</th><th>Note</th><th>Updated</th></tr></thead>
+                <tbody>
+                <tr th:each="n : ${notes}">
+                    <td th:text="${n.student.name}"></td>
+                    <td th:text="${n.riskFlag}"></td>
+                    <td th:text="${n.note}"></td>
+                    <td th:text="${n.updatedAt != null ? #temporals.format(n.updatedAt, 'yyyy-MM-dd HH:mm') : #temporals.format(n.createdAt, 'yyyy-MM-dd HH:mm')}"></td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(notes)}"><td colspan="4">No notes yet.</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="portal-section">
+            <h3>Grade Change Request</h3>
+            <p th:if="${gradeChangeMessage}" th:class="${gradeChangeSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${gradeChangeMessage}"></p>
+            <form action="/professor/grade-change-request" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Grade ID</label>
+                    <select name="gradeId" required>
+                        <option value="">Select grade</option>
+                        <option th:each="g : ${grades}"
+                                th:value="${g.id}"
+                                th:text="${g.id + ' - ' + g.student.name + ' (' + (g.component != null ? g.component.name : g.type) + ')'}"></option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>New Value</label>
+                    <input type="number" step="0.01" name="newValue" required>
+                </div>
+                <div class="form-group">
+                    <label>Reason</label>
+                    <textarea name="reason" rows="2" required></textarea>
+                </div>
+                <button class="btn" type="submit">Submit Grade Change Request</button>
+            </form>
+        </section>
+
+        <section class="portal-section">
+            <h3>Add File To Student Files</h3>
+            <p th:if="${fileUploadMessage}" th:class="${fileUploadSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${fileUploadMessage}"></p>
+            <form action="/professor/student-file" method="post" class="form-grid">
+                <input type="hidden" name="offeringId" th:value="${course.id}">
+                <div class="form-group">
+                    <label>Student ID</label>
+                    <input type="number" name="studentId" required>
+                </div>
+                <div class="form-group">
+                    <label>File Name</label>
+                    <input type="text" name="originalName" placeholder="recommendation.pdf" required>
+                </div>
+                <div class="form-group">
+                    <label>Storage Path</label>
+                    <input type="text" name="storagePath" placeholder="/files/recommendation.pdf" required>
+                </div>
+                <div class="form-group">
+                    <label>Content Type</label>
+                    <input type="text" name="contentType" value="application/pdf">
+                </div>
+                <div class="form-group">
+                    <label>Size Bytes</label>
+                    <input type="number" name="sizeBytes" value="0">
+                </div>
+                <button class="btn" type="submit">Add File</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

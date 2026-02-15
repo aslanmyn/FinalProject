@@ -1,25 +1,64 @@
 package ru.kors.finalproject.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final WebSessionFilter webSessionFilter;
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityMatcher("/api/v1/**")
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/", "/login", "/do-login", "/news", "/portal/**", "/css/**", "/images/**").permitAll()
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/v1/teacher/**").hasRole("PROFESSOR")
+                .requestMatchers("/api/v1/student/**").hasRole("STUDENT")
                 .anyRequest().authenticated()
             )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/", "/login", "/register", "/do-login", "/do-register", "/logout",
+                    "/news", "/professors", "/professors/**",
+                    "/css/**", "/js/**", "/images/**",
+                    "/h2-console/**"
+                ).permitAll()
+                // Protected areas — Spring Security permits them, but WebSessionFilter
+                // enforces session-based auth + role check before the request hits controllers.
+                .requestMatchers("/portal/**", "/professor/**", "/admin/**",
+                                 "/api/admin/**", "/api/professor/**", "/api/student/**").permitAll()
+                .anyRequest().permitAll()
+            )
+            .addFilterBefore(webSessionFilter, UsernamePasswordAuthenticationFilter.class)
             .formLogin(form -> form.disable())
             .logout(logout -> logout.disable())
             .csrf(csrf -> csrf.disable());
+        http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
         return http.build();
     }
 }

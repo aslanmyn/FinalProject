@@ -3,43 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Information - KBTU Portal</title>
+    <title>Student Information</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body>
-    <header class="site-header">
-        <div class="header-content">
-            <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
-            <nav class="main-nav">
-                <a href="/news">Portal &amp; News</a>
-                <span class="user-badge student" th:text="${userRole}">STUDENT</span>
-                <span class="user-email" th:text="${userEmail}"></span>
-                <a href="/logout" class="btn-logout">Logout</a>
-            </nav>
-        </div>
-    </header>
-    <main class="news-main section-page">
-        <div class="container">
-            <nav class="breadcrumb"><a href="/news">Portal</a><span class="sep">›</span><span>Student Information</span></nav>
-            <h2>Student Information</h2>
-            <div class="section-content info-card">
-                <table class="info-table">
-                    <tr><th>Name</th><td th:text="${student.name}"></td></tr>
-                    <tr><th>Email</th><td th:text="${student.email}"></td></tr>
-                    <tr><th>Program</th><td th:text="${student.program != null ? student.program.name : '—'}"></td></tr>
-                    <tr><th>Faculty</th><td th:text="${student.faculty != null ? student.faculty.name : '—'}"></td></tr>
-                    <tr><th>Course</th><td th:text="${student.course}"></td></tr>
-                    <tr><th>Group</th><td th:text="${student.groupName}"></td></tr>
-                    <tr><th>Current Semester</th><td th:text="${student.currentSemester != null ? student.currentSemester.name : '—'}"></td></tr>
-                    <tr><th>Credits Earned</th><td th:text="${student.creditsEarned}"></td></tr>
-                    <tr><th>Status</th><td th:text="${student.status}"></td></tr>
-                    <tr th:if="${financialLock}"><th>Locks</th><td class="alert">Financial debt — registration locked</td></tr>
-                    <tr th:if="${balance != null and balance.compareTo(T(java.math.BigDecimal).ZERO) > 0}"><th>Balance Due</th><td th:text="${balance} + ' KZT'"></td></tr>
-                </table>
-                <a href="/news" class="back-link">← Back to Portal</a>
-            </div>
-        </div>
-    </main>
-    <footer class="site-footer"><p>© 2025 KBTU. Almaty, Kazakhstan.</p></footer>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Student Portal</span></a>
+        <nav class="main-nav">
+            <a href="/news">Portal</a>
+            <span class="user-badge student">STUDENT</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <div class="breadcrumb"><a href="/news">Portal</a> / Student Information</div>
+        <h2>Student Information</h2>
+        <section class="card">
+            <table class="info-table">
+                <tr><th>Name</th><td th:text="${student.name}"></td></tr>
+                <tr><th>Email</th><td th:text="${student.email}"></td></tr>
+                <tr><th>Program</th><td th:text="${student.program != null ? student.program.name : '-'}"></td></tr>
+                <tr><th>Faculty</th><td th:text="${student.faculty != null ? student.faculty.name : '-'}"></td></tr>
+                <tr><th>Group</th><td th:text="${student.groupName}"></td></tr>
+                <tr><th>Course</th><td th:text="${student.course}"></td></tr>
+                <tr><th>Current Semester</th><td th:text="${student.currentSemester != null ? student.currentSemester.name : '-'}"></td></tr>
+                <tr><th>Status</th><td th:text="${student.status}"></td></tr>
+                <tr><th>Credits Earned</th><td th:text="${student.creditsEarned}"></td></tr>
+                <tr th:if="${balance != null}">
+                    <th>Balance</th><td th:text="${balance} + ' KZT'"></td>
+                </tr>
+                <tr th:if="${financialLock}">
+                    <th>Hold</th><td class="alert alert-error">Financial hold is active</td>
+                </tr>
+            </table>
+        </section>
+    </div>
+</main>
 </body>
 </html>

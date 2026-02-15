@@ -12,7 +12,7 @@
             <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
             <nav class="main-nav">
                 <a href="/news">Portal &amp; News</a>
-                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? 'student' : (userRole == 'TEACHER' ? 'teacher' : '')}" th:text="${userRole}">Role</span>
+                <span class="user-badge" th:classappend="${userRole == 'STUDENT' ? ' student' : (userRole == 'PROFESSOR' ? ' professor' : (userRole == 'ADMIN' ? ' admin' : ''))}" th:text="${userRole}">Role</span>
                 <span class="user-email" th:text="${userEmail}">user@kbtu.kz</span>
                 <a href="/logout" class="btn-logout">Logout</a>
             </nav>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Schedule - Admin</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Admin Portal</span></a>
+        <nav class="main-nav">
+            <a href="/admin/dashboard">Dashboard</a>
+            <span class="user-badge admin">ADMIN</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2>Exam Schedule Management</h2>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+        <div th:if="${error}" class="alert alert-danger" th:text="${error}"></div>
+
+        <section class="portal-section">
+            <h3>Schedule Exam</h3>
+            <form method="post" action="/admin/exams/create" class="form-inline">
+                <select name="sectionId" required>
+                    <option value="">Select Section</option>
+                    <option th:each="s : ${sections}" th:value="${s.id}" th:text="${'#' + s.id + ' ' + s.subject.code + ' - ' + s.subject.name}"></option>
+                </select>
+                <input type="date" name="examDate" required>
+                <input type="time" name="examTime" required>
+                <input type="text" name="room" placeholder="Room" required>
+                <input type="text" name="format" placeholder="Format (e.g. Written, Online)" required>
+                <button type="submit" class="btn-small">Schedule</button>
+            </form>
+        </section>
+
+        <section class="portal-section">
+            <h3>Current Semester Exams</h3>
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Subject</th><th>Date</th><th>Time</th><th>Room</th><th>Format</th><th>Action</th></tr></thead>
+                <tbody>
+                <tr th:each="e : ${exams}">
+                    <td th:text="${e.id}"></td>
+                    <td th:text="${e.subjectOffering.subject.code}"></td>
+                    <td th:text="${e.examDate}"></td>
+                    <td th:text="${e.examTime}"></td>
+                    <td th:text="${e.room}"></td>
+                    <td th:text="${e.format}"></td>
+                    <td>
+                        <form method="post" th:action="@{/admin/exams/{id}/delete(id=${e.id})}" style="display:inline;">
+                            <button type="submit" class="btn-small btn-danger">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(exams)}"><td colspan="7">No exams scheduled.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
+</body>
+</html>

@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface ChargeRepository extends JpaRepository<Charge, Long> {
     List<Charge> findByStudentIdOrderByDueDateDesc(Long studentId);
+
+    List<Charge> findByStudentId(Long studentId);
 }

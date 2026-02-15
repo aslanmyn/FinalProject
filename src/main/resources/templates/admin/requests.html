@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support Requests - Admin</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Admin Portal</span></a>
+        <nav class="main-nav">
+            <a href="/admin/dashboard">Dashboard</a>
+            <span class="user-badge admin">ADMIN</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2>Support Requests</h2>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+        <section class="portal-section">
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Student</th><th>Category</th><th>Status</th><th>Assigned To</th><th>Created</th><th>Assign</th><th>Status</th></tr></thead>
+                <tbody>
+                <tr th:each="r : ${requests}">
+                    <td th:text="${r.id}"></td>
+                    <td th:text="${r.student.name}"></td>
+                    <td th:text="${r.category}"></td>
+                    <td th:text="${r.status}"></td>
+                    <td th:text="${r.assignedTo != null ? r.assignedTo.fullName : 'Unassigned'}"></td>
+                    <td th:text="${#temporals.format(r.createdAt, 'yyyy-MM-dd')}"></td>
+                    <td>
+                        <form method="post" th:action="@{/admin/requests/{id}/assign(id=${r.id})}" style="display:inline;">
+                            <select name="userId">
+                                <option th:each="a : ${admins}" th:value="${a.id}" th:text="${a.fullName}"></option>
+                            </select>
+                            <button type="submit" class="btn-small">Assign</button>
+                        </form>
+                    </td>
+                    <td>
+                        <form method="post" th:action="@{/admin/requests/{id}/status(id=${r.id})}" style="display:inline;">
+                            <select name="status">
+                                <option value="NEW">NEW</option>
+                                <option value="IN_REVIEW">IN_REVIEW</option>
+                                <option value="NEED_INFO">NEED_INFO</option>
+                                <option value="APPROVED">APPROVED</option>
+                                <option value="REJECTED">REJECTED</option>
+                                <option value="DONE">DONE</option>
+                            </select>
+                            <button type="submit" class="btn-small">Update</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(requests)}"><td colspan="8">No requests.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
+</body>
+</html>

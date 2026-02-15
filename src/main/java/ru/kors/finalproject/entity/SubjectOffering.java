@@ -1,5 +1,7 @@
 package ru.kors.finalproject.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,14 +22,17 @@ public class SubjectOffering {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id", nullable = false)
     private Subject subject;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "semester_id", nullable = false)
     private Semester semester;
 
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "teacher_id")
     private Teacher teacher;
@@ -40,9 +45,15 @@ public class SubjectOffering {
     @Enumerated(EnumType.STRING)
     private LessonType lessonType;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "subjectOffering", cascade = CascadeType.ALL)
     @Builder.Default
     private List<Registration> registrations = new ArrayList<>();
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "subjectOffering", cascade = CascadeType.ALL)
+    @Builder.Default
+    private List<MeetingTime> meetingTimes = new ArrayList<>();
 
     public enum LessonType { LECTURE, PRACTICE, LAB }
 }

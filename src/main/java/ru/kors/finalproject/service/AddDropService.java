@@ -2,10 +2,12 @@ package ru.kors.finalproject.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -15,90 +17,86 @@ import java.util.stream.Collectors;
 public class AddDropService {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final RegistrationRepository registrationRepository;
-    private final AddDropPeriodRepository addDropPeriodRepository;
+    private final RegistrationWindowRepository registrationWindowRepository;
     private final SubjectPrerequisiteRepository prerequisiteRepository;
+    private final MeetingTimeRepository meetingTimeRepository;
+    private final HoldRepository holdRepository;
+    private final FinalGradeRepository finalGradeRepository;
     private final FinancialService financialService;
+    private final AuditService auditService;
+    private final NotificationService notificationService;
 
+    @Transactional
     public AddDropResult addCourse(Student student, Long subjectOfferingId) {
-        var offering = subjectOfferingRepository.findById(subjectOfferingId);
-        if (offering.isEmpty()) return AddDropResult.error("Subject not found");
-
-        SubjectOffering so = offering.get();
-        List<String> errors = new ArrayList<>();
-
-        if (student.getCurrentSemester() == null || !student.getCurrentSemester().getId().equals(so.getSemester().getId()))
-            errors.add("Subject is not for current semester");
-
-        if (financialService.hasRegistrationLock(student))
-            errors.add("Registration locked due to financial debt");
-
-        var period = addDropPeriodRepository.findBySemesterId(so.getSemester().getId());
-        if (period.isEmpty()) errors.add("Add/drop period not configured");
-        else {
-            LocalDate today = LocalDate.now();
-            if (today.isBefore(period.get().getAddStart())) errors.add("Add period has not started");
-            if (today.isAfter(period.get().getAddEnd())) errors.add("Add period has ended");
-        }
-
-        if (registrationRepository.existsByStudentIdAndSubjectOfferingId(student.getId(), subjectOfferingId))
-            errors.add("Already registered for this subject");
-
-        int registeredCredits = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
-                .mapToInt(r -> r.getSubjectOffering().getSubject().getCredits())
-                .sum();
-        if (registeredCredits + so.getSubject().getCredits() > student.getProgram().getCreditLimit())
-            errors.add("Credit limit exceeded");
-
-        List<SubjectPrerequisite> prereqs = prerequisiteRepository.findBySubjectId(so.getSubject().getId());
-        for (var p : prereqs) {
-            boolean completed = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
-                    .anyMatch(r -> r.getSubjectOffering().getSubject().getId().equals(p.getPrerequisite().getId()));
-            if (!completed) errors.add("Prerequisite not completed: " + p.getPrerequisite().getName());
-        }
-
-        long regCount = registrationRepository.findByStudentId(student.getId()).stream()
-                .filter(r -> r.getSubjectOffering().getId().equals(subjectOfferingId))
-                .count();
-        if (regCount > 0) errors.add("Already registered");
-
-        long occupied = registrationRepository.countBySubjectOfferingIdAndStatusIn(subjectOfferingId,
-                List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED));
-        if (occupied >= so.getCapacity()) errors.add("No places available");
-
-        if (!errors.isEmpty()) return AddDropResult.errors(errors);
-
-        Registration reg = Registration.builder()
-                .student(student).subjectOffering(so)
-                .status(Registration.RegistrationStatus.CONFIRMED)
-                .createdAt(java.time.Instant.now())
-                .build();
-        registrationRepository.save(reg);
-        return AddDropResult.success("Subject added successfully");
+        return enroll(student, subjectOfferingId, RegistrationWindow.WindowType.ADD_DROP, Registration.RegistrationStatus.CONFIRMED, false);
     }
 
+    @Transactional
+    public AddDropResult registerCourse(Student student, Long subjectOfferingId) {
+        return enroll(student, subjectOfferingId, RegistrationWindow.WindowType.REGISTRATION, Registration.RegistrationStatus.SUBMITTED, false);
+    }
+
+    @Transactional
+    public AddDropResult adminOverrideEnroll(Student student, Long subjectOfferingId) {
+        return enroll(student, subjectOfferingId, RegistrationWindow.WindowType.REGISTRATION, Registration.RegistrationStatus.CONFIRMED, true);
+    }
+
+    @Transactional
     public AddDropResult dropCourse(Student student, Long subjectOfferingId) {
+        return dropCourse(student, subjectOfferingId, null);
+    }
+
+    @Transactional
+    public AddDropResult dropCourse(Student student, Long subjectOfferingId, String reason) {
         var reg = registrationRepository.findByStudentIdAndSubjectOfferingId(student.getId(), subjectOfferingId);
-        if (reg.isEmpty()) return AddDropResult.error("Not registered for this subject");
+        if (reg.isEmpty() || reg.get().getStatus() == Registration.RegistrationStatus.DROPPED) {
+            return AddDropResult.error("Not registered for this subject");
+        }
 
         SubjectOffering so = reg.get().getSubjectOffering();
-        var period = addDropPeriodRepository.findBySemesterId(so.getSemester().getId());
-        if (period.isPresent()) {
-            LocalDate today = LocalDate.now();
-            if (today.isAfter(period.get().getDropEnd()))
-                return AddDropResult.error("Drop period has ended");
+        var window = getActiveWindowFor(so, RegistrationWindow.WindowType.ADD_DROP);
+        if (window.isEmpty()) {
+            return AddDropResult.error("Add/drop window is closed");
         }
-        registrationRepository.delete(reg.get());
+
+        Registration existing = reg.get();
+        existing.setStatus(Registration.RegistrationStatus.DROPPED);
+        existing.setDroppedAt(java.time.Instant.now());
+        existing.setDropReason(reason);
+        registrationRepository.save(existing);
+
+        notificationService.notifyStudent(
+                student.getEmail(),
+                Notification.NotificationType.ENROLLMENT,
+                "Course dropped",
+                "You have dropped " + so.getSubject().getCode() + " " + so.getSubject().getName(),
+                "/portal/add-drop-courses"
+        );
+        auditService.logStudentAction(
+                student,
+                "ENROLLMENT_DROPPED",
+                "Registration",
+                existing.getId(),
+                "subjectOfferingId=" + subjectOfferingId + (reason != null ? ", reason=" + reason : "")
+        );
         return AddDropResult.success("Subject dropped successfully");
     }
 
     public List<Registration> registrationsForStudent(Student student) {
-        return registrationRepository.findByStudentIdWithDetails(student.getId());
+        return registrationRepository.findActiveByStudentIdWithDetails(student.getId());
+    }
+
+    public List<Registration> rosterForSection(Long subjectOfferingId) {
+        return registrationRepository.findBySubjectOfferingIdAndStatusIn(
+                subjectOfferingId,
+                List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED)
+        );
     }
 
     public List<SubjectOffering> getAvailableForAdd(Student student) {
         if (student.getCurrentSemester() == null) return List.of();
         var offerings = subjectOfferingRepository.findBySemesterIdWithDetails(student.getCurrentSemester().getId());
-        var registered = registrationRepository.findByStudentId(student.getId()).stream()
+        var registered = registrationRepository.findActiveByStudentIdWithDetails(student.getId()).stream()
                 .map(r -> r.getSubjectOffering().getId()).collect(Collectors.toSet());
         return offerings.stream()
                 .filter(so -> !registered.contains(so.getId()))
@@ -106,7 +104,157 @@ public class AddDropService {
                         List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED)) < so.getCapacity())
                 .filter(so -> student.getProgram() != null && so.getSubject().getProgram() != null &&
                         student.getProgram().getId().equals(so.getSubject().getProgram().getId()))
+                .sorted(Comparator.comparing(so -> so.getSubject().getCode()))
                 .toList();
+    }
+
+    public boolean hasActiveRegistrationHold(Student student) {
+        return financialService.hasRegistrationLock(student) || holdRepository.findByStudentIdAndActiveTrue(student.getId()).stream()
+                .anyMatch(h -> h.getType() == Hold.HoldType.ACADEMIC || h.getType() == Hold.HoldType.MANUAL);
+    }
+
+    private AddDropResult enroll(
+            Student student,
+            Long subjectOfferingId,
+            RegistrationWindow.WindowType requiredWindowType,
+            Registration.RegistrationStatus targetStatus,
+            boolean adminOverride) {
+        // Pessimistic lock on the offering row prevents two concurrent enrolments
+        // from both seeing available capacity and over-filling the section.
+        var offering = subjectOfferingRepository.findByIdForUpdate(subjectOfferingId);
+        if (offering.isEmpty()) return AddDropResult.error("Subject not found");
+
+        SubjectOffering so = offering.get();
+        List<String> errors = new ArrayList<>();
+
+        if (student.getCurrentSemester() == null || !student.getCurrentSemester().getId().equals(so.getSemester().getId())) {
+            errors.add("Subject is not for current semester");
+        }
+
+        if (!adminOverride && hasActiveRegistrationHold(student)) {
+            errors.add("Registration locked due to financial debt");
+        }
+
+        if (!adminOverride) {
+            var window = getActiveWindowFor(so, requiredWindowType);
+            if (window.isEmpty()) {
+                errors.add(requiredWindowType + " window is not active");
+            }
+        }
+
+        var existingReg = registrationRepository.findByStudentIdAndSubjectOfferingId(student.getId(), subjectOfferingId);
+        if (existingReg.isPresent() && existingReg.get().getStatus() != Registration.RegistrationStatus.DROPPED) {
+            errors.add("Already registered for this subject");
+        }
+
+        int registeredCredits = registrationRepository.findActiveByStudentIdWithDetails(student.getId()).stream()
+                .mapToInt(r -> r.getSubjectOffering().getSubject().getCredits())
+                .sum();
+
+        if (student.getProgram() != null && registeredCredits + so.getSubject().getCredits() > student.getProgram().getCreditLimit()) {
+            errors.add("Credit limit exceeded");
+        }
+
+        List<SubjectPrerequisite> prereqs = prerequisiteRepository.findBySubjectId(so.getSubject().getId());
+        for (var p : prereqs) {
+            boolean completed = finalGradeRepository.findByStudentId(student.getId()).stream()
+                    .anyMatch(g -> g.isPublished()
+                            && g.getNumericValue() >= 50
+                            && g.getSubjectOffering().getSubject().getId().equals(p.getPrerequisite().getId()));
+            if (!completed) {
+                errors.add("Prerequisite not completed: " + p.getPrerequisite().getName());
+            }
+        }
+
+        if (hasScheduleConflict(student, so)) {
+            errors.add("Schedule conflict detected");
+        }
+
+        long occupied = registrationRepository.countBySubjectOfferingIdAndStatusIn(subjectOfferingId,
+                List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED));
+        if (!adminOverride && occupied >= so.getCapacity()) {
+            errors.add("No places available");
+        }
+
+        if (!errors.isEmpty()) return AddDropResult.errors(errors);
+
+        Registration reg = existingReg.orElseGet(() -> Registration.builder()
+                .student(student)
+                .subjectOffering(so)
+                .createdAt(java.time.Instant.now())
+                .build());
+        reg.setStatus(targetStatus);
+        reg.setDroppedAt(null);
+        reg.setDropReason(null);
+        registrationRepository.save(reg);
+
+        notificationService.notifyStudent(
+                student.getEmail(),
+                Notification.NotificationType.ENROLLMENT,
+                "Enrollment updated",
+                "Enrollment for " + so.getSubject().getCode() + " is now " + targetStatus,
+                "/portal/course-registration"
+        );
+        auditService.logStudentAction(
+                student,
+                "ENROLLMENT_" + targetStatus,
+                "Registration",
+                reg.getId(),
+                "subjectOfferingId=" + subjectOfferingId + ", override=" + adminOverride
+        );
+        return AddDropResult.success(targetStatus == Registration.RegistrationStatus.SUBMITTED
+                ? "Course added to registration"
+                : "Subject added successfully");
+    }
+
+    private java.util.Optional<RegistrationWindow> getActiveWindowFor(SubjectOffering so, RegistrationWindow.WindowType type) {
+        LocalDate today = LocalDate.now();
+        return registrationWindowRepository.findBySemesterIdAndTypeAndActiveTrue(so.getSemester().getId(), type)
+                .filter(w -> !today.isBefore(w.getStartDate()) && !today.isAfter(w.getEndDate()));
+    }
+
+    private boolean hasScheduleConflict(Student student, SubjectOffering targetOffering) {
+        List<MeetingTime> targetTimes = resolveMeetingTimes(targetOffering);
+        if (targetTimes.isEmpty()) {
+            return false;
+        }
+
+        var activeRegs = registrationRepository.findActiveByStudentIdWithDetails(student.getId());
+        for (Registration reg : activeRegs) {
+            if (reg.getSubjectOffering().getId().equals(targetOffering.getId())) {
+                continue;
+            }
+            List<MeetingTime> existingTimes = resolveMeetingTimes(reg.getSubjectOffering());
+            for (MeetingTime existing : existingTimes) {
+                for (MeetingTime candidate : targetTimes) {
+                    if (existing.getDayOfWeek() == candidate.getDayOfWeek()
+                            && existing.getStartTime().isBefore(candidate.getEndTime())
+                            && candidate.getStartTime().isBefore(existing.getEndTime())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private List<MeetingTime> resolveMeetingTimes(SubjectOffering offering) {
+        List<MeetingTime> times = meetingTimeRepository.findBySubjectOfferingId(offering.getId());
+        if (!times.isEmpty()) {
+            return times;
+        }
+        if (offering.getDayOfWeek() == null || offering.getStartTime() == null || offering.getEndTime() == null) {
+            return List.of();
+        }
+        MeetingTime fallback = MeetingTime.builder()
+                .subjectOffering(offering)
+                .dayOfWeek(offering.getDayOfWeek())
+                .startTime(offering.getStartTime())
+                .endTime(offering.getEndTime())
+                .room(offering.getRoom())
+                .lessonType(offering.getLessonType())
+                .build();
+        return List.of(fallback);
     }
 
     public record AddDropResult(boolean success, String message, List<String> errors) {

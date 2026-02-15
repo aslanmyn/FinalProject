@@ -21,6 +21,7 @@ public class Survey {
     private String title;
     private LocalDate startDate;
     private LocalDate endDate;
+    private boolean anonymous;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "semester_id")

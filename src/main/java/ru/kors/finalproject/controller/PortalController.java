@@ -19,6 +19,13 @@ public class PortalController {
 
     @GetMapping("/portal/{slug}")
     public String section(@PathVariable String slug, HttpSession session, Model model) {
+        if (!sessionService.isLoggedIn(session)) {
+            return "redirect:/login";
+        }
+        if (!sessionService.isStudent(session)) {
+            return "redirect:/news";
+        }
+
         if ("news".equalsIgnoreCase(slug)) {
             return "redirect:/news";
         }
@@ -30,9 +37,6 @@ public class PortalController {
 
         if (portalDataService.loadData(slug, session, model)) {
             return "portal/" + slug;
-        }
-        if (sessionService.getEmail(session) == null) {
-            return "redirect:/login";
         }
         model.addAttribute("userEmail", sessionService.getEmail(session));
         model.addAttribute("userRole", sessionService.getRole(session));

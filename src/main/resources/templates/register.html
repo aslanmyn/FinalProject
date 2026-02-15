@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Portal</span></a>
+        <nav class="main-nav"><a href="/login">Login</a></nav>
+    </div>
+</header>
+
+<main class="page">
+    <div class="container">
+        <section class="card" style="max-width:560px;margin:0 auto;">
+            <h2>Create Account</h2>
+            <p class="user-email">Email format determines role: `admin...`, `a_name...` student, `z.name...` professor.</p>
+            <p th:if="${error}" class="alert alert-error" th:text="${error}"></p>
+            <form action="/do-register" method="post" class="form-grid">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" name="fullName" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirm Password</label>
+                    <input type="password" name="confirmPassword" required>
+                </div>
+                <button type="submit" class="btn">Register</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

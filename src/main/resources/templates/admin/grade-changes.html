@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grade Changes - Admin</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="site-header">
+    <div class="header-content">
+        <a href="/" class="logo"><h1>KBTU</h1><span class="tagline">Admin Portal</span></a>
+        <nav class="main-nav">
+            <a href="/admin/dashboard">Dashboard</a>
+            <span class="user-badge admin">ADMIN</span>
+            <span class="user-email" th:text="${userEmail}"></span>
+            <a href="/logout" class="btn-logout">Logout</a>
+        </nav>
+    </div>
+</header>
+<main class="page">
+    <div class="container">
+        <h2>Grade Change Requests</h2>
+        <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+        <section class="portal-section">
+            <table class="data-table">
+                <thead><tr><th>ID</th><th>Teacher</th><th>Student</th><th>Section</th><th>Old</th><th>New</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+                <tbody>
+                <tr th:each="g : ${pendingGradeChanges}">
+                    <td th:text="${g.id}"></td>
+                    <td th:text="${g.teacher.name}"></td>
+                    <td th:text="${g.student.name}"></td>
+                    <td th:text="${g.subjectOffering.subject.code}"></td>
+                    <td th:text="${g.oldValue}"></td>
+                    <td th:text="${g.newValue}"></td>
+                    <td th:text="${g.reason}"></td>
+                    <td th:text="${g.status}"></td>
+                    <td>
+                        <form method="post" th:action="@{/admin/grade-change/{id}/review(id=${g.id})}" style="display:inline;">
+                            <input type="hidden" name="approve" value="true">
+                            <input type="text" name="comment" placeholder="Comment">
+                            <button type="submit" class="btn-small">Approve</button>
+                        </form>
+                        <form method="post" th:action="@{/admin/grade-change/{id}/review(id=${g.id})}" style="display:inline;">
+                            <input type="hidden" name="approve" value="false">
+                            <input type="text" name="comment" placeholder="Reason">
+                            <button type="submit" class="btn-small btn-danger">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${#lists.isEmpty(pendingGradeChanges)}"><td colspan="9">No pending grade change requests.</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</main>
+</body>
+</html>
