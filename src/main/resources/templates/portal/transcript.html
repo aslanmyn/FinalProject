@@ -23,11 +23,29 @@
         <div class="breadcrumb"><a href="/news">Portal</a> / Transcript</div>
         <h2>Academic Transcript (Unofficial)</h2>
         <section class="card">
-            <table class="data-table">
+            <th:block th:if="${semesterOrder != null and !#lists.isEmpty(semesterOrder)}">
+                <th:block th:each="sem : ${semesterOrder}">
+                    <h3 class="semester-header" th:text="${sem.name}">Semester</h3>
+                    <table class="data-table">
+                        <thead><tr><th>Code</th><th>Course</th><th>Credits</th><th>Numeric</th><th>Letter</th><th>GPA</th></tr></thead>
+                        <tbody>
+                        <tr th:each="f : ${gradesBySemester[sem.id]}">
+                            <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? f.subjectOffering.subject.code : '-'}"></td>
+                            <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? f.subjectOffering.subject.name : '-'}"></td>
+                            <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? f.subjectOffering.subject.credits : '-'}"></td>
+                            <td th:text="${f.numericValue}"></td>
+                            <td th:text="${f.letterValue != null ? f.letterValue : '-'}"></td>
+                            <td th:text="${f.points}"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </th:block>
+            </th:block>
+            <table class="data-table" th:if="${semesterOrder == null or #lists.isEmpty(semesterOrder)}">
                 <thead><tr><th>Course</th><th>Numeric</th><th>Letter</th><th>Points</th></tr></thead>
                 <tbody>
                 <tr th:each="f : ${finalGrades}">
-                    <td th:text="${f.subjectOffering.subject.code + ' - ' + f.subjectOffering.subject.name}"></td>
+                    <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? (f.subjectOffering.subject.code + ' - ' + f.subjectOffering.subject.name) : '-'}"></td>
                     <td th:text="${f.numericValue}"></td>
                     <td th:text="${f.letterValue != null ? f.letterValue : '-'}"></td>
                     <td th:text="${f.points}"></td>

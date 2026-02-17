@@ -112,6 +112,11 @@ public class DataInitializer implements CommandLineRunner {
                 .creditLimit(21)
                 .faculty(fit)
                 .build());
+        Program infoSys = programRepository.save(Program.builder()
+                .name("Information Systems")
+                .creditLimit(21)
+                .faculty(fit)
+                .build());
         programRepository.save(Program.builder()
                 .name("Software Engineering")
                 .creditLimit(21)
@@ -121,6 +126,13 @@ public class DataInitializer implements CommandLineRunner {
                 .name("Management")
                 .creditLimit(18)
                 .faculty(sbm)
+                .build());
+
+        Semester pastSemester = semesterRepository.save(Semester.builder()
+                .name("2024-2025 (Весенний)")
+                .startDate(LocalDate.of(2025, 1, 20))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .current(false)
                 .build());
 
         Teacher teacher = teacherRepository.save(Teacher.builder()
@@ -149,6 +161,32 @@ public class DataInitializer implements CommandLineRunner {
                 .faculty(fit)
                 .build());
 
+        String[] teacherNames = {"Ivan Petrov", "Maria Kozlova", "Dmitri Volkov", "Elena Sokolova", "Andrey Novikov", "Olga Fedorova", "Sergei Kuznetsov", "Natalia Morozova", "Alexey Pavlov", "Anna Orlova"};
+        String[] teacherDepts = {"Math", "Programming", "Databases", "Web Development", "Algorithms", "English", "Physics", "OOP", "Cybersecurity", "Software Tools"};
+        List<Teacher> newTeachers = new java.util.ArrayList<>();
+        List<User> newTeacherUsers = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            String email = "teacher" + (i + 1) + "@kbtu.kz";
+            newTeacherUsers.add(userRepository.save(User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode("prof123"))
+                    .fullName(teacherNames[i])
+                    .role(User.UserRole.PROFESSOR)
+                    .enabled(true)
+                    .build()));
+            newTeachers.add(teacherRepository.save(Teacher.builder()
+                    .email(email)
+                    .name(teacherNames[i])
+                    .department("Department of " + teacherDepts[i])
+                    .positionTitle("Professor")
+                    .publicEmail(email)
+                    .officeRoom("A-" + (300 + i))
+                    .officeHours("Tue 10:00-12:00")
+                    .role(Teacher.TeacherRole.TEACHER)
+                    .faculty(fit)
+                    .build()));
+        }
+
         Student student = studentRepository.save(Student.builder()
                 .email("a_mustafayev@kbtu.kz")
                 .name("Aidar Mustafayev")
@@ -163,6 +201,35 @@ public class DataInitializer implements CommandLineRunner {
                 .phone("+7 777 123 4567")
                 .emergencyContact("Parent: +7 777 987 6543")
                 .build());
+
+        String[] studentNames = {"Aigerim Nurlan", "Bekzat Serik", "Dana Kairat", "Erlan Tamerlan", "Farida Olzhas", "Gulnur Sanat", "Yerbol Aset", "Zhibek Marat", "Karina Dosbol", "Aslan Musauly"};
+        int[] studentCourses = {1, 1, 2, 2, 3, 3, 3, 4, 4, 4};
+        String[] studentGroups = {"IS-101", "IS-102", "IS-201", "IS-202", "IS-301", "IS-302", "IS-303", "IS-401", "IS-402", "IS-403"};
+        List<Student> newStudents = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            String email = "student" + (i + 1) + "@kbtu.kz";
+            userRepository.save(User.builder()
+                    .email(email)
+                    .password(passwordEncoder.encode("student123"))
+                    .fullName(studentNames[i])
+                    .role(User.UserRole.STUDENT)
+                    .enabled(true)
+                    .build());
+            newStudents.add(studentRepository.save(Student.builder()
+                    .email(email)
+                    .name(studentNames[i])
+                    .course(studentCourses[i])
+                    .groupName(studentGroups[i])
+                    .status(Student.StudentStatus.ACTIVE)
+                    .program(infoSys)
+                    .faculty(fit)
+                    .currentSemester(currentTerm)
+                    .creditsEarned(60 + studentCourses[i] * 30)
+                    .address("Almaty, Kazakhstan")
+                    .phone("+7 777 " + (100 + i) + " " + (1000 + i))
+                    .emergencyContact("Parent")
+                    .build()));
+        }
 
         Subject math = subjectRepository.save(Subject.builder().code("MATH101").name("Calculus I").credits(4).program(cs).build());
         Subject prog = subjectRepository.save(Subject.builder().code("CS201").name("Programming").credits(4).program(cs).build());
@@ -558,6 +625,111 @@ public class DataInitializer implements CommandLineRunner {
                         .format("Practical + Written")
                         .build()
         ));
+
+        // Past semester: subjects, offerings, 10 students, grades (attestation style)
+        Subject s1 = subjectRepository.save(Subject.builder().code("INFT3230").name("IT Audit").credits(3).program(infoSys).build());
+        Subject s2 = subjectRepository.save(Subject.builder().code("INFT3139").name("JS Framework. React").credits(3).program(infoSys).build());
+        Subject s3 = subjectRepository.save(Subject.builder().code("CSCI3110").name("Operating Systems").credits(3).program(infoSys).build());
+        Subject s4 = subjectRepository.save(Subject.builder().code("INFT3105").name("Cybersecurity").credits(3).program(infoSys).build());
+        Subject s5 = subjectRepository.save(Subject.builder().code("INFT3131").name("Backend Framework. Django").credits(3).program(infoSys).build());
+        Subject s6 = subjectRepository.save(Subject.builder().code("CSCI2208").name("Software Dev Tools").credits(3).program(infoSys).build());
+        Subject s7 = subjectRepository.save(Subject.builder().code("INFT2205").name("Web Development").credits(3).program(infoSys).build());
+        Subject s8 = subjectRepository.save(Subject.builder().code("CSCI2104").name("Databases").credits(3).program(infoSys).build());
+        Subject s9 = subjectRepository.save(Subject.builder().code("CSCI2105").name("Algorithms and Data Structures").credits(3).program(infoSys).build());
+        Subject s10 = subjectRepository.save(Subject.builder().code("LAN1182").name("English Basic (A2)").credits(6).program(infoSys).build());
+        Subject[] pastSubjects = {s1, s2, s3, s4, s5, s6, s7, s8, s9, s10};
+
+        List<SubjectOffering> pastOfferings = new java.util.ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            pastOfferings.add(subjectOfferingRepository.save(SubjectOffering.builder()
+                    .subject(pastSubjects[i])
+                    .semester(pastSemester)
+                    .teacher(newTeachers.get(i))
+                    .capacity(40)
+                    .dayOfWeek(DayOfWeek.values()[i % 5 + 1])
+                    .startTime(LocalTime.of(9 + (i % 3), 0))
+                    .endTime(LocalTime.of(10 + (i % 3), 30))
+                    .room("R-" + (100 + i))
+                    .lessonType(SubjectOffering.LessonType.LECTURE)
+                    .build()));
+        }
+
+        registrationWindowRepository.save(RegistrationWindow.builder()
+                .semester(pastSemester)
+                .type(RegistrationWindow.WindowType.GRADE_PUBLISH)
+                .startDate(pastSemester.getStartDate())
+                .endDate(pastSemester.getEndDate().plusDays(30))
+                .active(true)
+                .build());
+
+        List<List<AssessmentComponent>> componentsByOffering = new java.util.ArrayList<>();
+        for (SubjectOffering off : pastOfferings) {
+            AssessmentComponent comp1 = assessmentComponentRepository.save(AssessmentComponent.builder()
+                    .subjectOffering(off).name("Attestation 1").type(AssessmentComponent.ComponentType.MIDTERM).weightPercent(30)
+                    .status(AssessmentComponent.ComponentStatus.PUBLISHED).published(true).locked(true).createdAt(Instant.now()).build());
+            AssessmentComponent comp2 = assessmentComponentRepository.save(AssessmentComponent.builder()
+                    .subjectOffering(off).name("Attestation 2").type(AssessmentComponent.ComponentType.MIDTERM).weightPercent(30)
+                    .status(AssessmentComponent.ComponentStatus.PUBLISHED).published(true).locked(true).createdAt(Instant.now()).build());
+            AssessmentComponent comp3 = assessmentComponentRepository.save(AssessmentComponent.builder()
+                    .subjectOffering(off).name("Final").type(AssessmentComponent.ComponentType.FINAL).weightPercent(40)
+                    .status(AssessmentComponent.ComponentStatus.PUBLISHED).published(true).locked(true).createdAt(Instant.now()).build());
+            componentsByOffering.add(List.of(comp1, comp2, comp3));
+        }
+
+        double[] letterPoints = {4.0, 3.67, 3.33, 3.0, 2.67, 2.33, 2.0, 1.67, 1.33, 1.0, 0.0};
+        String[] letters = {"A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "F"};
+        java.util.Random rand = new java.util.Random(42);
+        for (Student st : newStudents) {
+            int numCourses = 4 + rand.nextInt(3);
+            for (int c = 0; c < numCourses && c < pastOfferings.size(); c++) {
+                SubjectOffering off = pastOfferings.get(c);
+                List<AssessmentComponent> comps = componentsByOffering.get(c);
+                registrationRepository.save(Registration.builder()
+                        .student(st)
+                        .subjectOffering(off)
+                        .status(Registration.RegistrationStatus.CONFIRMED)
+                        .createdAt(Instant.now().minusSeconds(100_000))
+                        .build());
+
+                double g1 = 15 + rand.nextDouble() * 20;
+                double g2 = 18 + rand.nextDouble() * 18;
+                double g3 = 20 + rand.nextDouble() * 25;
+                double total = g1 + g2 + g3;
+                int letterIdx = total >= 90 ? 0 : total >= 85 ? 1 : total >= 80 ? 2 : total >= 75 ? 3 : total >= 70 ? 4 : total >= 65 ? 5 : total >= 60 ? 6 : total >= 55 ? 7 : total >= 50 ? 8 : 9;
+                if (letterIdx > 9) letterIdx = 9;
+                String letter = letters[letterIdx];
+                double pts = letterPoints[letterIdx];
+
+                gradeRepository.save(Grade.builder().student(st).subjectOffering(off).component(comps.get(0)).type(Grade.GradeType.MIDTERM).gradeValue(g1).maxGradeValue(30).published(true).createdAt(Instant.now()).build());
+                gradeRepository.save(Grade.builder().student(st).subjectOffering(off).component(comps.get(1)).type(Grade.GradeType.MIDTERM).gradeValue(g2).maxGradeValue(30).published(true).createdAt(Instant.now()).build());
+                gradeRepository.save(Grade.builder().student(st).subjectOffering(off).component(comps.get(2)).type(Grade.GradeType.FINAL).gradeValue(g3).maxGradeValue(40).published(true).createdAt(Instant.now()).build());
+
+                finalGradeRepository.save(FinalGrade.builder()
+                        .student(st).subjectOffering(off)
+                        .numericValue(total).letterValue(letter).points(pts)
+                        .status(FinalGrade.FinalGradeStatus.PUBLISHED).published(true).publishedAt(Instant.now())
+                        .createdAt(Instant.now()).updatedAt(Instant.now()).build());
+            }
+        }
+
+        for (int i = 0; i < Math.min(3, newStudents.size()); i++) {
+            AttendanceSession sess = attendanceSessionRepository.save(AttendanceSession.builder()
+                    .subjectOffering(pastOfferings.get(i))
+                    .classDate(pastSemester.getStartDate().plusDays(14))
+                    .createdBy(newTeachers.get(i))
+                    .locked(true)
+                    .createdAt(Instant.now())
+                    .build());
+            for (Student st : newStudents) {
+                if (registrationRepository.findByStudentIdAndSubjectOfferingId(st.getId(), pastOfferings.get(i).getId()).isPresent()) {
+                    attendanceRepository.save(Attendance.builder()
+                            .student(st).subjectOffering(pastOfferings.get(i)).session(sess)
+                            .date(sess.getClassDate())
+                            .status(rand.nextBoolean() ? Attendance.AttendanceStatus.PRESENT : Attendance.AttendanceStatus.ABSENT)
+                            .build());
+                }
+            }
+        }
 
         notificationService.notifyStudent(
                 student.getEmail(),

@@ -12,7 +12,7 @@ public interface FinalGradeRepository extends JpaRepository<FinalGrade, Long> {
 
     List<FinalGrade> findByStudentIdAndPublishedTrue(Long studentId);
 
-    @Query("SELECT f FROM FinalGrade f LEFT JOIN FETCH f.student LEFT JOIN FETCH f.subjectOffering LEFT JOIN FETCH f.subjectOffering.subject WHERE f.student.id = :studentId AND f.published = true")
+    @Query("SELECT f FROM FinalGrade f LEFT JOIN FETCH f.student LEFT JOIN FETCH f.subjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.semester WHERE f.student.id = :studentId AND f.published = true ORDER BY so.semester.startDate DESC, so.id")
     List<FinalGrade> findByStudentIdAndPublishedTrueWithDetails(Long studentId);
 
     List<FinalGrade> findBySubjectOfferingId(Long subjectOfferingId);

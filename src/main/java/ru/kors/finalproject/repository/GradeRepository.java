@@ -20,4 +20,7 @@ public interface GradeRepository extends JpaRepository<Grade, Long> {
     List<Grade> findBySubjectOfferingIdWithDetails(Long offeringId);
 
     List<Grade> findByStudentIdAndPublishedTrue(Long studentId);
+
+    @Query("SELECT g FROM Grade g LEFT JOIN FETCH g.subjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH g.component WHERE g.student.id = :studentId AND g.published = true ORDER BY so.id, g.component.id")
+    List<Grade> findByStudentIdAndPublishedTrueWithDetails(Long studentId);
 }
