@@ -7,7 +7,7 @@ import org.springframework.ui.Model;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -131,6 +131,15 @@ public class PortalDataService {
 
     private boolean loadAssessmentResults(Student s, Model model) {
         model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId()));
+        List<Grade> componentGrades = gradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId());
+        model.addAttribute("componentGrades", componentGrades);
+        Map<Long, List<Double>> scoresByOffering = new LinkedHashMap<>();
+        for (Grade g : componentGrades) {
+            if (g.getSubjectOffering() != null) {
+                scoresByOffering.computeIfAbsent(g.getSubjectOffering().getId(), k -> new ArrayList<>()).add(g.getGradeValue());
+            }
+        }
+        model.addAttribute("scoresByOffering", scoresByOffering);
         return true;
     }
 
@@ -169,7 +178,23 @@ public class PortalDataService {
 
     private boolean loadTranscript(Student s, Model model) {
         model.addAttribute("registrations", registrationRepository.findActiveByStudentIdWithDetails(s.getId()));
-        model.addAttribute("finalGrades", finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId()));
+        List<FinalGrade> finalGrades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId());
+        model.addAttribute("finalGrades", finalGrades);
+        List<Semester> semesterOrder = finalGrades.stream()
+                .filter(f -> f.getSubjectOffering() != null && f.getSubjectOffering().getSemester() != null)
+                .map(f -> f.getSubjectOffering().getSemester())
+                .distinct()
+                .sorted(Comparator.comparing(Semester::getStartDate).reversed())
+                .toList();
+        Map<Long, List<FinalGrade>> gradesBySemester = new LinkedHashMap<>();
+        for (Semester sem : semesterOrder) {
+            gradesBySemester.put(sem.getId(), finalGrades.stream()
+                    .filter(f -> f.getSubjectOffering() != null && f.getSubjectOffering().getSemester() != null
+                            && f.getSubjectOffering().getSemester().getId().equals(sem.getId()))
+                    .toList());
+        }
+        model.addAttribute("gradesBySemester", gradesBySemester);
+        model.addAttribute("semesterOrder", semesterOrder);
         return true;
     }
 

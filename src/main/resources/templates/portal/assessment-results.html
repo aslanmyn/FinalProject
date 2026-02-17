@@ -21,19 +21,21 @@
 <main class="page">
     <div class="container">
         <div class="breadcrumb"><a href="/news">Portal</a> / Assessment Results</div>
-        <h2>Final Assessment Results</h2>
+        <h2>Attestation / Final Assessment Results</h2>
         <section class="card">
             <table class="data-table">
-                <thead><tr><th>Course</th><th>Numeric</th><th>Letter</th><th>Points</th><th>Published At</th></tr></thead>
+                <thead><tr><th>Code</th><th>Course</th><th>Score 1</th><th>Score 2</th><th>Score 3</th><th>Letter</th><th>Points</th></tr></thead>
                 <tbody>
                 <tr th:each="f : ${finalGrades}">
-                    <td th:text="${f.subjectOffering.subject.code + ' - ' + f.subjectOffering.subject.name}"></td>
-                    <td th:text="${f.numericValue}"></td>
+                    <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? f.subjectOffering.subject.code : '-'}"></td>
+                    <td th:text="${f.subjectOffering != null and f.subjectOffering.subject != null ? f.subjectOffering.subject.name : '-'}"></td>
+                    <td th:text="${scoresByOffering != null and scoresByOffering[f.subjectOffering.id] != null and #lists.size(scoresByOffering[f.subjectOffering.id]) >= 1 ? scoresByOffering[f.subjectOffering.id][0] : '-'}"></td>
+                    <td th:text="${scoresByOffering != null and scoresByOffering[f.subjectOffering.id] != null and #lists.size(scoresByOffering[f.subjectOffering.id]) >= 2 ? scoresByOffering[f.subjectOffering.id][1] : '-'}"></td>
+                    <td th:text="${scoresByOffering != null and scoresByOffering[f.subjectOffering.id] != null and #lists.size(scoresByOffering[f.subjectOffering.id]) >= 3 ? scoresByOffering[f.subjectOffering.id][2] : '-'}"></td>
                     <td th:text="${f.letterValue != null ? f.letterValue : '-'}"></td>
                     <td th:text="${f.points}"></td>
-                    <td th:text="${f.publishedAt != null ? #temporals.format(f.publishedAt, 'yyyy-MM-dd HH:mm') : '-'}"></td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(finalGrades)}"><td colspan="5">No published final grades yet.</td></tr>
+                <tr th:if="${#lists.isEmpty(finalGrades)}"><td colspan="7">No published final grades yet.</td></tr>
                 </tbody>
             </table>
         </section>
