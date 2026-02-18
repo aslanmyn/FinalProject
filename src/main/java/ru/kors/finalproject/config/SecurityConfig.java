@@ -27,6 +27,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/files/download/**").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/teacher/**").hasRole("PROFESSOR")
                 .requestMatchers("/api/v1/student/**").hasRole("STUDENT")
@@ -52,10 +53,11 @@ public class SecurityConfig {
                     "/actuator/health", "/actuator/info",
                     "/swagger-ui/**", "/v3/api-docs/**"
                 ).permitAll()
-                // Protected areas — Spring Security permits them, but WebSessionFilter
-                // enforces session-based auth + role check before the request hits controllers.
-                .requestMatchers("/portal/**", "/professor/**", "/admin/**",
-                                 "/api/admin/**", "/api/professor/**", "/api/student/**").permitAll()
+                .requestMatchers("/portal/**").hasRole("STUDENT")
+                .requestMatchers("/professor/**").hasRole("PROFESSOR")
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                // Legacy session APIs are disabled in favor of /api/v1/**
+                .requestMatchers("/api/admin/**", "/api/professor/**", "/api/student/**").denyAll()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)

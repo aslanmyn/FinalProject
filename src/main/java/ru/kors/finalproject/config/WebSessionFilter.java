@@ -5,10 +5,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Defence-in-depth filter that blocks unauthenticated/wrong-role access
@@ -25,10 +30,7 @@ public class WebSessionFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return !path.startsWith("/admin/")
                 && !path.startsWith("/portal/")
-                && !path.startsWith("/professor/")
-                && !path.startsWith("/api/admin/")
-                && !path.startsWith("/api/professor/")
-                && !path.startsWith("/api/student/");
+                && !path.startsWith("/professor/");
     }
 
     @Override
@@ -36,48 +38,40 @@ public class WebSessionFilter extends OncePerRequestFilter {
                                      FilterChain filterChain) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         String role = session != null ? (String) session.getAttribute("userRole") : null;
+        String email = session != null ? (String) session.getAttribute("userEmail") : null;
 
         if (role == null) {
-            // No session → redirect browser, or 401 for AJAX/API
-            if (isApiRequest(request)) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("{\"error\":\"Not authenticated\"}");
-                response.setContentType("application/json");
-                return;
-            }
             response.sendRedirect("/login");
             return;
         }
 
+        var existingAuth = SecurityContextHolder.getContext().getAuthentication();
+        if (email != null && (existingAuth == null || existingAuth instanceof AnonymousAuthenticationToken)) {
+            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(email, null, authorities)
+            );
+        }
+
         String path = request.getRequestURI();
 
-        if ((path.startsWith("/admin/") || path.startsWith("/api/admin/")) && !"ADMIN".equals(role)) {
-            reject(request, response, "Access denied");
+        if (path.startsWith("/admin/") && !"ADMIN".equals(role)) {
+            reject(response);
             return;
         }
-        if ((path.startsWith("/professor/") || path.startsWith("/api/professor/")) && !"PROFESSOR".equals(role)) {
-            reject(request, response, "Access denied");
+        if (path.startsWith("/professor/") && !"PROFESSOR".equals(role)) {
+            reject(response);
             return;
         }
-        if ((path.startsWith("/portal/") || path.startsWith("/api/student/")) && !"STUDENT".equals(role)) {
-            reject(request, response, "Access denied");
+        if (path.startsWith("/portal/") && !"STUDENT".equals(role)) {
+            reject(response);
             return;
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private boolean isApiRequest(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/api/");
-    }
-
-    private void reject(HttpServletRequest request, HttpServletResponse response, String msg) throws IOException {
-        if (isApiRequest(request)) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"" + msg + "\"}");
-        } else {
-            response.sendRedirect("/login");
-        }
+    private void reject(HttpServletResponse response) throws IOException {
+        response.sendRedirect("/login");
     }
 }

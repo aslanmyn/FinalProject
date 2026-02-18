@@ -1,13 +1,13 @@
 package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.*;
 import ru.kors.finalproject.web.api.v1.ApiPageResponse;
+import ru.kors.finalproject.web.api.v1.ApiPageableFactory;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -16,6 +16,7 @@ import java.time.LocalTime;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -42,14 +43,19 @@ public class AdminV1Controller {
     private final NewsRepository newsRepository;
     private final GradeChangeRequestRepository gradeChangeRequestRepository;
     private final AuditLogRepository auditLogRepository;
+    private final ApiPageableFactory apiPageableFactory;
 
     @GetMapping("/users")
     public ResponseEntity<?> users(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPER);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        var pageable = apiPageableFactory.create(
+                page, size, sort, direction, "id",
+                Set.of("id", "email", "fullName", "role", "enabled"));
         var data = userRepository.findAll(pageable).map(u -> new UserDto(
                 u.getId(), u.getEmail(), u.getFullName(), u.getRole(), u.getAdminPermissions(), u.isEnabled()
         ));
@@ -316,9 +322,13 @@ public class AdminV1Controller {
     public ResponseEntity<?> requests(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        var pageable = apiPageableFactory.create(
+                page, size, sort, direction, "createdAt",
+                Set.of("createdAt", "updatedAt", "category", "status"));
         var data = studentRequestRepository.findAll(pageable)
                 .map(r -> new RequestDto(r.getId(), r.getCategory(), r.getStatus(), r.getCreatedAt(),
                         r.getUpdatedAt(), r.getAssignedTo() != null ? r.getAssignedTo().getId() : null));
@@ -347,10 +357,14 @@ public class AdminV1Controller {
     public ResponseEntity<?> gradeChangeRequests(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
-        var data = gradeChangeRequestRepository.findByStatusOrderByCreatedAtDesc(
+        var pageable = apiPageableFactory.create(
+                page, size, sort, direction, "createdAt",
+                Set.of("createdAt", "status", "newValue", "oldValue"));
+        var data = gradeChangeRequestRepository.findByStatus(
                         GradeChangeRequest.RequestStatus.SUBMITTED, pageable)
                 .map(r -> new GradeChangeDto(r.getId(), r.getTeacher().getId(), r.getStudent().getId(),
                         r.getSubjectOffering().getId(), r.getOldValue(), r.getNewValue(),
@@ -413,9 +427,13 @@ public class AdminV1Controller {
     public ResponseEntity<?> auditLogs(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPER);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 200));
+        var pageable = apiPageableFactory.create(
+                page, Math.min(size, 200), sort, direction, "createdAt",
+                Set.of("createdAt", "action", "actorEmail", "entityType"));
         return ResponseEntity.ok(ApiPageResponse.from(auditLogRepository.findAll(pageable)));
     }
 

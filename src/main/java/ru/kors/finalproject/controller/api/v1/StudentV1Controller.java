@@ -1,18 +1,19 @@
 package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.*;
 import ru.kors.finalproject.web.api.v1.ApiPageResponse;
+import ru.kors.finalproject.web.api.v1.ApiPageableFactory;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/v1/student")
@@ -39,6 +40,9 @@ public class StudentV1Controller {
     private final NotificationService notificationService;
     private final CourseMaterialService courseMaterialService;
     private final AddDropService addDropService;
+    private final ApiPageableFactory apiPageableFactory;
+    private final FileLinkService fileLinkService;
+    private final FileAssetRepository fileAssetRepository;
 
     @GetMapping("/profile")
     public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
@@ -75,7 +79,7 @@ public class StudentV1Controller {
     public ResponseEntity<?> journal(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        List<Grade> grades = gradeRepository.findByStudentIdAndPublishedTrue(student.getId());
+        List<Grade> grades = gradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
         return ResponseEntity.ok(grades.stream().map(g -> new JournalGradeDto(
                 g.getId(),
                 g.getSubjectOffering().getSubject().getCode(),
@@ -89,7 +93,7 @@ public class StudentV1Controller {
     public ResponseEntity<?> transcript(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        List<FinalGrade> grades = finalGradeRepository.findByStudentIdAndPublishedTrue(student.getId());
+        List<FinalGrade> grades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
         double gpa = grades.isEmpty() ? 0 : grades.stream().mapToDouble(FinalGrade::getPoints).average().orElse(0.0);
         return ResponseEntity.ok(Map.of(
                 "studentId", student.getId(),
@@ -109,7 +113,7 @@ public class StudentV1Controller {
     public ResponseEntity<?> attendance(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        List<Attendance> items = attendanceRepository.findByStudentId(student.getId());
+        List<Attendance> items = attendanceRepository.findByStudentIdWithDetails(student.getId());
         long present = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
         long late = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.LATE).count();
         long absent = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.ABSENT).count();
@@ -170,7 +174,7 @@ public class StudentV1Controller {
         List<Long> sectionIds = enrollments.stream().map(r -> r.getSubjectOffering().getId()).toList();
         Long semId = semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
         if (semId == null) return ResponseEntity.ok(List.of());
-        List<ExamSchedule> exams = examScheduleRepository.findBySubjectOffering_SemesterIdOrderByExamDateAsc(semId)
+        List<ExamSchedule> exams = examScheduleRepository.findBySemesterIdWithDetails(semId)
                 .stream().filter(e -> sectionIds.contains(e.getSubjectOffering().getId())).toList();
         return ResponseEntity.ok(exams.stream().map(e -> Map.of(
                 "id", (Object) e.getId(),
@@ -199,10 +203,14 @@ public class StudentV1Controller {
     public ResponseEntity<?> announcements(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        var pageable = apiPageableFactory.create(
+                page, size, sort, direction, "publishedAt",
+                Set.of("publishedAt", "createdAt", "title"));
         var data = announcementService.listForStudent(student, pageable).map(a -> new AnnouncementDto(
                 a.getId(), a.getTitle(), a.getContent(),
                 a.getSubjectOffering() != null ? a.getSubjectOffering().getId() : null,
@@ -238,7 +246,33 @@ public class StudentV1Controller {
         if (!courseMaterialService.isStudentEnrolled(student.getId(), sectionId)) {
             throw new IllegalArgumentException("Not enrolled in this section");
         }
-        return ResponseEntity.ok(courseMaterialService.listPublishedForSection(sectionId));
+        return ResponseEntity.ok(courseMaterialService.listPublishedForSection(sectionId).stream()
+                .map(m -> new MaterialDto(
+                        m.getId(),
+                        m.getTitle(),
+                        m.getDescription(),
+                        m.getOriginalFileName(),
+                        m.getContentType(),
+                        m.getSizeBytes(),
+                        m.getCreatedAt(),
+                        fileLinkService.createMaterialDownloadUrl(m.getId())
+                )).toList());
+    }
+
+    @GetMapping("/files")
+    public ResponseEntity<?> files(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        return ResponseEntity.ok(fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(student.getId()).stream()
+                .map(f -> new StudentFileDto(
+                        f.getId(),
+                        f.getOriginalName(),
+                        f.getCategory(),
+                        f.getContentType(),
+                        f.getSizeBytes(),
+                        f.getUploadedAt(),
+                        fileLinkService.createAssetDownloadUrl(f.getId())
+                )).toList());
     }
 
     @GetMapping("/checklist")
@@ -266,7 +300,7 @@ public class StudentV1Controller {
     public ResponseEntity<?> enrollments(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(registrationRepository.findByStudentId(student.getId()).stream().map(r -> Map.of(
+        return ResponseEntity.ok(registrationRepository.findByStudentIdWithDetails(student.getId()).stream().map(r -> Map.of(
                 "id", (Object) r.getId(),
                 "sectionId", r.getSubjectOffering().getId(),
                 "subjectCode", r.getSubjectOffering().getSubject().getCode(),
@@ -314,11 +348,15 @@ public class StudentV1Controller {
     public ResponseEntity<?> requests(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String sort,
+            @RequestParam(defaultValue = "desc") String direction) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        var pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100));
-        var data = studentRequestRepository.findByStudentIdOrderByCreatedAtDesc(student.getId(), pageable)
+        var pageable = apiPageableFactory.create(
+                page, size, sort, direction, "createdAt",
+                Set.of("createdAt", "updatedAt", "category", "status"));
+        var data = studentRequestRepository.findByStudentId(student.getId(), pageable)
                 .map(r -> new RequestDto(r.getId(), r.getCategory(), r.getDescription(),
                         r.getStatus(), r.getCreatedAt(), r.getUpdatedAt()));
         return ResponseEntity.ok(ApiPageResponse.from(data));
@@ -341,7 +379,7 @@ public class StudentV1Controller {
             @PathVariable Long id) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        StudentRequest req = studentRequestRepository.findById(id)
+        StudentRequest req = studentRequestRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (!req.getStudent().getId().equals(student.getId())) {
             throw new IllegalArgumentException("Access denied");
@@ -356,7 +394,7 @@ public class StudentV1Controller {
             @RequestBody AddMessageBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        StudentRequest req = studentRequestRepository.findById(id)
+        StudentRequest req = studentRequestRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (!req.getStudent().getId().equals(student.getId())) {
             throw new IllegalArgumentException("Access denied");
@@ -365,7 +403,7 @@ public class StudentV1Controller {
     }
 
     private Student getStudent(User user) {
-        return studentRepository.findByEmail(user.getEmail())
+        return studentRepository.findByEmailWithDetails(user.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Student profile not found"));
     }
 
@@ -383,6 +421,10 @@ public class StudentV1Controller {
                                      FinalGrade.FinalGradeStatus status) {}
     public record AnnouncementDto(Long id, String title, String content, Long sectionId,
                                    String sectionCode, Instant publishedAt, boolean pinned) {}
+    public record MaterialDto(Long id, String title, String description, String originalFileName,
+                              String contentType, long sizeBytes, Instant createdAt, String downloadUrl) {}
+    public record StudentFileDto(Long id, String fileName, FileAsset.FileCategory category,
+                                 String contentType, long sizeBytes, Instant uploadedAt, String downloadUrl) {}
     public record RequestDto(Long id, String category, String description,
                               StudentRequest.RequestStatus status, Instant createdAt, Instant updatedAt) {}
     public record CreateRequestBody(String category, String description) {}

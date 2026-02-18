@@ -3,6 +3,7 @@ package ru.kors.finalproject.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.CourseMaterialRepository;
 import ru.kors.finalproject.repository.RegistrationRepository;
@@ -19,6 +20,7 @@ public class CourseMaterialService {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final RegistrationRepository registrationRepository;
     private final NotificationService notificationService;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public CourseMaterial upload(Teacher teacher, Long sectionId, String title, String description,
@@ -26,7 +28,42 @@ public class CourseMaterialService {
                                  String contentType, long sizeBytes,
                                  CourseMaterial.MaterialVisibility visibility) {
         SubjectOffering section = getTeacherSection(teacher, sectionId);
+        return persistMaterial(section, teacher, title, description, originalFileName, storagePath, contentType, sizeBytes, visibility);
+    }
 
+    @Transactional
+    public CourseMaterial upload(
+            Teacher teacher,
+            Long sectionId,
+            String title,
+            String description,
+            MultipartFile file,
+            CourseMaterial.MaterialVisibility visibility) {
+        SubjectOffering section = getTeacherSection(teacher, sectionId);
+        FileStorageService.StoredFile stored = fileStorageService.store(file, "materials/section-" + sectionId);
+        return persistMaterial(
+                section,
+                teacher,
+                title,
+                description,
+                stored.originalName(),
+                stored.storagePath(),
+                stored.contentType(),
+                stored.sizeBytes(),
+                visibility
+        );
+    }
+
+    private CourseMaterial persistMaterial(
+            SubjectOffering section,
+            Teacher teacher,
+            String title,
+            String description,
+            String originalFileName,
+            String storagePath,
+            String contentType,
+            long sizeBytes,
+            CourseMaterial.MaterialVisibility visibility) {
         CourseMaterial material = CourseMaterial.builder()
                 .subjectOffering(section)
                 .uploadedBy(teacher)
@@ -44,7 +81,7 @@ public class CourseMaterialService {
         CourseMaterial saved = courseMaterialRepository.save(material);
 
         List<Registration> enrolled = registrationRepository.findBySubjectOfferingIdAndStatusIn(
-                sectionId, List.of(Registration.RegistrationStatus.CONFIRMED));
+                section.getId(), List.of(Registration.RegistrationStatus.CONFIRMED));
         for (Registration reg : enrolled) {
             notificationService.notifyStudent(
                     reg.getStudent().getEmail(),
@@ -72,6 +109,7 @@ public class CourseMaterialService {
         CourseMaterial material = courseMaterialRepository.findById(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("Material not found"));
         getTeacherSection(teacher, material.getSubjectOffering().getId());
+        fileStorageService.deleteSilently(material.getStoragePath());
         courseMaterialRepository.delete(material);
     }
 

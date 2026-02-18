@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import ru.kors.finalproject.entity.StudentRequest;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface StudentRequestRepository extends JpaRepository<StudentRequest, Long> {
     List<StudentRequest> findByStudentIdOrderByCreatedAtDesc(Long studentId);
@@ -14,7 +15,11 @@ public interface StudentRequestRepository extends JpaRepository<StudentRequest, 
     @Query("SELECT r FROM StudentRequest r LEFT JOIN FETCH r.student LEFT JOIN FETCH r.assignedTo WHERE r.student.id = :studentId ORDER BY r.createdAt DESC")
     List<StudentRequest> findByStudentIdWithDetailsOrderByCreatedAtDesc(Long studentId);
 
+    @Query("SELECT r FROM StudentRequest r LEFT JOIN FETCH r.student LEFT JOIN FETCH r.assignedTo WHERE r.id = :id")
+    Optional<StudentRequest> findByIdWithDetails(Long id);
+
     Page<StudentRequest> findByStudentIdOrderByCreatedAtDesc(Long studentId, Pageable pageable);
+    Page<StudentRequest> findByStudentId(Long studentId, Pageable pageable);
 
     List<StudentRequest> findByAssignedToIdOrderByCreatedAtDesc(Long assignedToId);
 

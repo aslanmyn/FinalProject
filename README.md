@@ -1,81 +1,157 @@
 # KBTU University Portal
 
-Университетский портал с ролями: **Admin**, **Professor**, **Student**. Web-интерфейс (Thymeleaf) и REST API для мобильного приложения.
+A university portal with three roles and one shared domain model:
+- `STUDENT`
+- `PROFESSOR`
+- `ADMIN` (with admin permissions)
 
-## Технологии
+The project includes:
+- Web UI (Thymeleaf + session auth)
+- Mobile API (`/api/v1/**`, JWT + refresh tokens)
 
-- Java 17, Spring Boot 4.0.2
-- Spring Security, JWT для API
-- Spring Data JPA / Hibernate
-- Thymeleaf, Maven
-- H2 (по умолчанию) или PostgreSQL
+## Tech Stack
 
-## Запуск
+- Java 17
+- Spring Boot 4.0.2
+- Spring Security
+- Spring Data JPA + Hibernate
+- Thymeleaf
+- Flyway (PostgreSQL schema migrations)
+- H2 (demo/dev)
+- PostgreSQL (deployment)
+- JWT (JJWT)
+- Apache POI (Excel export)
+- springdoc OpenAPI + Swagger UI
+- Actuator
+- Bucket4j (login rate limiting)
 
-```bash
-.\mvnw.cmd spring-boot:run
-```
+## Architecture
 
-Приложение: **http://localhost:8080**
+- `controller/` - web controllers (Thymeleaf pages)
+- `controller/api/v1/` - mobile API v1 controllers
+- `service/` - business logic and permissions
+- `repository/` - JPA repositories
+- `entity/` - domain entities
+- `web/api/v1/` - API error and pagination model
 
-## Тестовые аккаунты
+Key design rule:
+- `spring.jpa.open-in-view=false` is enabled.
+- Data needed for response rendering is loaded explicitly via `...WithDetails` queries.
 
-| Роль      | Email               | Пароль    |
-|-----------|---------------------|-----------|
-| Admin     | admin@kbtu.kz       | admin123  |
-| Professor | z.professor@kbtu.kz | prof123   |
-| Student   | a_mustafayev@kbtu.kz| student123|
+## Run
 
-## Основные URL
-
-| Раздел        | URL                          |
-|---------------|------------------------------|
-| Вход          | /login                       |
-| Регистрация   | /register                   |
-| Новости       | /news                        |
-| Админ         | /admin/dashboard             |
-| Профессор     | /professor/dashboard        |
-| Студент       | /portal/*                    |
-| H2 Console    | /h2-console                  |
-
-## Роли и возможности
-
-**Student** — профиль, расписание, оценки, посещаемость, финансы, заявки, материалы курсов, чеклист, мобильность, clearance.
-
-**Professor** — секции курсов, журнал, посещаемость, gradebook, объявления, материалы, запросы на изменение оценок.
-
-**Admin** — академическая настройка, экзамены, финансы, holds, заявки, контент, мобильность, clearance, пользователи, аудит. Права: REGISTRAR, FINANCE, SUPPORT, CONTENT, MOBILITY, SUPER.
-
-## Структура проекта
-
-```
-src/main/java/ru/kors/finalproject/
-├── config/           — SecurityConfig, JwtFilter, DataInitializer
-├── entity/           — JPA-сущности (43 шт.)
-├── model/            — PortalSection (модель портала)
-├── repository/       — JPA-репозитории
-├── service/          — бизнес-логика
-├── controller/       — веб-контроллеры
-│   └── api/          — REST API
-│       └── v1/       — API v1 (JWT)
-└── web/api/v1/       — ApiError, ApiPageResponse, обработка ошибок API
-```
-
-## API
-
-REST API v1: `/api/v1/**` — аутентификация по JWT Bearer.
-
-Подробнее: **API_DOCUMENTATION.md**
-
-## Конфигурация
-
-`application.properties`:
-- H2: `jdbc:h2:mem:testdb`
-- JWT: `app.jwt.secret`, `app.jwt.expiration-minutes`
-
-## Сборка
+### Default profile (H2)
 
 ```bash
-.\mvnw.cmd clean package
-java -jar target/finalProject-0.0.1-SNAPSHOT.jar
+./mvnw spring-boot:run
 ```
+
+App URL: `http://localhost:8080`
+
+### PostgreSQL profile
+
+```bash
+$env:APP_PROFILE="postgres"
+$env:DB_URL="jdbc:postgresql://localhost:5432/final_project"
+$env:DB_USER="postgres"
+$env:DB_PASSWORD="12345678"
+./mvnw spring-boot:run
+```
+
+Notes:
+- In `postgres` profile, Flyway is enabled and `ddl-auto=validate`.
+- In `h2` profile, Flyway is disabled and `ddl-auto=create-drop`.
+
+## Demo Accounts
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@kbtu.kz` | `admin123` |
+| Professor | `z.professor@kbtu.kz` | `prof123` |
+| Teacher Assistant | `t.assistant@kbtu.kz` | `ta12345` |
+| Student | `a_mustafayev@kbtu.kz` | `student123` |
+
+## Main Web Routes
+
+- Public:
+  - `/`
+  - `/login`
+  - `/register`
+  - `/news`
+  - `/professors`
+  - `/professors/{id}`
+- Student UI:
+  - `/portal/{slug}`
+  - `/portal/course-registration`
+  - `/portal/add-drop-courses`
+  - `/portal/student-requests/*`
+- Professor UI:
+  - `/professor/dashboard`
+  - `/professor/courses`
+  - `/professor/course/{id}`
+  - `/professor/course/{id}/export-grades`
+- Admin UI:
+  - `/admin/dashboard` and `/admin/*`
+
+## API Roots (What each root means)
+
+Use these roots for mobile integration:
+
+- `/api/v1/auth`
+  - Login, refresh, logout.
+  - No bearer token required for login/refresh/logout payload calls.
+
+- `/api/v1/student`
+  - Student self-service data and actions.
+  - Requires `Authorization: Bearer <accessToken>` with role `STUDENT`.
+
+- `/api/v1/teacher`
+  - Teacher section workflows: attendance, gradebook, materials, announcements, grade changes.
+  - Requires role `PROFESSOR`.
+
+- `/api/v1/admin`
+  - Back-office operations with permission checks.
+  - Requires role `ADMIN` plus specific admin permission.
+
+- `/api/v1/files`
+  - File link/signature API.
+  - `/link` endpoints require bearer token.
+  - `/download/*` endpoints are public but require valid signed query params (`exp`, `sig`).
+
+Security rules:
+- Legacy session APIs are intentionally blocked:
+  - `/api/admin/**`
+  - `/api/professor/**`
+  - `/api/student/**`
+- Every `/api/v1/**` response includes header: `X-API-Version: v1`.
+
+## API Docs
+
+Detailed route list with request/response notes:
+- See `API_DOCUMENTATION.md`
+
+## Storage and Uploads
+
+Config keys:
+- `APP_STORAGE_ROOT` (default `./storage`)
+- `APP_STORAGE_MAX_FILE_MB` (default `20`)
+- `APP_STORAGE_ALLOWED_CONTENT_TYPES`
+- `APP_STORAGE_LINK_TTL_MINUTES` (default `30`)
+- `APP_STORAGE_SIGNING_SECRET`
+
+Multipart limits:
+- `APP_MULTIPART_MAX_FILE_SIZE` (default `25MB`)
+- `APP_MULTIPART_MAX_REQUEST_SIZE` (default `25MB`)
+
+## Build and Test
+
+```bash
+./mvnw clean package
+./mvnw test
+```
+
+## Swagger and Monitoring
+
+- Swagger UI: `/swagger-ui.html`
+- OpenAPI JSON: `/v3/api-docs`
+- Actuator health: `/actuator/health`

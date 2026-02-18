@@ -103,7 +103,7 @@ public class StudentApiController {
         if (student.isEmpty()) return ResponseEntity.status(401).build();
 
         Student s = student.get();
-        var finalGrades = finalGradeRepository.findByStudentIdAndPublishedTrue(s.getId());
+        var finalGrades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(s.getId());
         
         Map<String, Object> response = new HashMap<>();
         response.put("student", s.getName());
@@ -119,9 +119,7 @@ public class StudentApiController {
     public ResponseEntity<?> getJournal(HttpSession session) {
         var student = sessionService.getCurrentStudent(session);
         if (student.isEmpty()) return ResponseEntity.status(401).build();
-        List<Grade> grades = gradeRepository.findByStudentId(student.get().getId()).stream()
-                .filter(Grade::isPublished)
-                .toList();
+        List<Grade> grades = gradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.get().getId());
         return ResponseEntity.ok(grades);
     }
 
@@ -129,7 +127,7 @@ public class StudentApiController {
     public ResponseEntity<?> getAssessmentResults(HttpSession session) {
         var student = sessionService.getCurrentStudent(session);
         if (student.isEmpty()) return ResponseEntity.status(401).build();
-        return ResponseEntity.ok(finalGradeRepository.findByStudentIdAndPublishedTrue(student.get().getId()));
+        return ResponseEntity.ok(finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.get().getId()));
     }
 
     @GetMapping("/schedule")
@@ -171,7 +169,7 @@ public class StudentApiController {
         if (student.isEmpty()) return ResponseEntity.status(401).build();
 
         Student s = student.get();
-        var attendance = attendanceRepository.findByStudentId(s.getId());
+        var attendance = attendanceRepository.findByStudentIdWithDetails(s.getId());
         long present = attendance.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
         long total = attendance.size();
         double percentage = total == 0 ? 0.0 : (present * 100.0 / total);
@@ -224,7 +222,7 @@ public class StudentApiController {
     public ResponseEntity<?> requestMessages(@PathVariable Long id, HttpSession session) {
         var student = sessionService.getCurrentStudent(session);
         if (student.isEmpty()) return ResponseEntity.status(401).build();
-        var req = studentRequestRepository.findById(id);
+        var req = studentRequestRepository.findByIdWithDetails(id);
         if (req.isEmpty() || !req.get().getStudent().getId().equals(student.get().getId())) return ResponseEntity.status(403).build();
         return ResponseEntity.ok(Map.of(
                 "messages", requestService.getMessages(id),
@@ -240,7 +238,7 @@ public class StudentApiController {
         var student = sessionService.getCurrentStudent(session);
         var user = sessionService.getCurrentUser(session);
         if (student.isEmpty() || user.isEmpty()) return ResponseEntity.status(401).build();
-        var req = studentRequestRepository.findById(id);
+        var req = studentRequestRepository.findByIdWithDetails(id);
         if (req.isEmpty() || !req.get().getStudent().getId().equals(student.get().getId())) return ResponseEntity.status(403).build();
         return ResponseEntity.ok(requestService.addMessage(id, user.get(), message));
     }
@@ -258,9 +256,10 @@ public class StudentApiController {
         if (student.isEmpty()) return ResponseEntity.status(401).build();
         var offeringIds = registrationRepository.findActiveByStudentIdWithDetails(student.get().getId()).stream()
                 .map(r -> r.getSubjectOffering().getId()).toList();
-        var exams = examScheduleRepository.findAll().stream()
-                .filter(exam -> offeringIds.contains(exam.getSubjectOffering().getId()))
-                .toList();
+        if (offeringIds.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+        var exams = examScheduleRepository.findBySubjectOfferingIdInWithDetails(offeringIds);
         return ResponseEntity.ok(exams);
     }
 

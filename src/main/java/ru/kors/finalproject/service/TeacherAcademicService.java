@@ -3,6 +3,7 @@ package ru.kors.finalproject.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 
@@ -27,6 +28,7 @@ public class TeacherAcademicService {
     private final WindowPolicyService windowPolicyService;
     private final NotificationService notificationService;
     private final AuditService auditService;
+    private final FileStorageService fileStorageService;
 
     public List<SubjectOffering> getMySections(Teacher teacher) {
         return subjectOfferingRepository.findByTeacherIdWithDetails(teacher.getId());
@@ -348,17 +350,49 @@ public class TeacherAcademicService {
             String contentType,
             long sizeBytes) {
         SubjectOffering offering = getTeacherOffering(teacher, offeringId);
-        Student student = studentRepository.findById(studentId)
-                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
-        boolean inRoster = registrationRepository.findByStudentIdAndSubjectOfferingId(studentId, offeringId)
-                .filter(r -> r.getStatus() == Registration.RegistrationStatus.CONFIRMED
-                        || r.getStatus() == Registration.RegistrationStatus.SUBMITTED)
-                .isPresent();
-        if (!inRoster) {
-            throw new IllegalArgumentException("Student is not enrolled in this section");
-        }
+        Student student = getRosterStudent(studentId, offeringId);
 
         User uploadedBy = userRepository.findByEmail(teacher.getEmail()).orElse(null);
+        return persistStudentFileUpload(
+                offering,
+                student,
+                uploadedBy,
+                originalName,
+                storagePath,
+                contentType,
+                sizeBytes
+        );
+    }
+
+    @Transactional
+    public FileAsset uploadStudentFile(
+            Teacher teacher,
+            Long offeringId,
+            Long studentId,
+            MultipartFile file) {
+        SubjectOffering offering = getTeacherOffering(teacher, offeringId);
+        Student student = getRosterStudent(studentId, offeringId);
+        User uploadedBy = userRepository.findByEmail(teacher.getEmail()).orElse(null);
+        FileStorageService.StoredFile stored = fileStorageService.store(file, "student-files/student-" + studentId);
+        return persistStudentFileUpload(
+                offering,
+                student,
+                uploadedBy,
+                stored.originalName(),
+                stored.storagePath(),
+                stored.contentType(),
+                stored.sizeBytes()
+        );
+    }
+
+    private FileAsset persistStudentFileUpload(
+            SubjectOffering offering,
+            Student student,
+            User uploadedBy,
+            String originalName,
+            String storagePath,
+            String contentType,
+            long sizeBytes) {
         FileAsset fileAsset = FileAsset.builder()
                 .originalName(originalName)
                 .storagePath(storagePath)
@@ -385,9 +419,22 @@ public class TeacherAcademicService {
                 "TEACHER_STUDENT_FILE_UPLOADED",
                 "FileAsset",
                 saved.getId(),
-                "offeringId=" + offeringId + ", studentId=" + studentId + ", path=" + storagePath
+                "offeringId=" + offering.getId() + ", studentId=" + student.getId() + ", path=" + storagePath
         );
         return saved;
+    }
+
+    private Student getRosterStudent(Long studentId, Long offeringId) {
+        Student student = studentRepository.findById(studentId)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
+        boolean inRoster = registrationRepository.findByStudentIdAndSubjectOfferingId(studentId, offeringId)
+                .filter(r -> r.getStatus() == Registration.RegistrationStatus.CONFIRMED
+                        || r.getStatus() == Registration.RegistrationStatus.SUBMITTED)
+                .isPresent();
+        if (!inRoster) {
+            throw new IllegalArgumentException("Student is not enrolled in this section");
+        }
+        return student;
     }
 
     private SubjectOffering getTeacherOffering(Teacher teacher, Long offeringId) {

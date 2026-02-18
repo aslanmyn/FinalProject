@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import ru.kors.finalproject.entity.CourseMaterial;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CourseMaterialRepository extends JpaRepository<CourseMaterial, Long> {
 
@@ -16,4 +17,11 @@ public interface CourseMaterialRepository extends JpaRepository<CourseMaterial, 
     List<CourseMaterial> findBySubjectOfferingIdAndPublishedTrueOrderByCreatedAtDesc(Long subjectOfferingId);
 
     List<CourseMaterial> findByUploadedByIdOrderByCreatedAtDesc(Long teacherId);
+
+    @Query("SELECT m FROM CourseMaterial m " +
+           "LEFT JOIN FETCH m.subjectOffering so " +
+           "LEFT JOIN FETCH so.teacher " +
+           "LEFT JOIN FETCH m.uploadedBy " +
+           "WHERE m.id = :id")
+    Optional<CourseMaterial> findByIdWithDetails(Long id);
 }

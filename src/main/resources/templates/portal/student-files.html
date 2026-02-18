@@ -24,15 +24,19 @@
         <h2>File Assets</h2>
         <section class="card">
             <table class="data-table">
-                <thead><tr><th>Name</th><th>Category</th><th>Path</th><th>Uploaded At</th></tr></thead>
+                <thead><tr><th>Name</th><th>Category</th><th>Type</th><th>Size</th><th>Uploaded At</th><th>Action</th></tr></thead>
                 <tbody>
                 <tr th:each="f : ${files}">
                     <td th:text="${f.originalName}"></td>
                     <td th:text="${f.category}"></td>
-                    <td th:text="${f.storagePath}"></td>
+                    <td th:text="${f.contentType}"></td>
+                    <td th:text="${f.sizeBytes} + ' bytes'"></td>
                     <td th:text="${#temporals.format(f.uploadedAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td>
+                        <a class="btn-small" th:href="${fileDownloadLinks[f.id]}">Download</a>
+                    </td>
                 </tr>
-                <tr th:if="${#lists.isEmpty(files)}"><td colspan="4">No files uploaded.</td></tr>
+                <tr th:if="${#lists.isEmpty(files)}"><td colspan="6">No files uploaded.</td></tr>
                 </tbody>
             </table>
         </section>

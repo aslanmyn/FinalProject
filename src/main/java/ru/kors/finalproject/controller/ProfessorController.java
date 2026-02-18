@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import ru.kors.finalproject.entity.TeacherStudentNote;
 import ru.kors.finalproject.repository.*;
@@ -28,7 +29,6 @@ import java.time.ZoneId;
 public class ProfessorController {
 
     private final SessionService sessionService;
-    private final TeacherRepository teacherRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final StudentRequestRepository studentRequestRepository;
     private final AttendanceRepository attendanceRepository;
@@ -395,10 +395,7 @@ public class ProfessorController {
             @RequestParam Long offeringId,
             @RequestParam String title,
             @RequestParam(required = false) String description,
-            @RequestParam String originalFileName,
-            @RequestParam String storagePath,
-            @RequestParam(defaultValue = "application/octet-stream") String contentType,
-            @RequestParam(defaultValue = "0") long sizeBytes,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "ENROLLED_ONLY") CourseMaterial.MaterialVisibility visibility,
             HttpSession session,
             RedirectAttributes redirectAttributes) {
@@ -411,7 +408,7 @@ public class ProfessorController {
         }
         try {
             courseMaterialService.upload(teacher.get(), offeringId, title, description,
-                    originalFileName, storagePath, contentType, sizeBytes, visibility);
+                    file, visibility);
             redirectAttributes.addFlashAttribute("materialSuccess", true);
             redirectAttributes.addFlashAttribute("materialMessage", "Material uploaded.");
         } catch (Exception e) {
@@ -474,10 +471,7 @@ public class ProfessorController {
     public String uploadStudentFile(
             @RequestParam Long offeringId,
             @RequestParam Long studentId,
-            @RequestParam String originalName,
-            @RequestParam String storagePath,
-            @RequestParam(defaultValue = "application/octet-stream") String contentType,
-            @RequestParam(defaultValue = "0") long sizeBytes,
+            @RequestParam("file") MultipartFile file,
             HttpSession session,
             RedirectAttributes redirectAttributes) {
         if (!sessionService.isTeacher(session)) {
@@ -493,10 +487,7 @@ public class ProfessorController {
                     teacher.get(),
                     offeringId,
                     studentId,
-                    originalName,
-                    storagePath,
-                    contentType,
-                    sizeBytes
+                    file
             );
             redirectAttributes.addFlashAttribute("fileUploadSuccess", true);
             redirectAttributes.addFlashAttribute("fileUploadMessage", "File added to student files.");
@@ -510,19 +501,34 @@ public class ProfessorController {
 
     @GetMapping("/course/{id}/export-grades")
     public void exportGrades(@PathVariable Long id, HttpServletResponse response, HttpSession session) throws IOException {
-        // Get teacher from session
-        String email = (String) session.getAttribute("userEmail");
-        if (email == null) { response.sendRedirect("/login"); return; }
-        var teacher = teacherRepository.findByEmail(email).orElse(null);
-        if (teacher == null) { response.sendRedirect("/login"); return; }
+        if (!sessionService.isTeacher(session)) {
+            response.sendRedirect("/login");
+            return;
+        }
 
-        // Get grades
+        var teacher = sessionService.getCurrentTeacher(session);
+        if (teacher.isEmpty()) {
+            response.sendRedirect("/login");
+            return;
+        }
+
+        var offeringOptional = subjectOfferingRepository.findByIdWithDetails(id);
+        if (offeringOptional.isEmpty()) {
+            response.sendRedirect("/professor/courses");
+            return;
+        }
+        var offering = offeringOptional.get();
+
+        if (offering.getTeacher() == null || !offering.getTeacher().getId().equals(teacher.get().getId())) {
+            response.sendRedirect("/professor/courses");
+            return;
+        }
+
         var grades = teacherAcademicService.getGradesForSection(id);
-        var offering = subjectOfferingRepository.findById(id).orElse(null);
-        if (offering == null) { response.sendRedirect("/professor/courses"); return; }
+        String subjectCode = offering.getSubject() != null ? offering.getSubject().getCode() : "section_" + id;
 
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.setHeader("Content-Disposition", "attachment; filename=grades_" + offering.getSubject().getCode() + ".xlsx");
+        response.setHeader("Content-Disposition", "attachment; filename=grades_" + subjectCode + ".xlsx");
 
         try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
             var sheet = workbook.createSheet("Grades");
