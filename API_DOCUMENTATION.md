@@ -1,174 +1,327 @@
-# API Documentation — KBTU Portal
+# API Documentation - KBTU Portal (v1)
 
-REST API для мобильного приложения. Базовый URL: `http://localhost:8080`
+Base URL: `http://localhost:8080`
 
-## Аутентификация
+This document describes the mobile API under `/api/v1/**`.
 
-### JWT (рекомендуется для API v1)
+## 1. API Roots
 
-1. Получить токен:
-```http
-POST /api/v1/auth/login
-Content-Type: application/json
+- `/api/v1/auth` - authentication and token lifecycle
+- `/api/v1/student` - student cabinet API
+- `/api/v1/teacher` - teacher cabinet API
+- `/api/v1/admin` - admin back-office API
+- `/api/v1/files` - secure/signed file download API
 
-{"email": "a_mustafayev@kbtu.kz", "password": "student123"}
-```
+Legacy session APIs are blocked by security policy:
+- `/api/admin/**`
+- `/api/professor/**`
+- `/api/student/**`
 
-2. Использовать в заголовке:
-```http
-Authorization: Bearer <token>
-```
+## 2. Authentication
 
-### Сессия (legacy /api/student, /api/professor, /api/admin)
+### 2.1 Login
 
-Логин через `/do-login`, затем передавать cookie `JSESSIONID`.
+`POST /api/v1/auth/login`
 
----
-
-## API v1 (JWT) — Student
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | /api/v1/student/profile | Профиль студента |
-| GET | /api/v1/student/schedule | Расписание |
-| GET | /api/v1/student/journal | Журнал оценок |
-| GET | /api/v1/student/transcript | Транскрипт, GPA |
-| GET | /api/v1/student/attendance | Посещаемость |
-| GET | /api/v1/student/financial | Финансы, баланс |
-| GET | /api/v1/student/holds | Активные holds |
-| GET | /api/v1/student/exam-schedule | Расписание экзаменов |
-| GET | /api/v1/student/news | Новости |
-| GET | /api/v1/student/announcements | Объявления (пагинация) |
-| GET | /api/v1/student/notifications | Уведомления |
-| GET | /api/v1/student/materials/{sectionId} | Материалы курса |
-| GET | /api/v1/student/checklist | Чеклист |
-| GET | /api/v1/student/mobility | Заявки на мобильность |
-| GET | /api/v1/student/clearance | Clearance |
-| GET | /api/v1/student/enrollments | Записи на курсы |
-| GET | /api/v1/student/course-registration/available | Доступные курсы |
-| POST | /api/v1/student/course-registration/submit | Отправить регистрацию |
-| POST | /api/v1/student/add-drop/add | Добавить курс |
-| POST | /api/v1/student/add-drop/drop | Отказаться от курса |
-| GET | /api/v1/student/requests | Заявки (пагинация) |
-| POST | /api/v1/student/requests | Создать заявку |
-| GET | /api/v1/student/requests/{id}/messages | Сообщения заявки |
-| POST | /api/v1/student/requests/{id}/messages | Добавить сообщение |
-| POST | /api/v1/student/notifications/{id}/read | Отметить прочитанным |
-
----
-
-## API v1 (JWT) — Teacher
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | /api/v1/teacher/profile | Профиль преподавателя |
-| GET | /api/v1/teacher/sections | Секции курсов |
-| GET | /api/v1/teacher/sections/{id}/roster | Список студентов |
-| POST | /api/v1/teacher/sections/{id}/attendance | Отметить посещаемость |
-| GET | /api/v1/teacher/sections/{id}/components | Компоненты оценки |
-| POST | /api/v1/teacher/sections/{id}/components | Создать компонент |
-| POST | /api/v1/teacher/sections/{id}/components/{cid}/publish | Опубликовать/скрыть |
-| POST | /api/v1/teacher/sections/{id}/components/{cid}/lock | Заблокировать |
-| POST | /api/v1/teacher/sections/{id}/grades | Сохранить оценку |
-| POST | /api/v1/teacher/sections/{id}/final-grades | Сохранить итоговую оценку |
-| POST | /api/v1/teacher/sections/{id}/final-grades/{sid}/publish | Опубликовать итог |
-| GET | /api/v1/teacher/sections/{id}/announcements | Объявления |
-| POST | /api/v1/teacher/sections/{id}/announcements | Создать объявление |
-| GET | /api/v1/teacher/sections/{id}/materials | Материалы |
-| POST | /api/v1/teacher/sections/{id}/materials | Загрузить материал |
-| POST | /api/v1/teacher/materials/{id}/visibility | Изменить видимость |
-| DELETE | /api/v1/teacher/materials/{id} | Удалить материал |
-| GET | /api/v1/teacher/sections/{id}/student-notes | Заметки по студентам |
-| POST | /api/v1/teacher/sections/{id}/student-notes | Добавить заметку |
-| GET | /api/v1/teacher/grade-change-requests | Запросы на изменение оценок |
-| POST | /api/v1/teacher/sections/{id}/grade-change-requests | Создать запрос |
-
----
-
-## API v1 (JWT) — Admin
-
-Требуются права: REGISTRAR, FINANCE, SUPPORT, CONTENT, MOBILITY, SUPER.
-
-| Метод | Путь | Право | Описание |
-|-------|------|-------|----------|
-| GET | /api/v1/admin/users | SUPER | Пользователи (пагинация) |
-| POST | /api/v1/admin/users/{id}/permissions | SUPER | Права админа |
-| GET | /api/v1/admin/terms | REGISTRAR | Семестры |
-| POST | /api/v1/admin/terms | REGISTRAR | Создать семестр |
-| GET | /api/v1/admin/sections | REGISTRAR | Секции |
-| POST | /api/v1/admin/sections | REGISTRAR | Создать секцию |
-| POST | /api/v1/admin/sections/{id}/assign-professor | REGISTRAR | Назначить преподавателя |
-| POST | /api/v1/admin/sections/{id}/meeting-times | REGISTRAR | Добавить время занятий |
-| POST | /api/v1/admin/windows | REGISTRAR | Окна регистрации |
-| POST | /api/v1/admin/enrollments/override | REGISTRAR | Переопределить запись |
-| GET | /api/v1/admin/exams | REGISTRAR | Экзамены |
-| POST | /api/v1/admin/exams | REGISTRAR | Создать экзамен |
-| PUT | /api/v1/admin/exams/{id} | REGISTRAR | Обновить экзамен |
-| DELETE | /api/v1/admin/exams/{id} | REGISTRAR | Удалить экзамен |
-| GET | /api/v1/admin/holds | FINANCE | Holds |
-| POST | /api/v1/admin/holds | FINANCE | Создать hold |
-| POST | /api/v1/admin/holds/{id}/remove | FINANCE | Снять hold |
-| POST | /api/v1/admin/finance/invoices | FINANCE | Создать счёт |
-| POST | /api/v1/admin/finance/payments | FINANCE | Зарегистрировать платёж |
-| GET | /api/v1/admin/mobility | MOBILITY | Заявки на мобильность |
-| POST | /api/v1/admin/mobility/{id}/status | MOBILITY | Изменить статус |
-| GET | /api/v1/admin/clearance | MOBILITY | Clearance |
-| POST | /api/v1/admin/clearance/checkpoints/{id}/review | MOBILITY | Проверить checkpoint |
-| GET | /api/v1/admin/surveys | CONTENT | Опросы |
-| POST | /api/v1/admin/surveys | CONTENT | Создать опрос |
-| POST | /api/v1/admin/surveys/{id}/close | CONTENT | Закрыть опрос |
-| GET | /api/v1/admin/surveys/{id}/responses | CONTENT | Ответы опроса |
-| GET | /api/v1/admin/requests | SUPPORT | Заявки |
-| POST | /api/v1/admin/requests/{id}/assign | SUPPORT | Назначить |
-| POST | /api/v1/admin/requests/{id}/status | SUPPORT | Обновить статус |
-| GET | /api/v1/admin/grade-change-requests | REGISTRAR | Запросы на изменение оценок |
-| POST | /api/v1/admin/grade-change-requests/{id}/review | REGISTRAR | Одобрить/отклонить |
-| POST | /api/v1/admin/news | CONTENT | Создать новость |
-| GET | /api/v1/admin/checklist-templates | REGISTRAR | Шаблоны чеклиста |
-| POST | /api/v1/admin/checklist-templates | REGISTRAR | Создать шаблон |
-| POST | /api/v1/admin/checklist/generate | REGISTRAR | Сгенерировать чеклисты |
-| GET | /api/v1/admin/audit | SUPER | Аудит-логи |
-| GET | /api/v1/admin/stats | ADMIN | Статистика |
-
----
-
-## Формат ответов
-
-### Успех (200)
-JSON с данными.
-
-### Пагинация
+Request:
 ```json
 {
-  "content": [...],
-  "totalElements": 100,
-  "totalPages": 5,
-  "number": 0,
-  "size": 20
+  "email": "a_mustafayev@kbtu.kz",
+  "password": "student123"
 }
 ```
 
-### Ошибка (ApiError)
+Response:
+```json
+{
+  "tokenType": "Bearer",
+  "accessToken": "...",
+  "accessTokenExpiresInSeconds": 43200,
+  "refreshToken": "...",
+  "refreshTokenExpiresInDays": 30,
+  "role": "STUDENT",
+  "permissions": []
+}
+```
+
+### 2.2 Refresh
+
+`POST /api/v1/auth/refresh`
+
+Request:
+```json
+{
+  "refreshToken": "..."
+}
+```
+
+Returns a rotated refresh token and new access token.
+
+### 2.3 Logout
+
+`POST /api/v1/auth/logout`
+
+Request:
+```json
+{
+  "refreshToken": "..."
+}
+```
+
+Revokes the refresh token.
+
+### 2.4 Authorization Header
+
+For protected routes:
+
+`Authorization: Bearer <accessToken>`
+
+## 3. Common API Behavior
+
+### 3.1 Version Header
+
+All `/api/v1/**` responses include:
+
+`X-API-Version: v1`
+
+### 3.2 Pagination
+
+Paginated endpoints return:
+
+```json
+{
+  "items": [],
+  "page": 0,
+  "size": 20,
+  "totalItems": 0,
+  "totalPages": 0
+}
+```
+
+Common query params:
+- `page` (default `0`)
+- `size` (default `20`)
+- `sort` (optional)
+- `direction` (`asc` or `desc`, default `desc`)
+
+### 3.3 Error Format
+
 ```json
 {
   "code": "BAD_REQUEST",
-  "message": "Student not found",
-  "details": {}
+  "message": "...",
+  "details": {},
+  "timestamp": "2026-02-18T...Z"
 }
 ```
 
-Коды: `UNAUTHORIZED`, `FORBIDDEN`, `BAD_REQUEST`, `STATE_CONFLICT`, `INTERNAL_ERROR`.
+Possible `code` values:
+- `VALIDATION_ERROR`
+- `UNAUTHORIZED`
+- `FORBIDDEN`
+- `BAD_REQUEST`
+- `STATE_CONFLICT`
+- `INTERNAL_ERROR`
 
----
+## 4. Student API (`/api/v1/student`)
 
-## Коды HTTP
+Auth: `STUDENT`
 
-| Код | Описание |
-|-----|----------|
-| 200 | Успех |
-| 400 | Неверные параметры |
-| 401 | Не авторизован |
-| 403 | Нет прав |
-| 404 | Не найдено |
-| 409 | Конфликт состояния |
-| 500 | Ошибка сервера |
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/student/profile` | Student profile |
+| GET | `/api/v1/student/schedule` | Personal schedule |
+| GET | `/api/v1/student/journal` | Published component grades |
+| GET | `/api/v1/student/transcript` | Published final grades + GPA summary |
+| GET | `/api/v1/student/attendance` | Attendance records + summary |
+| GET | `/api/v1/student/financial` | Charges, payments, balance, financial hold |
+| GET | `/api/v1/student/holds` | Active holds |
+| GET | `/api/v1/student/exam-schedule` | Exam schedule for current enrollments |
+| GET | `/api/v1/student/news` | News feed |
+| GET | `/api/v1/student/announcements` | Course announcements (paginated) |
+| GET | `/api/v1/student/notifications` | Notifications + unread count |
+| POST | `/api/v1/student/notifications/{id}/read` | Mark notification as read |
+| GET | `/api/v1/student/materials/{sectionId}` | Published materials for enrolled section |
+| GET | `/api/v1/student/files` | Student files with signed download URL |
+| GET | `/api/v1/student/checklist` | Checklist items |
+| GET | `/api/v1/student/mobility` | Mobility applications |
+| GET | `/api/v1/student/clearance` | Clearance sheet |
+| GET | `/api/v1/student/enrollments` | Enrollment list |
+| GET | `/api/v1/student/course-registration/available` | Sections available for add/register |
+| POST | `/api/v1/student/course-registration/submit` | Register for section |
+| POST | `/api/v1/student/add-drop/add` | Add section |
+| POST | `/api/v1/student/add-drop/drop` | Drop section |
+| GET | `/api/v1/student/requests` | Student requests (paginated) |
+| POST | `/api/v1/student/requests` | Create request |
+| GET | `/api/v1/student/requests/{id}/messages` | Request thread |
+| POST | `/api/v1/student/requests/{id}/messages` | Add request message |
+
+Request body snippets:
+- `POST /course-registration/submit`, `/add-drop/add`, `/add-drop/drop`
+```json
+{ "sectionId": 1 }
+```
+- `POST /requests`
+```json
+{ "category": "FINANCE", "description": "Need invoice copy" }
+```
+- `POST /requests/{id}/messages`
+```json
+{ "message": "Please update status" }
+```
+
+## 5. Teacher API (`/api/v1/teacher`)
+
+Auth: `PROFESSOR`
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/teacher/profile` | Teacher profile |
+| GET | `/api/v1/teacher/sections` | Teacher sections |
+| GET | `/api/v1/teacher/sections/{sectionId}/roster` | Section roster |
+| POST | `/api/v1/teacher/sections/{sectionId}/attendance` | Mark attendance |
+| GET | `/api/v1/teacher/sections/{sectionId}/components` | Assessment components |
+| POST | `/api/v1/teacher/sections/{sectionId}/components` | Create assessment component |
+| POST | `/api/v1/teacher/sections/{sectionId}/components/{componentId}/publish?published=true` | Publish/unpublish component |
+| POST | `/api/v1/teacher/sections/{sectionId}/components/{componentId}/lock?locked=true` | Lock/unlock component |
+| POST | `/api/v1/teacher/sections/{sectionId}/grades` | Save student grade |
+| POST | `/api/v1/teacher/sections/{sectionId}/final-grades` | Save final grade |
+| POST | `/api/v1/teacher/sections/{sectionId}/final-grades/{studentId}/publish` | Publish final grade |
+| GET | `/api/v1/teacher/sections/{sectionId}/announcements` | Section announcements |
+| POST | `/api/v1/teacher/sections/{sectionId}/announcements` | Create announcement |
+| GET | `/api/v1/teacher/sections/{sectionId}/materials` | List materials |
+| POST | `/api/v1/teacher/sections/{sectionId}/materials` | Upload material (multipart) |
+| POST | `/api/v1/teacher/materials/{materialId}/visibility?published=true` | Publish/hide material |
+| DELETE | `/api/v1/teacher/materials/{materialId}` | Delete material |
+| GET | `/api/v1/teacher/sections/{sectionId}/student-notes` | Internal student notes |
+| POST | `/api/v1/teacher/sections/{sectionId}/student-notes` | Upsert student note |
+| GET | `/api/v1/teacher/grade-change-requests` | Teacher grade change requests |
+| POST | `/api/v1/teacher/sections/{sectionId}/grade-change-requests` | Create grade change request |
+| POST | `/api/v1/teacher/sections/{sectionId}/student-files` | Upload file to student files (multipart) |
+
+Multipart routes:
+
+### Upload course material
+`POST /api/v1/teacher/sections/{sectionId}/materials`
+- `Content-Type: multipart/form-data`
+- Fields:
+  - `title` (string)
+  - `description` (string, optional)
+  - `visibility` (`PUBLIC` or `ENROLLED_ONLY`)
+  - `file` (binary)
+
+### Upload student file
+`POST /api/v1/teacher/sections/{sectionId}/student-files`
+- `Content-Type: multipart/form-data`
+- Fields:
+  - `studentId` (number)
+  - `file` (binary)
+
+## 6. Admin API (`/api/v1/admin`)
+
+Auth: `ADMIN`
+
+Permission model:
+- `SUPER`
+- `REGISTRAR`
+- `FINANCE`
+- `SUPPORT`
+- `CONTENT`
+- `MOBILITY`
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| GET | `/api/v1/admin/users` | `SUPER` | List users (paginated) |
+| POST | `/api/v1/admin/users/{id}/permissions` | `SUPER` | Set admin permissions |
+| POST | `/api/v1/admin/terms` | `REGISTRAR` | Create academic term |
+| GET | `/api/v1/admin/terms` | `REGISTRAR` | List terms |
+| POST | `/api/v1/admin/sections` | `REGISTRAR` | Create section |
+| GET | `/api/v1/admin/sections` | `REGISTRAR` | List sections (`semesterId` optional) |
+| POST | `/api/v1/admin/sections/{id}/assign-professor` | `REGISTRAR` | Assign professor |
+| POST | `/api/v1/admin/sections/{id}/meeting-times` | `REGISTRAR` | Add meeting time |
+| POST | `/api/v1/admin/windows` | `REGISTRAR` | Upsert registration window |
+| POST | `/api/v1/admin/enrollments/override` | `REGISTRAR` | Enrollment override |
+| GET | `/api/v1/admin/exams` | `REGISTRAR` | List exams (`semesterId` optional) |
+| POST | `/api/v1/admin/exams` | `REGISTRAR` | Create exam session |
+| PUT | `/api/v1/admin/exams/{id}` | `REGISTRAR` | Update exam session |
+| DELETE | `/api/v1/admin/exams/{id}` | `REGISTRAR` | Delete exam session |
+| GET | `/api/v1/admin/holds` | `FINANCE` | List active holds |
+| POST | `/api/v1/admin/holds` | `FINANCE` | Create hold |
+| POST | `/api/v1/admin/holds/{id}/remove` | `FINANCE` | Remove hold |
+| POST | `/api/v1/admin/finance/invoices` | `FINANCE` | Create invoice |
+| POST | `/api/v1/admin/finance/payments` | `FINANCE` | Register payment |
+| GET | `/api/v1/admin/mobility` | `MOBILITY` | List mobility applications |
+| POST | `/api/v1/admin/mobility/{id}/status` | `MOBILITY` | Update mobility status |
+| GET | `/api/v1/admin/clearance` | `MOBILITY` | List clearance sheets |
+| POST | `/api/v1/admin/clearance/checkpoints/{id}/review` | `MOBILITY` | Review clearance checkpoint |
+| GET | `/api/v1/admin/surveys` | `CONTENT` | List surveys |
+| POST | `/api/v1/admin/surveys` | `CONTENT` | Create survey |
+| POST | `/api/v1/admin/surveys/{id}/close` | `CONTENT` | Close survey |
+| GET | `/api/v1/admin/surveys/{id}/responses` | `CONTENT` | Export survey responses |
+| GET | `/api/v1/admin/requests` | `SUPPORT` | List requests (paginated) |
+| POST | `/api/v1/admin/requests/{id}/assign` | `SUPPORT` | Assign request |
+| POST | `/api/v1/admin/requests/{id}/status` | `SUPPORT` | Update request status |
+| GET | `/api/v1/admin/grade-change-requests` | `REGISTRAR` | List pending grade changes (paginated) |
+| POST | `/api/v1/admin/grade-change-requests/{id}/review` | `REGISTRAR` | Review grade change request |
+| POST | `/api/v1/admin/news` | `CONTENT` | Create news |
+| GET | `/api/v1/admin/checklist-templates` | `REGISTRAR` | List checklist templates |
+| POST | `/api/v1/admin/checklist-templates` | `REGISTRAR` | Create checklist template |
+| POST | `/api/v1/admin/checklist/generate` | `REGISTRAR` | Generate checklist items |
+| GET | `/api/v1/admin/audit` | `SUPER` | Audit log (paginated) |
+| GET | `/api/v1/admin/stats` | `ADMIN role` | High-level statistics |
+
+## 7. Files API (`/api/v1/files`)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/v1/files/asset/{id}/link` | Bearer | Get signed download URL for file asset |
+| GET | `/api/v1/files/material/{id}/link` | Bearer | Get signed download URL for material |
+| GET | `/api/v1/files/download/asset/{id}?exp=...&sig=...` | No bearer | Download by signed link |
+| GET | `/api/v1/files/download/material/{id}?exp=...&sig=...` | No bearer | Download by signed link |
+
+Signed URLs are time-limited and validated by `exp` + `sig`.
+
+## 8. Quick cURL Examples
+
+### Login
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"a_mustafayev@kbtu.kz","password":"student123"}'
+```
+
+### Student profile
+
+```bash
+curl http://localhost:8080/api/v1/student/profile \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+### Teacher uploads material
+
+```bash
+curl -X POST "http://localhost:8080/api/v1/teacher/sections/1/materials" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -F "title=Week 1 slides" \
+  -F "description=Intro" \
+  -F "visibility=ENROLLED_ONLY" \
+  -F "file=@./week1.pdf"
+```
+
+### Admin creates invoice
+
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/finance/invoices \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"studentId":1,"amount":150000,"description":"Tuition","dueDate":"2026-03-01"}'
+```
+
+## 9. Notes for Mobile Team
+
+- Use only `/api/v1/**`.
+- Do not integrate legacy `/api/*` session routes.
+- Expect `X-API-Version: v1` in responses.
+- Handle `401`, `403`, and `409` as functional states.
+- Refresh access tokens via `/api/v1/auth/refresh` before expiration.

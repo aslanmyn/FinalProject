@@ -1,8 +1,10 @@
 package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.*;
@@ -24,7 +26,7 @@ public class TeacherV1Controller {
     private final AnnouncementService announcementService;
     private final GradeChangeService gradeChangeService;
     private final CourseMaterialService courseMaterialService;
-    private final RequestService requestService;
+    private final FileLinkService fileLinkService;
 
     @GetMapping("/profile")
     public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
@@ -193,24 +195,27 @@ public class TeacherV1Controller {
         Teacher teacher = getTeacher(user);
         return ResponseEntity.ok(courseMaterialService.listForSection(teacher, sectionId).stream().map(m -> new MaterialDto(
                 m.getId(), m.getTitle(), m.getDescription(), m.getOriginalFileName(),
-                m.getContentType(), m.getSizeBytes(), m.getVisibility(), m.isPublished(), m.getCreatedAt()
+                m.getContentType(), m.getSizeBytes(), m.getVisibility(), m.isPublished(), m.getCreatedAt(),
+                fileLinkService.createMaterialDownloadUrl(m.getId())
         )).toList());
     }
 
-    @PostMapping("/sections/{sectionId}/materials")
+    @PostMapping(value = "/sections/{sectionId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadMaterial(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long sectionId,
-            @RequestBody UploadMaterialBody body) {
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(defaultValue = "ENROLLED_ONLY") CourseMaterial.MaterialVisibility visibility) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
         CourseMaterial saved = courseMaterialService.upload(
-                teacher, sectionId, body.title(), body.description(),
-                body.originalFileName(), body.storagePath(), body.contentType(),
-                body.sizeBytes(), body.visibility());
+                teacher, sectionId, title, description, file, visibility);
         return ResponseEntity.ok(new MaterialDto(saved.getId(), saved.getTitle(), saved.getDescription(),
                 saved.getOriginalFileName(), saved.getContentType(), saved.getSizeBytes(),
-                saved.getVisibility(), saved.isPublished(), saved.getCreatedAt()));
+                saved.getVisibility(), saved.isPublished(), saved.getCreatedAt(),
+                fileLinkService.createMaterialDownloadUrl(saved.getId())));
     }
 
     @PostMapping("/materials/{materialId}/visibility")
@@ -223,7 +228,8 @@ public class TeacherV1Controller {
         CourseMaterial updated = courseMaterialService.updateVisibility(teacher, materialId, published);
         return ResponseEntity.ok(new MaterialDto(updated.getId(), updated.getTitle(), updated.getDescription(),
                 updated.getOriginalFileName(), updated.getContentType(), updated.getSizeBytes(),
-                updated.getVisibility(), updated.isPublished(), updated.getCreatedAt()));
+                updated.getVisibility(), updated.isPublished(), updated.getCreatedAt(),
+                fileLinkService.createMaterialDownloadUrl(updated.getId())));
     }
 
     @DeleteMapping("/materials/{materialId}")
@@ -272,6 +278,26 @@ public class TeacherV1Controller {
                 teacher, sectionId, body.gradeId(), body.newValue(), body.reason()));
     }
 
+    @PostMapping(value = "/sections/{sectionId}/student-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadStudentFile(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long sectionId,
+            @RequestParam Long studentId,
+            @RequestParam("file") MultipartFile file) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        Teacher teacher = getTeacher(user);
+        FileAsset saved = teacherAcademicService.uploadStudentFile(teacher, sectionId, studentId, file);
+        return ResponseEntity.ok(new StudentFileDto(
+                saved.getId(),
+                saved.getLinkedEntityId(),
+                saved.getOriginalName(),
+                saved.getContentType(),
+                saved.getSizeBytes(),
+                saved.getUploadedAt(),
+                fileLinkService.createAssetDownloadUrl(saved.getId())
+        ));
+    }
+
     private Teacher getTeacher(User user) {
         return teacherRepository.findByEmail(user.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Teacher profile not found"));
@@ -282,11 +308,11 @@ public class TeacherV1Controller {
     public record SaveGradeBody(Long studentId, Long componentId, double gradeValue, double maxGradeValue, String comment) {}
     public record SaveFinalGradeBody(Long studentId, double numericValue, String letterValue, double points) {}
     public record CreateAnnouncementBody(String title, String content, boolean publicVisible, boolean pinned, String scheduledAt) {}
-    public record UploadMaterialBody(String title, String description, String originalFileName, String storagePath,
-                                      String contentType, long sizeBytes, CourseMaterial.MaterialVisibility visibility) {}
     public record MaterialDto(Long id, String title, String description, String originalFileName,
                                String contentType, long sizeBytes, CourseMaterial.MaterialVisibility visibility,
-                               boolean published, Instant createdAt) {}
+                               boolean published, Instant createdAt, String downloadUrl) {}
+    public record StudentFileDto(Long id, Long studentId, String fileName, String contentType, long sizeBytes,
+                                 Instant uploadedAt, String downloadUrl) {}
     public record NoteBody(Long studentId, String note, TeacherStudentNote.RiskFlag riskFlag) {}
     public record GradeChangeBody(Long gradeId, double newValue, String reason) {}
 }

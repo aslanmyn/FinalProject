@@ -98,7 +98,7 @@ public class AnnouncementService {
         if (offeringIds.isEmpty()) {
             return List.of();
         }
-        return announcementRepository.findBySubjectOfferingIdInAndPublishedTrueOrderByPinnedDescPublishedAtDesc(offeringIds);
+        return announcementRepository.findPublishedForOfferingIdsWithDetailsOrderByPinnedDescPublishedAtDesc(offeringIds);
     }
 
     public Page<CourseAnnouncement> listForStudent(Student student, Pageable pageable) {
@@ -108,7 +108,7 @@ public class AnnouncementService {
         if (offeringIds.isEmpty()) {
             return Page.empty(pageable);
         }
-        return announcementRepository.findBySubjectOfferingIdInAndPublishedTrueOrderByPinnedDescPublishedAtDesc(offeringIds, pageable);
+        return announcementRepository.findPublishedForOfferingIdsWithDetails(offeringIds, pageable);
     }
 
     private void notifyStudents(CourseAnnouncement announcement) {

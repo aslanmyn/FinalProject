@@ -8,9 +8,11 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.FinancialService;
+import ru.kors.finalproject.service.FileStorageService;
 import ru.kors.finalproject.service.NotificationService;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -56,6 +58,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ExamScheduleRepository examScheduleRepository;
     private final FinancialService financialService;
     private final NotificationService notificationService;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional
@@ -501,11 +504,17 @@ public class DataInitializer implements CommandLineRunner {
                         .build()
         ));
 
+        FileStorageService.StoredFile requestAttachment = fileStorageService.storeBytes(
+                "Demo student request attachment".getBytes(StandardCharsets.UTF_8),
+                "student_id_scan.txt",
+                "text/plain",
+                "seed/request-attachments"
+        );
         fileAssetRepository.save(FileAsset.builder()
-                .originalName("student_id_scan.pdf")
-                .storagePath("/files/student_id_scan.pdf")
-                .contentType("application/pdf")
-                .sizeBytes(120_000)
+                .originalName(requestAttachment.originalName())
+                .storagePath(requestAttachment.storagePath())
+                .contentType(requestAttachment.contentType())
+                .sizeBytes(requestAttachment.sizeBytes())
                 .category(FileAsset.FileCategory.REQUEST_ATTACHMENT)
                 .linkedEntityType("StudentRequest")
                 .linkedEntityId(request.getId())
@@ -554,16 +563,28 @@ public class DataInitializer implements CommandLineRunner {
                         .build()
         ));
 
+        FileStorageService.StoredFile lectureMaterialFile = fileStorageService.storeBytes(
+                "Lecture 1 placeholder content".getBytes(StandardCharsets.UTF_8),
+                "calculus_lecture1.txt",
+                "text/plain",
+                "seed/course-materials"
+        );
+        FileStorageService.StoredFile labMaterialFile = fileStorageService.storeBytes(
+                "Lab 2 placeholder content".getBytes(StandardCharsets.UTF_8),
+                "lab2_starter.txt",
+                "text/plain",
+                "seed/course-materials"
+        );
         courseMaterialRepository.saveAll(List.of(
                 CourseMaterial.builder()
                         .subjectOffering(mathOff)
                         .uploadedBy(teacher)
                         .title("Lecture 1 Slides")
                         .description("Introduction to Calculus - limits and derivatives")
-                        .originalFileName("calculus_lecture1.pdf")
-                        .storagePath("/materials/calculus_lecture1.pdf")
-                        .contentType("application/pdf")
-                        .sizeBytes(2_500_000)
+                        .originalFileName(lectureMaterialFile.originalName())
+                        .storagePath(lectureMaterialFile.storagePath())
+                        .contentType(lectureMaterialFile.contentType())
+                        .sizeBytes(lectureMaterialFile.sizeBytes())
                         .visibility(CourseMaterial.MaterialVisibility.ENROLLED_ONLY)
                         .published(true)
                         .createdAt(Instant.now().minusSeconds(10_000))
@@ -574,10 +595,10 @@ public class DataInitializer implements CommandLineRunner {
                         .uploadedBy(teacher)
                         .title("Lab 2 Starter Code")
                         .description("Starter code for the linked list lab assignment")
-                        .originalFileName("lab2_starter.zip")
-                        .storagePath("/materials/lab2_starter.zip")
-                        .contentType("application/zip")
-                        .sizeBytes(45_000)
+                        .originalFileName(labMaterialFile.originalName())
+                        .storagePath(labMaterialFile.storagePath())
+                        .contentType(labMaterialFile.contentType())
+                        .sizeBytes(labMaterialFile.sizeBytes())
                         .visibility(CourseMaterial.MaterialVisibility.ENROLLED_ONLY)
                         .published(true)
                         .createdAt(Instant.now().minusSeconds(5_000))

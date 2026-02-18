@@ -35,6 +35,7 @@ public class PortalDataService {
     private final SemesterRepository semesterRepository;
     private final NotificationService notificationService;
     private final AnnouncementService announcementService;
+    private final FileLinkService fileLinkService;
 
     public boolean loadData(String slug, HttpSession session, Model model) {
         var student = sessionService.getCurrentStudent(session);
@@ -172,7 +173,13 @@ public class PortalDataService {
     }
 
     private boolean loadStudentFiles(Student s, Model model) {
-        model.addAttribute("files", fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(s.getId()));
+        List<FileAsset> files = fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(s.getId());
+        Map<Long, String> downloadLinks = new HashMap<>();
+        for (FileAsset file : files) {
+            downloadLinks.put(file.getId(), fileLinkService.createAssetDownloadUrl(file.getId()));
+        }
+        model.addAttribute("files", files);
+        model.addAttribute("fileDownloadLinks", downloadLinks);
         return true;
     }
 

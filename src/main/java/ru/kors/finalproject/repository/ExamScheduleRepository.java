@@ -11,4 +11,7 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, Long
 
     @Query("SELECT e FROM ExamSchedule e LEFT JOIN FETCH e.subjectOffering so LEFT JOIN FETCH so.subject WHERE so.semester.id = :semesterId ORDER BY e.examDate ASC")
     List<ExamSchedule> findBySemesterIdWithDetails(Long semesterId);
+
+    @Query("SELECT e FROM ExamSchedule e LEFT JOIN FETCH e.subjectOffering so LEFT JOIN FETCH so.subject WHERE so.id IN :subjectOfferingIds ORDER BY e.examDate ASC")
+    List<ExamSchedule> findBySubjectOfferingIdInWithDetails(List<Long> subjectOfferingIds);
 }

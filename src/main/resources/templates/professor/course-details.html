@@ -21,7 +21,7 @@
 <main class="page">
     <div class="container">
         <h2 th:text="${course.subject.code + ' - ' + course.subject.name}">Course</h2>
-        <p class="user-email" th:text="'Section: ' + ${course.id}"></p>
+        <p class="user-email" th:text="|Section: ${course.id}|"></p>
 
         <div style="margin-bottom:16px;">
             <a th:href="@{/professor/course/{id}/export-grades(id=${course.id})}" class="btn">Export Grades (Excel)</a>
@@ -344,7 +344,7 @@
         <section class="portal-section">
             <h3>Add File To Student Files</h3>
             <p th:if="${fileUploadMessage}" th:class="${fileUploadSuccess} ? 'alert alert-success' : 'alert alert-error'" th:text="${fileUploadMessage}"></p>
-            <form method="post" th:action="@{/professor/student-file}" class="form-grid">
+            <form method="post" th:action="@{/professor/student-file}" class="form-grid" enctype="multipart/form-data">
                 <th:block th:replace="~{fragments/csrf :: input}"/>
                 <input type="hidden" name="offeringId" th:value="${course.id}">
                 <div class="form-group">
@@ -352,20 +352,8 @@
                     <input type="number" name="studentId" required>
                 </div>
                 <div class="form-group">
-                    <label>File Name</label>
-                    <input type="text" name="originalName" placeholder="recommendation.pdf" required>
-                </div>
-                <div class="form-group">
-                    <label>Storage Path</label>
-                    <input type="text" name="storagePath" placeholder="/files/recommendation.pdf" required>
-                </div>
-                <div class="form-group">
-                    <label>Content Type</label>
-                    <input type="text" name="contentType" value="application/pdf">
-                </div>
-                <div class="form-group">
-                    <label>Size Bytes</label>
-                    <input type="number" name="sizeBytes" value="0">
+                    <label>File</label>
+                    <input type="file" name="file" required>
                 </div>
                 <button class="btn" type="submit">Add File</button>
             </form>

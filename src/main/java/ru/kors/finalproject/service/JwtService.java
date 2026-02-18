@@ -26,6 +26,10 @@ public class JwtService {
     }
 
     public String generate(User user) {
+        return generateAccessToken(user);
+    }
+
+    public String generateAccessToken(User user) {
         Instant now = Instant.now();
         Instant exp = now.plus(expirationMinutes, ChronoUnit.MINUTES);
         return Jwts.builder()
@@ -36,6 +40,10 @@ public class JwtService {
                 .expiration(Date.from(exp))
                 .signWith(signingKey)
                 .compact();
+    }
+
+    public long getAccessExpirationSeconds() {
+        return expirationMinutes * 60;
     }
 
     public Claims parse(String token) {

@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -77,6 +78,51 @@ class WebSecurityIntegrationTest {
     }
 
     @Test
+    void professorDashboard_isAccessible_whenProfessorSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "z.professor@kbtu.kz");
+        session.setAttribute("userRole", "PROFESSOR");
+        session.setAttribute("fullName", "Dr. Z. Professor");
+
+        mockMvc.perform(get("/professor/dashboard").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void professorCourses_isAccessible_whenProfessorSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "z.professor@kbtu.kz");
+        session.setAttribute("userRole", "PROFESSOR");
+
+        mockMvc.perform(get("/professor/courses").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void professorCourseDetails_isAccessible_whenProfessorSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "z.professor@kbtu.kz");
+        session.setAttribute("userRole", "PROFESSOR");
+
+        mockMvc.perform(get("/professor/course/1").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void professorExportGrades_isAccessible_whenProfessorSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "z.professor@kbtu.kz");
+        session.setAttribute("userRole", "PROFESSOR");
+
+        mockMvc.perform(get("/professor/course/1/export-grades").session(session))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString("attachment; filename=grades_")))
+                .andExpect(content().contentTypeCompatibleWith(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+    }
+
+    @Test
     void apiV1Auth_login_returnsClientError_forInvalidCredentials() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType("application/json")
@@ -105,6 +151,27 @@ class WebSecurityIntegrationTest {
     @Test
     void jsFile_isAccessible() throws Exception {
         mockMvc.perform(get("/js/app.js"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void home_redirectsToStudentPortal_whenStudentSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "a_mustafayev@kbtu.kz");
+        session.setAttribute("userRole", "STUDENT");
+
+        mockMvc.perform(get("/").session(session))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/news"));
+    }
+
+    @Test
+    void portalPage_isAccessible_whenStudentSessionExists() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        session.setAttribute("userEmail", "a_mustafayev@kbtu.kz");
+        session.setAttribute("userRole", "STUDENT");
+
+        mockMvc.perform(get("/portal/student-information").session(session))
                 .andExpect(status().isOk());
     }
 }

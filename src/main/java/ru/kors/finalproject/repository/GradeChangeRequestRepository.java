@@ -33,4 +33,5 @@ public interface GradeChangeRequestRepository extends JpaRepository<GradeChangeR
     List<GradeChangeRequest> findByStatusWithDetailsOrderByCreatedAtDesc(GradeChangeRequest.RequestStatus status);
 
     Page<GradeChangeRequest> findByStatusOrderByCreatedAtDesc(GradeChangeRequest.RequestStatus status, Pageable pageable);
+    Page<GradeChangeRequest> findByStatus(GradeChangeRequest.RequestStatus status, Pageable pageable);
 }
