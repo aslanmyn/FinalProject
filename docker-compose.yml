@@ -1,4 +1,25 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finalproject-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_PROFILE: postgres
+      DB_URL: jdbc:postgresql://postgres:5432/final_project
+      DB_USER: postgres
+      DB_PASSWORD: 12345678
+      APP_STORAGE_ROOT: /app/storage
+      PORT: 8080
+    ports:
+      - "${APP_HOST_PORT:-8080}:8080"
+    volumes:
+      - finalproject_storage:/app/storage
+
   postgres:
     image: postgres:15
     container_name: finalproject-postgres
@@ -19,3 +40,4 @@ services:
 
 volumes:
   finalproject_pgdata:
+  finalproject_storage:

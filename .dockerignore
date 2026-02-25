@@ -1,0 +1,9 @@
+.git
+.idea
+.vscode
+target
+storage
+*.log
+README.md
+API_DOCUMENTATION.md
+db
