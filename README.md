@@ -1,39 +1,39 @@
-# KBTU Portal
+﻿# KBTU Portal
 
-Учебный портал с ролями `STUDENT`, `PROFESSOR`, `ADMIN`.
+University portal with three roles: `STUDENT`, `PROFESSOR`, `ADMIN`.
 
-## Запуск (Docker)
+## Run (Docker)
 
 ```bash
 docker compose up -d --build
 ```
 
-Если порт 8080 занят:
+If port `8080` is busy:
 
 ```bash
 APP_HOST_PORT=8081 docker compose up -d --build
 ```
 
-Остановить:
+Stop:
 
 ```bash
 docker compose down
 ```
 
-## Конфигурация (env)
+## Environment Variables
 
-Обязательные для продакшена переменные:
+Required for production:
 - `DB_URL`
 - `DB_USER`
 - `DB_PASSWORD`
 - `JWT_SECRET`
 - `APP_STORAGE_SIGNING_SECRET`
 
-Опционально:
+Optional:
 - `APP_PROFILE` (`postgres`)
-- `APP_SEED_ENABLED` (`false` для production)
+- `APP_SEED_ENABLED` (`false` for production)
 - `APP_STORAGE_ROOT`
 
 ## API
 
-Подробные API-роуты и примеры: `API_DOCUMENTATION.md`.
+Detailed API routes and examples: `API_DOCUMENTATION.md`.
