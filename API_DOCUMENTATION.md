@@ -12,11 +12,6 @@ This document describes the mobile API under `/api/v1/**`.
 - `/api/v1/admin` - admin back-office API
 - `/api/v1/files` - secure/signed file download API
 
-Legacy session APIs are blocked by security policy:
-- `/api/admin/**`
-- `/api/professor/**`
-- `/api/student/**`
-
 ## 2. Authentication
 
 ### 2.1 Login
@@ -321,7 +316,6 @@ curl -X POST http://localhost:8080/api/v1/admin/finance/invoices \
 ## 9. Notes for Mobile Team
 
 - Use only `/api/v1/**`.
-- Do not integrate legacy `/api/*` session routes.
 - Expect `X-API-Version: v1` in responses.
 - Handle `401`, `403`, and `409` as functional states.
 - Refresh access tokens via `/api/v1/auth/refresh` before expiration.

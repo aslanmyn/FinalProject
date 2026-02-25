@@ -17,7 +17,7 @@ The project includes:
 - Spring Data JPA + Hibernate
 - Thymeleaf
 - Flyway (PostgreSQL schema migrations)
-- H2 (demo/dev)
+- H2 (tests only)
 - PostgreSQL (deployment)
 - JWT (JJWT)
 - Apache POI (Excel export)
@@ -40,7 +40,13 @@ Key design rule:
 
 ## Run
 
-### Default profile (H2)
+### Start PostgreSQL in Docker (persistent volume)
+
+```bash
+docker compose up -d postgres
+```
+
+### Default profile (PostgreSQL)
 
 ```bash
 ./mvnw spring-boot:run
@@ -48,19 +54,21 @@ Key design rule:
 
 App URL: `http://localhost:8080`
 
-### PostgreSQL profile
+Notes:
+- Default profile is `postgres` (`APP_PROFILE` optional).
+- In `postgres` profile, Flyway is enabled and `ddl-auto=validate`.
+- `baseline-on-migrate=true` is enabled for postgres, so existing schemas can be adopted safely and missing migrations (for example `refresh_tokens`) are applied.
+- Data in PostgreSQL is persistent across application restarts.
+- H2 is used only by automated tests.
 
+Optional DB override:
 ```bash
-$env:APP_PROFILE="postgres"
 $env:DB_URL="jdbc:postgresql://localhost:5432/final_project"
 $env:DB_USER="postgres"
 $env:DB_PASSWORD="12345678"
-./mvnw spring-boot:run
 ```
 
-Notes:
-- In `postgres` profile, Flyway is enabled and `ddl-auto=validate`.
-- In `h2` profile, Flyway is disabled and `ddl-auto=create-drop`.
+Volume `finalproject_pgdata` keeps PostgreSQL data after container restarts.
 
 ## Demo Accounts
 
@@ -119,10 +127,6 @@ Use these roots for mobile integration:
   - `/download/*` endpoints are public but require valid signed query params (`exp`, `sig`).
 
 Security rules:
-- Legacy session APIs are intentionally blocked:
-  - `/api/admin/**`
-  - `/api/professor/**`
-  - `/api/student/**`
 - Every `/api/v1/**` response includes header: `X-API-Version: v1`.
 
 ## API Docs
