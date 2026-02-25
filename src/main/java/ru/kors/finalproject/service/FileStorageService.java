@@ -20,6 +20,8 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -99,7 +101,9 @@ public class FileStorageService {
     }
 
     public ResponseEntity<Resource> buildDownloadResponse(String relativePath, String originalName, String contentType) {
-        Path filePath = resolveStoragePath(relativePath);
+        String normalizedPath = normalizeStoragePath(relativePath);
+        Path filePath = resolveStoragePath(normalizedPath);
+        ensureLegacyPlaceholderIfMissing(filePath, normalizedPath, originalName, contentType);
         if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
             throw new IllegalArgumentException("File not found");
         }
@@ -119,7 +123,7 @@ public class FileStorageService {
         if (relativePath == null || relativePath.isBlank()) {
             return;
         }
-        Path path = resolveStoragePath(relativePath);
+        Path path = resolveStoragePath(normalizeStoragePath(relativePath));
         try {
             Files.deleteIfExists(path);
         } catch (IOException ignored) {
@@ -144,6 +148,56 @@ public class FileStorageService {
             throw new IllegalArgumentException("Invalid storage path");
         }
         return resolved;
+    }
+
+    private static String normalizeStoragePath(String path) {
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Invalid storage path");
+        }
+        // Legacy data used leading slash paths (e.g. /files/...). Normalize into relative form.
+        String normalized = path.trim().replace("\\", "/").replaceAll("^/+", "");
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("Invalid storage path");
+        }
+        return normalized;
+    }
+
+    private void ensureLegacyPlaceholderIfMissing(Path target, String normalizedPath, String originalName, String contentType) {
+        if (Files.exists(target)) {
+            return;
+        }
+        String lower = normalizedPath.toLowerCase();
+        if (!lower.startsWith("files/") && !lower.startsWith("materials/")) {
+            return;
+        }
+        try {
+            Files.createDirectories(target.getParent());
+            if (isZip(contentType, originalName)) {
+                writeZipPlaceholder(target, originalName);
+            } else {
+                String safeName = sanitizeFilename(originalName);
+                String message = "Legacy placeholder generated for missing file: " + safeName + System.lineSeparator()
+                        + "The original file was not found in current storage.";
+                Files.writeString(target, message, StandardCharsets.UTF_8);
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to create legacy placeholder file", ex);
+        }
+    }
+
+    private static boolean isZip(String contentType, String originalName) {
+        String normalizedType = normalizeContentType(contentType);
+        return normalizedType.contains("zip")
+                || (originalName != null && originalName.toLowerCase().endsWith(".zip"));
+    }
+
+    private static void writeZipPlaceholder(Path target, String originalName) throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(target))) {
+            zos.putNextEntry(new ZipEntry("LEGACY_README.txt"));
+            String text = "Legacy placeholder generated for missing archive: " + sanitizeFilename(originalName);
+            zos.write(text.getBytes(StandardCharsets.UTF_8));
+            zos.closeEntry();
+        }
     }
 
     private static String generateRelativePath(String folder, String originalName) {

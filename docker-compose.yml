@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: finalproject-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: final_project
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 12345678
+    ports:
+      - "5432:5432"
+    volumes:
+      - finalproject_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d final_project"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  finalproject_pgdata:
