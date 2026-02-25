@@ -40,7 +40,33 @@ Key design rule:
 
 ## Run
 
-### Start PostgreSQL in Docker (persistent volume)
+### Run with Docker (app + PostgreSQL)
+
+```bash
+docker compose up -d --build
+```
+
+App URL: `http://localhost:8080`
+
+If port `8080` is busy:
+```bash
+$env:APP_HOST_PORT="8081"
+docker compose up -d --build
+```
+
+Then open: `http://localhost:8081`
+
+Stop:
+```bash
+docker compose down
+```
+
+Stop and delete DB/storage volumes:
+```bash
+docker compose down -v
+```
+
+### Start only PostgreSQL in Docker (persistent volume)
 
 ```bash
 docker compose up -d postgres
