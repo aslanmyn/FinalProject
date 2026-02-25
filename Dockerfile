@@ -17,7 +17,7 @@ COPY --from=build /build/target/*.jar /app/app.jar
 ENV APP_PROFILE=postgres \
     DB_URL=jdbc:postgresql://postgres:5432/final_project \
     DB_USER=postgres \
-    DB_PASSWORD=12345678 \
+    DB_PASSWORD=change_me \
     APP_STORAGE_ROOT=/app/storage \
     JAVA_OPTS=""
 

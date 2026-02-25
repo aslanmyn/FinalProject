@@ -21,8 +21,8 @@ This document describes the mobile API under `/api/v1/**`.
 Request:
 ```json
 {
-  "email": "a_mustafayev@kbtu.kz",
-  "password": "student123"
+  "email": "user@example.com",
+  "password": "<your-password>"
 }
 ```
 
@@ -283,7 +283,7 @@ Signed URLs are time-limited and validated by `exp` + `sig`.
 ```bash
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"a_mustafayev@kbtu.kz","password":"student123"}'
+  -d '{"email":"user@example.com","password":"<your-password>"}'
 ```
 
 ### Student profile

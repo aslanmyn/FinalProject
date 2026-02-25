@@ -1,6 +1,7 @@
 package ru.kors.finalproject.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ import java.util.List;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "app.seed.enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
     private final PasswordEncoder passwordEncoder;

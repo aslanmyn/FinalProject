@@ -10,10 +10,11 @@ services:
         condition: service_healthy
     environment:
       APP_PROFILE: postgres
-      DB_URL: jdbc:postgresql://postgres:5432/final_project
-      DB_USER: postgres
-      DB_PASSWORD: 12345678
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-final_project}
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
       APP_STORAGE_ROOT: /app/storage
+      APP_SEED_ENABLED: ${APP_SEED_ENABLED:-true}
       PORT: 8080
     ports:
       - "${APP_HOST_PORT:-8080}:8080"
@@ -25,15 +26,15 @@ services:
     container_name: finalproject-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: final_project
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: ${POSTGRES_DB:-final_project}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
     ports:
       - "5432:5432"
     volumes:
       - finalproject_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d final_project"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -34,3 +34,8 @@ build/
 
 # Local uploaded files
 storage/
+
+# Local environment secrets
+.env
+.env.local
+.env.*.local
