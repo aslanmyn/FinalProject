@@ -1,14 +1,19 @@
 package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
+import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -22,6 +27,7 @@ import java.util.Map;
 public class TeacherV1Controller {
     private final MobileApiAuthService mobileApiAuthService;
     private final TeacherRepository teacherRepository;
+    private final SubjectOfferingRepository subjectOfferingRepository;
     private final TeacherAcademicService teacherAcademicService;
     private final AnnouncementService announcementService;
     private final GradeChangeService gradeChangeService;
@@ -240,6 +246,63 @@ public class TeacherV1Controller {
         Teacher teacher = getTeacher(user);
         courseMaterialService.delete(teacher, materialId);
         return ResponseEntity.ok(Map.of("status", "deleted"));
+    }
+
+    @GetMapping("/sections/{sectionId}/grades/export")
+    public ResponseEntity<byte[]> exportGrades(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long sectionId) throws IOException {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        Teacher teacher = getTeacher(user);
+
+        SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("Section not found"));
+        if (offering.getTeacher() == null || !offering.getTeacher().getId().equals(teacher.getId())) {
+            throw new IllegalArgumentException("Section is not assigned to current teacher");
+        }
+
+        List<Grade> grades = teacherAcademicService.getGradesForSection(sectionId);
+        String subjectCode = offering.getSubject() != null ? offering.getSubject().getCode() : "section_" + sectionId;
+
+        byte[] content;
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+             var outputStream = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet("Grades");
+            var headerRow = sheet.createRow(0);
+            headerRow.createCell(0).setCellValue("Student ID");
+            headerRow.createCell(1).setCellValue("Student Name");
+            headerRow.createCell(2).setCellValue("Component");
+            headerRow.createCell(3).setCellValue("Grade");
+            headerRow.createCell(4).setCellValue("Max Grade");
+            headerRow.createCell(5).setCellValue("Comment");
+
+            int rowIdx = 1;
+            for (Grade g : grades) {
+                var row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(g.getStudent().getId());
+                row.createCell(1).setCellValue(g.getStudent().getName());
+                row.createCell(2).setCellValue(g.getComponent() != null
+                        ? g.getComponent().getName()
+                        : (g.getType() != null ? g.getType().name() : ""));
+                row.createCell(3).setCellValue(g.getGradeValue());
+                row.createCell(4).setCellValue(g.getMaxGradeValue());
+                row.createCell(5).setCellValue(g.getComment() != null ? g.getComment() : "");
+            }
+            for (int i = 0; i < 6; i++) {
+                sheet.autoSizeColumn(i);
+            }
+            workbook.write(outputStream);
+            content = outputStream.toByteArray();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename("grades_" + subjectCode + ".xlsx")
+                .build());
+        headers.setContentLength(content.length);
+        return ResponseEntity.ok().headers(headers).body(content);
     }
 
     @GetMapping("/sections/{sectionId}/student-notes")

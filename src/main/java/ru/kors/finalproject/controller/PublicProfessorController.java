@@ -5,10 +5,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.AnnouncementService;
 
+@LegacyWebEnabled
 @Controller
 @RequiredArgsConstructor
 public class PublicProfessorController {

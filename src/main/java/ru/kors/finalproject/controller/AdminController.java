@@ -6,6 +6,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.*;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 
+@LegacyWebEnabled
 @Controller
 @RequestMapping("/admin")
 @RequiredArgsConstructor

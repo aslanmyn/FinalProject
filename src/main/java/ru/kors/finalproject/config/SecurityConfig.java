@@ -1,9 +1,11 @@
 package ru.kors.finalproject.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,6 +29,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/public/**").permitAll()
                 .requestMatchers("/api/v1/files/download/**").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/v1/teacher/**").hasRole("PROFESSOR")
@@ -36,13 +39,15 @@ public class SecurityConfig {
             .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, AuthorizationFilter.class)
             .csrf(csrf -> csrf.disable())
+            .cors(Customizer.withDefaults())
             .headers(headers -> headers.frameOptions(frame -> frame.disable()));
         return http.build();
     }
 
     @Bean
     @Order(2)
-    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+    @ConditionalOnProperty(prefix = "app.web", name = "legacy-enabled", havingValue = "true", matchIfMissing = true)
+    public SecurityFilterChain webLegacySecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
@@ -62,6 +67,26 @@ public class SecurityConfig {
             .formLogin(form -> form.disable())
             .logout(logout -> logout.disable())
             .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**"));
+        http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    @ConditionalOnProperty(prefix = "app.web", name = "legacy-enabled", havingValue = "false")
+    public SecurityFilterChain webApiOnlySecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/actuator/health", "/actuator/info",
+                    "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**"
+                ).permitAll()
+                .anyRequest().permitAll()
+            )
+            .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
+            .formLogin(form -> form.disable())
+            .logout(logout -> logout.disable())
+            .csrf(csrf -> csrf.disable());
         http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
         return http.build();
     }

@@ -7,6 +7,7 @@ This document describes the mobile API under `/api/v1/**`.
 ## 1. API Roots
 
 - `/api/v1/auth` - authentication and token lifecycle
+- `/api/v1/public` - public endpoints (no bearer token required)
 - `/api/v1/student` - student cabinet API
 - `/api/v1/teacher` - teacher cabinet API
 - `/api/v1/admin` - admin back-office API
@@ -65,7 +66,23 @@ Request:
 
 Revokes the refresh token.
 
-### 2.4 Authorization Header
+### 2.4 Register
+
+`POST /api/v1/auth/register`
+
+Request:
+```json
+{
+  "email": "user@example.com",
+  "password": "<your-password>",
+  "confirmPassword": "<your-password>",
+  "fullName": "John Doe"
+}
+```
+
+Role is detected by email format rules (admin, student, professor).
+
+### 2.5 Authorization Header
 
 For protected routes:
 
@@ -118,7 +135,17 @@ Possible `code` values:
 - `STATE_CONFLICT`
 - `INTERNAL_ERROR`
 
-## 4. Student API (`/api/v1/student`)
+## 4. Public API (`/api/v1/public`)
+
+Auth: none
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/public/news` | Public news feed |
+| GET | `/api/v1/public/professors` | Public professor list |
+| GET | `/api/v1/public/professors/{id}` | Public professor profile with current sections and public announcements |
+
+## 5. Student API (`/api/v1/student`)
 
 Auth: `STUDENT`
 
@@ -165,7 +192,7 @@ Request body snippets:
 { "message": "Please update status" }
 ```
 
-## 5. Teacher API (`/api/v1/teacher`)
+## 6. Teacher API (`/api/v1/teacher`)
 
 Auth: `PROFESSOR`
 
@@ -185,6 +212,7 @@ Auth: `PROFESSOR`
 | GET | `/api/v1/teacher/sections/{sectionId}/announcements` | Section announcements |
 | POST | `/api/v1/teacher/sections/{sectionId}/announcements` | Create announcement |
 | GET | `/api/v1/teacher/sections/{sectionId}/materials` | List materials |
+| GET | `/api/v1/teacher/sections/{sectionId}/grades/export` | Export section grades as XLSX |
 | POST | `/api/v1/teacher/sections/{sectionId}/materials` | Upload material (multipart) |
 | POST | `/api/v1/teacher/materials/{materialId}/visibility?published=true` | Publish/hide material |
 | DELETE | `/api/v1/teacher/materials/{materialId}` | Delete material |
@@ -212,7 +240,7 @@ Multipart routes:
   - `studentId` (number)
   - `file` (binary)
 
-## 6. Admin API (`/api/v1/admin`)
+## 7. Admin API (`/api/v1/admin`)
 
 Auth: `ADMIN`
 
@@ -228,6 +256,9 @@ Permission model:
 |---|---|---|---|
 | GET | `/api/v1/admin/users` | `SUPER` | List users (paginated) |
 | POST | `/api/v1/admin/users/{id}/permissions` | `SUPER` | Set admin permissions |
+| GET | `/api/v1/admin/subjects` | `ADMIN role` | List subjects (for section setup UI) |
+| GET | `/api/v1/admin/teachers` | `ADMIN role` | List teachers (for assignment UI) |
+| GET | `/api/v1/admin/students` | `ADMIN role` | List students (for finance/status UI) |
 | POST | `/api/v1/admin/terms` | `REGISTRAR` | Create academic term |
 | GET | `/api/v1/admin/terms` | `REGISTRAR` | List terms |
 | POST | `/api/v1/admin/sections` | `REGISTRAR` | Create section |
@@ -263,9 +294,10 @@ Permission model:
 | POST | `/api/v1/admin/checklist-templates` | `REGISTRAR` | Create checklist template |
 | POST | `/api/v1/admin/checklist/generate` | `REGISTRAR` | Generate checklist items |
 | GET | `/api/v1/admin/audit` | `SUPER` | Audit log (paginated) |
+| POST | `/api/v1/admin/students/{id}/status` | `ADMIN role` | Update student status |
 | GET | `/api/v1/admin/stats` | `ADMIN role` | High-level statistics |
 
-## 7. Files API (`/api/v1/files`)
+## 8. Files API (`/api/v1/files`)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -276,7 +308,7 @@ Permission model:
 
 Signed URLs are time-limited and validated by `exp` + `sig`.
 
-## 8. Quick cURL Examples
+## 9. Quick cURL Examples
 
 ### Login
 
@@ -284,6 +316,20 @@ Signed URLs are time-limited and validated by `exp` + `sig`.
 curl -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"user@example.com","password":"<your-password>"}'
+```
+
+### Register
+
+```bash
+curl -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"a_newstudent@kbtu.kz","password":"<your-password>","confirmPassword":"<your-password>","fullName":"New Student"}'
+```
+
+### Public news
+
+```bash
+curl http://localhost:8080/api/v1/public/news
 ```
 
 ### Student profile
@@ -313,9 +359,10 @@ curl -X POST http://localhost:8080/api/v1/admin/finance/invoices \
   -d '{"studentId":1,"amount":150000,"description":"Tuition","dueDate":"2026-03-01"}'
 ```
 
-## 9. Notes for Mobile Team
+## 10. Notes for Mobile Team
 
 - Use only `/api/v1/**`.
+- Public endpoints under `/api/v1/public/**` do not require bearer token.
 - Expect `X-API-Version: v1` in responses.
 - Handle `401`, `403`, and `409` as functional states.
 - Refresh access tokens via `/api/v1/auth/refresh` before expiration.

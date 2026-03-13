@@ -39,3 +39,7 @@ storage/
 .env
 .env.local
 .env.*.local
+
+# Local run logs
+*.out.log
+*.err.log

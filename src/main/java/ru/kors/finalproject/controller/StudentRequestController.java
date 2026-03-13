@@ -7,9 +7,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.service.RequestService;
 import ru.kors.finalproject.service.SessionService;
 
+@LegacyWebEnabled
 @Controller
 @RequestMapping("/portal/student-requests")
 @RequiredArgsConstructor

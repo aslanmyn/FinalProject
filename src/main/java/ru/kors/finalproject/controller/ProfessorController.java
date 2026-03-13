@@ -8,6 +8,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.entity.TeacherStudentNote;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.entity.CourseMaterial;
@@ -23,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
+@LegacyWebEnabled
 @Controller
 @RequestMapping("/professor")
 @RequiredArgsConstructor
