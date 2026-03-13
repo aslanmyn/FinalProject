@@ -37,6 +37,7 @@ public class AdminV1Controller {
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
+    private final SubjectRepository subjectRepository;
     private final SemesterRepository semesterRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final StudentRequestRepository studentRequestRepository;
@@ -381,6 +382,25 @@ public class AdminV1Controller {
         return ResponseEntity.ok(gradeChangeService.review(id, body.approve(), body.comment(), admin));
     }
 
+    @PostMapping("/students/{id}/status")
+    public ResponseEntity<?> updateStudentStatus(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody UpdateStudentStatusBody body) {
+        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        if (body.status() == null) {
+            throw new IllegalArgumentException("Student status is required");
+        }
+        Student student = studentRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
+        student.setStatus(body.status());
+        studentRepository.save(student);
+        return ResponseEntity.ok(Map.of(
+                "id", student.getId(),
+                "status", student.getStatus()
+        ));
+    }
+
     @PostMapping("/news")
     public ResponseEntity<?> createNews(
             @RequestHeader("Authorization") String authHeader,
@@ -450,6 +470,38 @@ public class AdminV1Controller {
         ));
     }
 
+    @GetMapping("/subjects")
+    public ResponseEntity<?> subjects(@RequestHeader("Authorization") String authHeader) {
+        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        return ResponseEntity.ok(subjectRepository.findAll().stream().map(s -> Map.of(
+                "id", (Object) s.getId(),
+                "code", s.getCode() != null ? s.getCode() : "",
+                "name", s.getName() != null ? s.getName() : "",
+                "credits", s.getCredits()
+        )).toList());
+    }
+
+    @GetMapping("/teachers")
+    public ResponseEntity<?> teachers(@RequestHeader("Authorization") String authHeader) {
+        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        return ResponseEntity.ok(teacherRepository.findAllByOrderByNameAsc().stream().map(t -> Map.of(
+                "id", (Object) t.getId(),
+                "name", t.getName() != null ? t.getName() : "",
+                "email", t.getEmail() != null ? t.getEmail() : ""
+        )).toList());
+    }
+
+    @GetMapping("/students")
+    public ResponseEntity<?> students(@RequestHeader("Authorization") String authHeader) {
+        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        return ResponseEntity.ok(studentRepository.findAllWithDetails().stream().map(s -> Map.of(
+                "id", (Object) s.getId(),
+                "name", s.getName() != null ? s.getName() : "",
+                "email", s.getEmail() != null ? s.getEmail() : "",
+                "status", s.getStatus() != null ? s.getStatus().name() : ""
+        )).toList());
+    }
+
     public record UserDto(Long id, String email, String fullName, User.UserRole role,
                            java.util.Set<User.AdminPermission> permissions, boolean enabled) {}
     public record PermissionBody(java.util.Set<User.AdminPermission> permissions) {}
@@ -483,6 +535,7 @@ public class AdminV1Controller {
                                   Double oldValue, Double newValue, String reason,
                                   GradeChangeRequest.RequestStatus status, Instant createdAt) {}
     public record ReviewGradeChangeBody(boolean approve, String comment) {}
+    public record UpdateStudentStatusBody(Student.StudentStatus status) {}
     public record NewsBody(String title, String content, String category) {}
     public record CreateChecklistTemplateBody(String title, String linkToSection,
                                                ChecklistTemplate.TriggerEvent triggerEvent, int offsetDays) {}

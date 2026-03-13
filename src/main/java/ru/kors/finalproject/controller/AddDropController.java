@@ -6,9 +6,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.service.AddDropService;
 import ru.kors.finalproject.service.SessionService;
 
+@LegacyWebEnabled
 @Controller
 @RequiredArgsConstructor
 public class AddDropController {

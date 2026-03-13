@@ -6,12 +6,14 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import ru.kors.finalproject.model.PortalSection;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.repository.NewsRepository;
 import ru.kors.finalproject.service.AnnouncementService;
 import ru.kors.finalproject.service.SessionService;
 
 import java.util.List;
 
+@LegacyWebEnabled
 @Controller
 @RequiredArgsConstructor
 public class NewsController {

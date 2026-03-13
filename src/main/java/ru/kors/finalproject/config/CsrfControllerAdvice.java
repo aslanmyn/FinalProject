@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 /**
  * Adds CSRF token to all Thymeleaf models so forms can include it.
  */
+@LegacyWebEnabled
 @ControllerAdvice
 public class CsrfControllerAdvice {
 

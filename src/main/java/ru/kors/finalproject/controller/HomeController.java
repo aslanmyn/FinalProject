@@ -4,8 +4,10 @@ import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.service.SessionService;
 
+@LegacyWebEnabled
 @Controller
 @RequiredArgsConstructor
 public class HomeController {

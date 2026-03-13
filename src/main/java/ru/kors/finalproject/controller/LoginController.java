@@ -10,11 +10,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import ru.kors.finalproject.config.LegacyWebEnabled;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.UserRole;
 import ru.kors.finalproject.service.UserRoleDetector;
 
+@LegacyWebEnabled
 @Controller
 @RequiredArgsConstructor
 public class LoginController {
