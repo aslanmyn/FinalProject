@@ -125,7 +125,7 @@ public class AnnouncementService {
                     Notification.NotificationType.SYSTEM,
                     "New course announcement",
                     announcement.getTitle(),
-                    "/portal/student-schedule"
+                    "/app/student/schedule"
             );
         }
     }

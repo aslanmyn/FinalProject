@@ -10,7 +10,6 @@ services:
         condition: service_healthy
     environment:
       APP_PROFILE: postgres
-      APP_WEB_LEGACY_ENABLED: ${APP_WEB_LEGACY_ENABLED:-true}
       APP_WEB_FRONTEND_URL: ${APP_WEB_FRONTEND_URL:-http://localhost:3000}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-final_project}
       DB_USER: ${POSTGRES_USER:-postgres}

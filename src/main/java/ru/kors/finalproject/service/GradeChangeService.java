@@ -54,7 +54,7 @@ public class GradeChangeService {
                 Notification.NotificationType.REQUEST,
                 "Grade change request submitted",
                 "A grade change request was submitted for " + offering.getSubject().getCode(),
-                "/portal/student-journal"
+                "/app/student/journal"
         );
         auditService.logStudentAction(null, "GRADE_CHANGE_REQUEST_CREATED", "GradeChangeRequest", saved.getId(),
                 "gradeId=" + gradeId + ", old=" + grade.getGradeValue() + ", new=" + newValue);
@@ -82,7 +82,7 @@ public class GradeChangeService {
                     Notification.NotificationType.REQUEST,
                     "Grade change request rejected",
                     "Your teacher's grade change request was rejected by registrar",
-                    "/portal/student-journal"
+                    "/app/student/journal"
             );
             auditService.logUserAction(admin, "GRADE_CHANGE_REQUEST_REJECTED", "GradeChangeRequest", requestId,
                     "comment=" + reviewerComment);
@@ -107,7 +107,7 @@ public class GradeChangeService {
                 Notification.NotificationType.GRADE,
                 "Grade changed",
                 "A grade was changed by approved registrar request",
-                "/portal/student-journal"
+                "/app/student/journal"
         );
         auditService.logUserAction(admin, "GRADE_CHANGE_REQUEST_APPLIED", "GradeChangeRequest", request.getId(),
                 "newValue=" + request.getNewValue());

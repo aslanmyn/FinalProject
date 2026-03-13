@@ -26,12 +26,6 @@ If ports are busy:
 APP_HOST_PORT=8081 FRONTEND_HOST_PORT=3001 docker compose up -d --build
 ```
 
-API-only backend mode (disable legacy Thymeleaf pages):
-
-```bash
-APP_WEB_LEGACY_ENABLED=false docker compose up -d --build
-```
-
 Stop:
 
 ```bash
@@ -61,7 +55,7 @@ Required in production:
 
 Useful variables:
 - `APP_PROFILE` (`postgres`)
-- `APP_WEB_LEGACY_ENABLED` (`true` keeps old Thymeleaf pages, `false` runs API-only backend mode)
+- `APP_WEB_FRONTEND_URL` (where backend redirects `/`, `/home`, `/login`, `/register`, `/news`, `/professors`, `/app/**`)
 - `APP_SEED_ENABLED` (`false` for production)
 - `APP_STORAGE_ROOT`
 - `APP_CORS_ALLOWED_ORIGINS`

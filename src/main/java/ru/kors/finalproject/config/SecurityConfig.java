@@ -1,7 +1,6 @@
 package ru.kors.finalproject.config;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -18,7 +17,6 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final WebSessionFilter webSessionFilter;
     private final LoginRateLimitFilter loginRateLimitFilter;
 
     @Bean
@@ -46,35 +44,7 @@ public class SecurityConfig {
 
     @Bean
     @Order(2)
-    @ConditionalOnProperty(prefix = "app.web", name = "legacy-enabled", havingValue = "true", matchIfMissing = true)
-    public SecurityFilterChain webLegacySecurityFilterChain(HttpSecurity http) throws Exception {
-        http
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/", "/login", "/register", "/do-login", "/do-register", "/logout",
-                    "/news", "/professors", "/professors/**",
-                    "/css/**", "/js/**", "/images/**",
-                    "/actuator/health", "/actuator/info",
-                    "/swagger-ui/**", "/v3/api-docs/**"
-                ).permitAll()
-                .requestMatchers("/portal/**").hasRole("STUDENT")
-                .requestMatchers("/professor/**").hasRole("PROFESSOR")
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(loginRateLimitFilter, AuthorizationFilter.class)
-            .addFilterBefore(webSessionFilter, AuthorizationFilter.class)
-            .formLogin(form -> form.disable())
-            .logout(logout -> logout.disable())
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/v1/**"));
-        http.headers(headers -> headers.frameOptions(frame -> frame.disable()));
-        return http.build();
-    }
-
-    @Bean
-    @Order(2)
-    @ConditionalOnProperty(prefix = "app.web", name = "legacy-enabled", havingValue = "false")
-    public SecurityFilterChain webApiOnlySecurityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain publicSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(

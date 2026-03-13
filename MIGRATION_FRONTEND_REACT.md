@@ -3,11 +3,9 @@
 ## Current State
 
 - Backend already has full REST API namespace: `/api/v1/**`.
-- Thymeleaf pages are still rendered by web controllers under:
-  - `/portal/**`
-  - `/professor/**`
-  - `/admin/**`
-  - public pages (`/`, `/news`, `/professors`, `/login`, `/register`)
+- Legacy Thymeleaf controllers and templates have been removed.
+- Backend is now API-first and redirects browser hits for public SPA routes to the frontend app URL.
+- React is the only web UI.
 
 ## What Is Already Covered By API
 
@@ -46,9 +44,8 @@ API root: `/api/v1/admin`
 - Auth: `/api/v1/auth/login`, `/refresh`, `/logout`
 - File links/downloads: `/api/v1/files/**`
 
-## Gaps To Close Before Removing Thymeleaf
+## Migration Steps Completed
 
-Closed in this step:
 1. Public API layer for unauthenticated pages:
 - `GET /api/v1/public/news`
 - `GET /api/v1/public/professors`
@@ -63,20 +60,6 @@ Closed in this step:
 4. Admin student status update API:
 - `POST /api/v1/admin/students/{id}/status`
 
-Remaining:
-1. Add public API for any extra homepage widgets (if needed).
-2. Replace all role dashboards with full React screens (currently shell + public pages).
-3. Remove Thymeleaf/web MVC only after React parity.
-
-## Migration Sequence
-
-1. Extend React from shell to role modules (student/professor/admin).
-2. Switch auth UX fully to JWT on web frontend.
-3. Remove Thymeleaf templates and web MVC controllers.
-4. Remove Thymeleaf dependencies from `pom.xml`.
-
-## Completed In This Step
-
 - Added `frontend/` React shell (Vite + TypeScript + Router + JWT login flow).
 - Added public React pages: home, news, professors, professor profile, register.
 - Extended role dashboards/pages for student, teacher, admin routes.
@@ -88,7 +71,7 @@ Remaining:
   - default origins: `http://localhost:5173,http://localhost:3000`
 - Enabled CORS handling in API security chain.
 - Added missing API routes required for Thymeleaf removal.
-- Added backend flag `APP_WEB_LEGACY_ENABLED`:
-  - `true` = old Thymeleaf controllers active
-  - `false` = API-only backend mode (legacy web routes denied)
+- Removed Thymeleaf controllers, templates, CSRF web advice, and web-session filter.
+- Removed Thymeleaf dependencies from `pom.xml`.
+- Switched backend-generated links from legacy `/portal/**` routes to React `/app/**` routes.
 - Added Docker service for React frontend with Nginx SPA routing and `/api` reverse-proxy.

@@ -63,7 +63,7 @@ public class RequestService {
                     Notification.NotificationType.REQUEST,
                     "New response for request",
                     "There is a new message in request #" + request.getId(),
-                    "/portal/student-requests"
+                    "/app/student/requests"
             );
         }
         auditService.logUserAction(sender, "REQUEST_MESSAGE_ADDED", "RequestMessage", saved.getId(), "requestId=" + requestId);
@@ -86,7 +86,7 @@ public class RequestService {
                     Notification.NotificationType.REQUEST,
                     "Request status updated",
                     "Request #" + saved.getId() + " status: " + status,
-                    "/portal/student-requests"
+                    "/app/student/requests"
             );
         }
         auditService.logUserAction(actor, "REQUEST_STATUS_UPDATED", "StudentRequest", requestId, "status=" + status);

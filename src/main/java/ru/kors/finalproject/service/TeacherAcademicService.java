@@ -92,7 +92,7 @@ public class TeacherAcademicService {
                     Notification.NotificationType.ATTENDANCE,
                     "Attendance updated",
                     "Attendance for " + classDate + " in " + session.getSubjectOffering().getSubject().getCode() + " is " + mark.status(),
-                    "/portal/class-attendance"
+                    "/app/student/attendance"
             );
         }
         auditService.logStudentAction(null, "ATTENDANCE_MARKED", "AttendanceSession", session.getId(),
@@ -166,7 +166,7 @@ public class TeacherAcademicService {
                     Notification.NotificationType.GRADE,
                     "Grade published",
                     component.getName() + ": " + gradeValue + "/" + maxGradeValue,
-                    "/portal/student-journal"
+                    "/app/student/journal"
             );
         }
         auditService.logStudentAction(null, "GRADE_SAVED", "Grade", saved.getId(),
@@ -205,7 +205,7 @@ public class TeacherAcademicService {
                     Notification.NotificationType.GRADE,
                     "New grades published",
                     "Component " + component.getName() + " has been published",
-                    "/portal/student-journal"
+                    "/app/student/journal"
             ));
         }
         auditService.logStudentAction(null, published ? "GRADE_COMPONENT_PUBLISHED" : "GRADE_COMPONENT_HIDDEN",
@@ -284,7 +284,7 @@ public class TeacherAcademicService {
                 Notification.NotificationType.FINAL_GRADE,
                 "Final grade published",
                 "Final grade for " + saved.getSubjectOffering().getSubject().getCode() + " has been published",
-                "/portal/assessment-results"
+                "/app/student/transcript"
         );
         auditService.logStudentAction(null, "FINAL_GRADE_PUBLISHED", "FinalGrade", saved.getId(),
                 "studentId=" + studentId + ", offeringId=" + offeringId);
@@ -412,7 +412,7 @@ public class TeacherAcademicService {
                 Notification.NotificationType.SYSTEM,
                 "New file added by teacher",
                 "A new file was added to your Student Files for " + offering.getSubject().getCode(),
-                "/portal/student-files"
+                "/app/student/files"
         );
         auditService.logUserAction(
                 uploadedBy,
