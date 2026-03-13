@@ -18,7 +18,7 @@ docker compose up -d --build
 Default URLs:
 - Backend API: `http://localhost:8080`
 - React frontend: `http://localhost:3000`
-- Swagger: `http://localhost:8080/swagger-ui.html`
+- Swagger: `http://localhost:8080/swagger-ui/index.html`
 
 If ports are busy:
 

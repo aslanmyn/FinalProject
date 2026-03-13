@@ -1,8 +1,14 @@
 # API Documentation - KBTU Portal (v1)
 
 Base URL: `http://localhost:8080`
+Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 
 This document describes the mobile API under `/api/v1/**`.
+
+Validation status:
+- Route list is aligned with the current `/api/v1/**` controllers.
+- Core `GET` endpoints for `public`, `student`, `teacher`, and `admin` were smoke-tested after the DTO refactor on `2026-03-13`.
+- `GET /api/v1/student/materials/{sectionId}` returns `400` when the student is not enrolled in the requested section. This is expected business validation, not a server error.
 
 ## 1. API Roots
 
