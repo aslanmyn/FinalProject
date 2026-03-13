@@ -12,6 +12,14 @@ import java.util.Optional;
 public interface SubjectOfferingRepository extends JpaRepository<SubjectOffering, Long> {
     List<SubjectOffering> findBySemesterId(Long semesterId);
 
+    @Query("SELECT DISTINCT so FROM SubjectOffering so " +
+           "LEFT JOIN FETCH so.subject " +
+           "LEFT JOIN FETCH so.subject.program " +
+           "LEFT JOIN FETCH so.semester " +
+           "LEFT JOIN FETCH so.teacher " +
+           "LEFT JOIN FETCH so.meetingTimes")
+    List<SubjectOffering> findAllWithDetails();
+
     @Query("SELECT DISTINCT so FROM SubjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.subject.program LEFT JOIN FETCH so.semester LEFT JOIN FETCH so.teacher LEFT JOIN FETCH so.meetingTimes WHERE so.semester.id = :semesterId")
     List<SubjectOffering> findBySemesterIdWithDetails(Long semesterId);
 

@@ -241,7 +241,7 @@ public class AdminAcademicService {
         if (semesterId != null) {
             return subjectOfferingRepository.findBySemesterIdWithDetails(semesterId);
         }
-        return subjectOfferingRepository.findAll();
+        return subjectOfferingRepository.findAllWithDetails();
     }
 
     public List<Subject> listSubjects() {

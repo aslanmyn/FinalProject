@@ -23,7 +23,7 @@ public class SurveyService {
     private final AuditService auditService;
 
     public List<Survey> listAll() {
-        return surveyRepository.findAll();
+        return surveyRepository.findAllWithSemesterOrderByStartDateDesc();
     }
 
     public List<Survey> listActive() {
@@ -64,7 +64,7 @@ public class SurveyService {
 
     @Transactional
     public Survey closeSurvey(Long surveyId, User actor) {
-        Survey survey = surveyRepository.findById(surveyId)
+        Survey survey = surveyRepository.findByIdWithSemester(surveyId)
                 .orElseThrow(() -> new IllegalArgumentException("Survey not found"));
         survey.setEndDate(LocalDate.now().minusDays(1));
         Survey saved = surveyRepository.save(survey);
