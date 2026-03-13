@@ -148,7 +148,7 @@ public class RequestService {
     }
 
     public List<RequestMessage> getMessages(Long requestId) {
-        return requestMessageRepository.findByRequestIdOrderByCreatedAtAsc(requestId);
+        return requestMessageRepository.findByRequestIdWithSenderOrderByCreatedAtAsc(requestId);
     }
 
     public List<FileAsset> getAttachments(Long requestId) {

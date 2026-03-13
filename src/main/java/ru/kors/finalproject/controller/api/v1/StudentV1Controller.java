@@ -279,21 +279,28 @@ public class StudentV1Controller {
     public ResponseEntity<?> checklist(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(checklistItemRepository.findByStudentIdOrderByDeadlineAsc(student.getId()));
+        return ResponseEntity.ok(checklistItemRepository.findByStudentIdOrderByDeadlineAsc(student.getId()).stream()
+                .map(this::toChecklistItemDto)
+                .toList());
     }
 
     @GetMapping("/mobility")
     public ResponseEntity<?> mobility(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(mobilityApplicationRepository.findByStudentIdOrderByCreatedAtDesc(student.getId()));
+        return ResponseEntity.ok(mobilityApplicationRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(student.getId()).stream()
+                .map(this::toMobilityDto)
+                .toList());
     }
 
     @GetMapping("/clearance")
     public ResponseEntity<?> clearance(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(clearanceSheetRepository.findByStudentId(student.getId()));
+        ClearanceSheet sheet = clearanceSheetRepository.findByStudentIdWithDetails(student.getId()).orElse(null);
+        return ResponseEntity.ok(sheet == null
+                ? new ClearanceDto(null, student.getId(), student.getName(), null, List.of())
+                : toClearanceDto(sheet));
     }
 
     @GetMapping("/enrollments")
@@ -314,7 +321,9 @@ public class StudentV1Controller {
     public ResponseEntity<?> availableCourses(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(addDropService.getAvailableForAdd(student));
+        return ResponseEntity.ok(addDropService.getAvailableForAdd(student).stream()
+                .map(this::toAvailableCourseDto)
+                .toList());
     }
 
     @PostMapping("/course-registration/submit")
@@ -384,7 +393,9 @@ public class StudentV1Controller {
         if (!req.getStudent().getId().equals(student.getId())) {
             throw new IllegalArgumentException("Access denied");
         }
-        return ResponseEntity.ok(requestService.getMessages(id));
+        return ResponseEntity.ok(requestService.getMessages(id).stream()
+                .map(this::toRequestMessageDto)
+                .toList());
     }
 
     @PostMapping("/requests/{id}/messages")
@@ -399,12 +410,75 @@ public class StudentV1Controller {
         if (!req.getStudent().getId().equals(student.getId())) {
             throw new IllegalArgumentException("Access denied");
         }
-        return ResponseEntity.ok(requestService.addMessage(id, user, body.message()));
+        return ResponseEntity.ok(toRequestMessageDto(requestService.addMessage(id, user, body.message())));
     }
 
     private Student getStudent(User user) {
         return studentRepository.findByEmailWithDetails(user.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Student profile not found"));
+    }
+
+    private AvailableCourseDto toAvailableCourseDto(SubjectOffering offering) {
+        return new AvailableCourseDto(
+                offering.getId(),
+                offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering.getSubject() != null ? offering.getSubject().getName() : null,
+                offering.getSubject() != null ? offering.getSubject().getCredits() : 0,
+                offering.getSemester() != null ? offering.getSemester().getId() : null,
+                offering.getSemester() != null ? offering.getSemester().getName() : null,
+                offering.getTeacher() != null ? offering.getTeacher().getId() : null,
+                offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                offering.getCapacity(),
+                offering.getLessonType(),
+                offering.getDayOfWeek(),
+                offering.getStartTime(),
+                offering.getEndTime(),
+                offering.getRoom()
+        );
+    }
+
+    private ChecklistItemDto toChecklistItemDto(ChecklistItem item) {
+        return new ChecklistItemDto(
+                item.getId(),
+                item.getTitle(),
+                item.getDeadline(),
+                item.isCompleted(),
+                item.getLinkToSection()
+        );
+    }
+
+    private MobilityDto toMobilityDto(MobilityApplication application) {
+        return new MobilityDto(
+                application.getId(),
+                application.getStudent() != null ? application.getStudent().getId() : null,
+                application.getUniversityName(),
+                application.getDisciplinesMapping(),
+                application.getStatus(),
+                application.getCreatedAt()
+        );
+    }
+
+    private ClearanceDto toClearanceDto(ClearanceSheet sheet) {
+        return new ClearanceDto(
+                sheet.getId(),
+                sheet.getStudent() != null ? sheet.getStudent().getId() : null,
+                sheet.getStudent() != null ? sheet.getStudent().getName() : null,
+                sheet.getStatus(),
+                sheet.getCheckpoints().stream()
+                        .map(cp -> new ClearanceCheckpointDto(cp.getId(), cp.getDepartment(), cp.getStatus(), cp.getComment()))
+                        .toList()
+        );
+    }
+
+    private RequestMessageDto toRequestMessageDto(RequestMessage message) {
+        return new RequestMessageDto(
+                message.getId(),
+                message.getSender() != null ? message.getSender().getId() : null,
+                message.getSender() != null ? message.getSender().getEmail() : null,
+                message.getSender() != null ? message.getSender().getFullName() : null,
+                message.getMessage(),
+                message.getCreatedAt()
+        );
     }
 
     public record StudentProfileDto(Long id, String name, String email, int course, String groupName,
@@ -425,8 +499,24 @@ public class StudentV1Controller {
                               String contentType, long sizeBytes, Instant createdAt, String downloadUrl) {}
     public record StudentFileDto(Long id, String fileName, FileAsset.FileCategory category,
                                  String contentType, long sizeBytes, Instant uploadedAt, String downloadUrl) {}
+    public record ChecklistItemDto(Long id, String title, java.time.LocalDate deadline,
+                                   boolean completed, String linkToSection) {}
+    public record MobilityDto(Long id, Long studentId, String universityName,
+                              String disciplinesMapping, MobilityApplication.MobilityStatus status,
+                              Instant createdAt) {}
+    public record ClearanceDto(Long id, Long studentId, String studentName,
+                               ClearanceSheet.ClearanceStatus status, List<ClearanceCheckpointDto> checkpoints) {}
+    public record ClearanceCheckpointDto(Long id, String department,
+                                         ClearanceCheckpoint.CheckpointStatus status, String comment) {}
+    public record AvailableCourseDto(Long sectionId, String subjectCode, String subjectName, int credits,
+                                     Long semesterId, String semesterName, Long teacherId, String teacherName,
+                                     int capacity, SubjectOffering.LessonType lessonType,
+                                     java.time.DayOfWeek dayOfWeek, java.time.LocalTime startTime,
+                                     java.time.LocalTime endTime, String room) {}
     public record RequestDto(Long id, String category, String description,
                               StudentRequest.RequestStatus status, Instant createdAt, Instant updatedAt) {}
+    public record RequestMessageDto(Long id, Long senderUserId, String senderEmail,
+                                    String senderName, String message, Instant createdAt) {}
     public record CreateRequestBody(String category, String description) {}
     public record AddMessageBody(String message) {}
     public record CourseActionBody(Long sectionId) {}

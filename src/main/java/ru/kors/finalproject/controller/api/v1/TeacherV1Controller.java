@@ -110,8 +110,8 @@ public class TeacherV1Controller {
             @RequestBody CreateComponentBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.createComponent(
-                teacher, sectionId, body.name(), body.type(), body.weightPercent()));
+        return ResponseEntity.ok(toComponentDto(teacherAcademicService.createComponent(
+                teacher, sectionId, body.name(), body.type(), body.weightPercent())));
     }
 
     @PostMapping("/sections/{sectionId}/components/{componentId}/publish")
@@ -122,7 +122,8 @@ public class TeacherV1Controller {
             @RequestParam boolean published) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.setComponentPublishState(teacher, sectionId, componentId, published));
+        return ResponseEntity.ok(toComponentDto(
+                teacherAcademicService.setComponentPublishState(teacher, sectionId, componentId, published)));
     }
 
     @PostMapping("/sections/{sectionId}/components/{componentId}/lock")
@@ -133,7 +134,8 @@ public class TeacherV1Controller {
             @RequestParam boolean locked) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.lockComponent(teacher, sectionId, componentId, locked));
+        return ResponseEntity.ok(toComponentDto(
+                teacherAcademicService.lockComponent(teacher, sectionId, componentId, locked)));
     }
 
     @PostMapping("/sections/{sectionId}/grades")
@@ -143,9 +145,9 @@ public class TeacherV1Controller {
             @RequestBody SaveGradeBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.saveGrade(
+        return ResponseEntity.ok(toGradeDto(teacherAcademicService.saveGrade(
                 teacher, sectionId, body.studentId(), body.componentId(),
-                body.gradeValue(), body.maxGradeValue(), body.comment()));
+                body.gradeValue(), body.maxGradeValue(), body.comment())));
     }
 
     @PostMapping("/sections/{sectionId}/final-grades")
@@ -155,8 +157,8 @@ public class TeacherV1Controller {
             @RequestBody SaveFinalGradeBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.upsertFinalGrade(
-                teacher, sectionId, body.studentId(), body.numericValue(), body.letterValue(), body.points()));
+        return ResponseEntity.ok(toFinalGradeDto(teacherAcademicService.upsertFinalGrade(
+                teacher, sectionId, body.studentId(), body.numericValue(), body.letterValue(), body.points())));
     }
 
     @PostMapping("/sections/{sectionId}/final-grades/{studentId}/publish")
@@ -166,14 +168,17 @@ public class TeacherV1Controller {
             @PathVariable Long studentId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.publishFinalGrade(teacher, sectionId, studentId));
+        return ResponseEntity.ok(toFinalGradeDto(
+                teacherAcademicService.publishFinalGrade(teacher, sectionId, studentId)));
     }
 
     @GetMapping("/sections/{sectionId}/announcements")
     public ResponseEntity<?> announcements(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(announcementService.listForSection(teacher, sectionId));
+        return ResponseEntity.ok(announcementService.listForSection(teacher, sectionId).stream()
+                .map(this::toAnnouncementDto)
+                .toList());
     }
 
     @PostMapping("/sections/{sectionId}/announcements")
@@ -191,8 +196,8 @@ public class TeacherV1Controller {
                 scheduledAt = LocalDateTime.parse(body.scheduledAt()).atZone(ZoneId.systemDefault()).toInstant();
             }
         }
-        return ResponseEntity.ok(announcementService.createAnnouncement(
-                teacher, sectionId, body.title(), body.content(), body.publicVisible(), body.pinned(), scheduledAt));
+        return ResponseEntity.ok(toAnnouncementDto(announcementService.createAnnouncement(
+                teacher, sectionId, body.title(), body.content(), body.publicVisible(), body.pinned(), scheduledAt)));
     }
 
     @GetMapping("/sections/{sectionId}/materials")
@@ -309,7 +314,9 @@ public class TeacherV1Controller {
     public ResponseEntity<?> notes(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.notesForSection(teacher, sectionId));
+        return ResponseEntity.ok(teacherAcademicService.notesForSection(teacher, sectionId).stream()
+                .map(this::toTeacherNoteDto)
+                .toList());
     }
 
     @PostMapping("/sections/{sectionId}/student-notes")
@@ -319,15 +326,17 @@ public class TeacherV1Controller {
             @RequestBody NoteBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.upsertStudentNote(
-                teacher, sectionId, body.studentId(), body.note(), body.riskFlag()));
+        return ResponseEntity.ok(toTeacherNoteDto(teacherAcademicService.upsertStudentNote(
+                teacher, sectionId, body.studentId(), body.note(), body.riskFlag())));
     }
 
     @GetMapping("/grade-change-requests")
     public ResponseEntity<?> gradeChangeRequests(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(gradeChangeService.listForTeacher(teacher));
+        return ResponseEntity.ok(gradeChangeService.listForTeacher(teacher).stream()
+                .map(this::toGradeChangeRequestDto)
+                .toList());
     }
 
     @PostMapping("/sections/{sectionId}/grade-change-requests")
@@ -337,8 +346,8 @@ public class TeacherV1Controller {
             @RequestBody GradeChangeBody body) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(gradeChangeService.createForComponentGrade(
-                teacher, sectionId, body.gradeId(), body.newValue(), body.reason()));
+        return ResponseEntity.ok(toGradeChangeRequestDto(gradeChangeService.createForComponentGrade(
+                teacher, sectionId, body.gradeId(), body.newValue(), body.reason())));
     }
 
     @PostMapping(value = "/sections/{sectionId}/student-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -366,16 +375,125 @@ public class TeacherV1Controller {
                 .orElseThrow(() -> new IllegalArgumentException("Teacher profile not found"));
     }
 
+    private ComponentDto toComponentDto(AssessmentComponent component) {
+        return new ComponentDto(
+                component.getId(),
+                component.getSubjectOffering() != null ? component.getSubjectOffering().getId() : null,
+                component.getName(),
+                component.getType(),
+                component.getWeightPercent(),
+                component.getStatus(),
+                component.isPublished(),
+                component.isLocked(),
+                component.getCreatedAt()
+        );
+    }
+
+    private GradeDto toGradeDto(Grade grade) {
+        return new GradeDto(
+                grade.getId(),
+                grade.getStudent() != null ? grade.getStudent().getId() : null,
+                grade.getSubjectOffering() != null ? grade.getSubjectOffering().getId() : null,
+                grade.getComponent() != null ? grade.getComponent().getId() : null,
+                grade.getType(),
+                grade.getGradeValue(),
+                grade.getMaxGradeValue(),
+                grade.getComment(),
+                grade.isPublished(),
+                grade.getCreatedAt()
+        );
+    }
+
+    private FinalGradeDto toFinalGradeDto(FinalGrade finalGrade) {
+        return new FinalGradeDto(
+                finalGrade.getId(),
+                finalGrade.getStudent() != null ? finalGrade.getStudent().getId() : null,
+                finalGrade.getSubjectOffering() != null ? finalGrade.getSubjectOffering().getId() : null,
+                finalGrade.getNumericValue(),
+                finalGrade.getLetterValue(),
+                finalGrade.getPoints(),
+                finalGrade.getStatus(),
+                finalGrade.isPublished(),
+                finalGrade.getPublishedAt(),
+                finalGrade.getCreatedAt(),
+                finalGrade.getUpdatedAt()
+        );
+    }
+
+    private TeacherAnnouncementDto toAnnouncementDto(CourseAnnouncement announcement) {
+        return new TeacherAnnouncementDto(
+                announcement.getId(),
+                announcement.getSubjectOffering() != null ? announcement.getSubjectOffering().getId() : null,
+                announcement.getTitle(),
+                announcement.getContent(),
+                announcement.isPublicVisible(),
+                announcement.isPublished(),
+                announcement.isPinned(),
+                announcement.getScheduledAt(),
+                announcement.getPublishedAt(),
+                announcement.getCreatedAt(),
+                announcement.getUpdatedAt()
+        );
+    }
+
+    private TeacherNoteDto toTeacherNoteDto(TeacherStudentNote note) {
+        return new TeacherNoteDto(
+                note.getId(),
+                note.getStudent() != null ? note.getStudent().getId() : null,
+                note.getStudent() != null ? note.getStudent().getName() : null,
+                note.getNote(),
+                note.getRiskFlag(),
+                note.getCreatedAt(),
+                note.getUpdatedAt()
+        );
+    }
+
+    private GradeChangeRequestDto toGradeChangeRequestDto(GradeChangeRequest request) {
+        return new GradeChangeRequestDto(
+                request.getId(),
+                request.getTeacher() != null ? request.getTeacher().getId() : null,
+                request.getStudent() != null ? request.getStudent().getId() : null,
+                request.getSubjectOffering() != null ? request.getSubjectOffering().getId() : null,
+                request.getGrade() != null ? request.getGrade().getId() : null,
+                request.getOldValue(),
+                request.getNewValue(),
+                request.getReason(),
+                request.getStatus(),
+                request.getCreatedAt(),
+                request.getReviewedAt(),
+                request.getAppliedAt()
+        );
+    }
+
     public record AttendanceBody(String classDate, List<TeacherAcademicService.AttendanceMarkInput> marks) {}
+    public record ComponentDto(Long id, Long sectionId, String name, AssessmentComponent.ComponentType type,
+                               double weightPercent, AssessmentComponent.ComponentStatus status,
+                               boolean published, boolean locked, Instant createdAt) {}
     public record CreateComponentBody(String name, AssessmentComponent.ComponentType type, double weightPercent) {}
+    public record GradeDto(Long id, Long studentId, Long sectionId, Long componentId, Grade.GradeType type,
+                           double gradeValue, double maxGradeValue, String comment,
+                           boolean published, Instant createdAt) {}
     public record SaveGradeBody(Long studentId, Long componentId, double gradeValue, double maxGradeValue, String comment) {}
+    public record FinalGradeDto(Long id, Long studentId, Long sectionId, double numericValue, String letterValue,
+                                double points, FinalGrade.FinalGradeStatus status, boolean published,
+                                Instant publishedAt, Instant createdAt, Instant updatedAt) {}
     public record SaveFinalGradeBody(Long studentId, double numericValue, String letterValue, double points) {}
     public record CreateAnnouncementBody(String title, String content, boolean publicVisible, boolean pinned, String scheduledAt) {}
+    public record TeacherAnnouncementDto(Long id, Long sectionId, String title, String content,
+                                         boolean publicVisible, boolean published, boolean pinned,
+                                         Instant scheduledAt, Instant publishedAt,
+                                         Instant createdAt, Instant updatedAt) {}
     public record MaterialDto(Long id, String title, String description, String originalFileName,
                                String contentType, long sizeBytes, CourseMaterial.MaterialVisibility visibility,
                                boolean published, Instant createdAt, String downloadUrl) {}
     public record StudentFileDto(Long id, Long studentId, String fileName, String contentType, long sizeBytes,
                                  Instant uploadedAt, String downloadUrl) {}
+    public record TeacherNoteDto(Long id, Long studentId, String studentName, String note,
+                                 TeacherStudentNote.RiskFlag riskFlag, Instant createdAt, Instant updatedAt) {}
     public record NoteBody(Long studentId, String note, TeacherStudentNote.RiskFlag riskFlag) {}
+    public record GradeChangeRequestDto(Long id, Long teacherId, Long studentId, Long sectionId, Long gradeId,
+                                        Double oldValue, Double newValue, String reason,
+                                        GradeChangeRequest.RequestStatus status, Instant createdAt,
+                                        Instant reviewedAt, Instant appliedAt) {}
     public record GradeChangeBody(Long gradeId, double newValue, String reason) {}
 }

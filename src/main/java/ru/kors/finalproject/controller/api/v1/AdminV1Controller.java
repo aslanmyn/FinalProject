@@ -40,6 +40,7 @@ public class AdminV1Controller {
     private final SubjectRepository subjectRepository;
     private final SemesterRepository semesterRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
+    private final ExamScheduleRepository examScheduleRepository;
     private final StudentRequestRepository studentRequestRepository;
     private final NewsRepository newsRepository;
     private final GradeChangeRequestRepository gradeChangeRequestRepository;
@@ -107,7 +108,8 @@ public class AdminV1Controller {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         SubjectOffering saved = adminAcademicService.createSection(
                 body.subjectId(), body.semesterId(), body.teacherId(), body.capacity(), body.lessonType(), admin);
-        return ResponseEntity.ok(saved);
+        SubjectOffering detailed = subjectOfferingRepository.findByIdWithDetails(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toSectionDto(detailed));
     }
 
     @GetMapping("/sections")
@@ -115,7 +117,9 @@ public class AdminV1Controller {
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(required = false) Long semesterId) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(adminAcademicService.listSections(semesterId));
+        return ResponseEntity.ok(adminAcademicService.listSections(semesterId).stream()
+                .map(this::toSectionDto)
+                .toList());
     }
 
     @PostMapping("/sections/{id}/assign-professor")
@@ -124,7 +128,9 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody AssignProfessorBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(adminAcademicService.assignProfessor(id, body.teacherId(), admin));
+        SubjectOffering saved = adminAcademicService.assignProfessor(id, body.teacherId(), admin);
+        SubjectOffering detailed = subjectOfferingRepository.findByIdWithDetails(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toSectionDto(detailed));
     }
 
     @PostMapping("/sections/{id}/meeting-times")
@@ -133,9 +139,9 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody MeetingTimeBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(adminAcademicService.addMeetingTime(
+        return ResponseEntity.ok(toMeetingTimeDto(adminAcademicService.addMeetingTime(
                 id, body.dayOfWeek(), LocalTime.parse(body.startTime()), LocalTime.parse(body.endTime()),
-                body.room(), body.lessonType(), admin));
+                body.room(), body.lessonType(), admin)));
     }
 
     @PostMapping("/windows")
@@ -143,9 +149,9 @@ public class AdminV1Controller {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody WindowBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(adminAcademicService.upsertWindow(
+        return ResponseEntity.ok(toWindowDto(adminAcademicService.upsertWindow(
                 body.semesterId(), body.type(), LocalDate.parse(body.startDate()),
-                LocalDate.parse(body.endDate()), body.active(), admin));
+                LocalDate.parse(body.endDate()), body.active(), admin)));
     }
 
     @PostMapping("/enrollments/override")
@@ -165,7 +171,9 @@ public class AdminV1Controller {
         Long semId = semesterId != null ? semesterId
                 : semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
         if (semId == null) return ResponseEntity.ok(List.of());
-        return ResponseEntity.ok(examScheduleService.listBySemester(semId));
+        return ResponseEntity.ok(examScheduleService.listBySemester(semId).stream()
+                .map(this::toExamDto)
+                .toList());
     }
 
     @PostMapping("/exams")
@@ -173,9 +181,11 @@ public class AdminV1Controller {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody CreateExamBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(examScheduleService.createExamSession(
+        ExamSchedule saved = examScheduleService.createExamSession(
                 body.sectionId(), LocalDate.parse(body.examDate()), LocalTime.parse(body.examTime()),
-                body.room(), body.format(), admin));
+                body.room(), body.format(), admin);
+        ExamSchedule detailed = examScheduleRepository.findByIdWithDetails(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toExamDto(detailed));
     }
 
     @PutMapping("/exams/{id}")
@@ -184,9 +194,11 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody CreateExamBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(examScheduleService.updateExamSession(
+        ExamSchedule saved = examScheduleService.updateExamSession(
                 id, LocalDate.parse(body.examDate()), LocalTime.parse(body.examTime()),
-                body.room(), body.format(), admin));
+                body.room(), body.format(), admin);
+        ExamSchedule detailed = examScheduleRepository.findByIdWithDetails(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toExamDto(detailed));
     }
 
     @DeleteMapping("/exams/{id}")
@@ -233,8 +245,8 @@ public class AdminV1Controller {
             @RequestBody InvoiceBody body) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         Student student = studentRepository.findById(body.studentId()).orElseThrow(() -> new IllegalArgumentException("Student not found"));
-        return ResponseEntity.ok(financialService.createInvoice(
-                student, body.amount(), body.description(), LocalDate.parse(body.dueDate())));
+        return ResponseEntity.ok(toInvoiceDto(financialService.createInvoice(
+                student, body.amount(), body.description(), LocalDate.parse(body.dueDate()))));
     }
 
     @PostMapping("/finance/payments")
@@ -243,9 +255,9 @@ public class AdminV1Controller {
             @RequestBody PaymentBody body) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         Student student = studentRepository.findById(body.studentId()).orElseThrow(() -> new IllegalArgumentException("Student not found"));
-        return ResponseEntity.ok(financialService.registerPayment(
+        return ResponseEntity.ok(toPaymentDto(financialService.registerPayment(
                 student, body.chargeId(), body.amount(),
-                body.date() != null ? LocalDate.parse(body.date()) : LocalDate.now()));
+                body.date() != null ? LocalDate.parse(body.date()) : LocalDate.now())));
     }
 
     @GetMapping("/mobility")
@@ -271,7 +283,9 @@ public class AdminV1Controller {
     @GetMapping("/clearance")
     public ResponseEntity<?> listClearance(@RequestHeader("Authorization") String authHeader) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
-        return ResponseEntity.ok(clearanceService.listAll());
+        return ResponseEntity.ok(clearanceService.listAll().stream()
+                .map(this::toClearanceDto)
+                .toList());
     }
 
     @PostMapping("/clearance/checkpoints/{id}/review")
@@ -280,13 +294,16 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody ReviewCheckpointBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
-        return ResponseEntity.ok(clearanceService.reviewCheckpoint(id, body.approve(), body.comment(), admin));
+        return ResponseEntity.ok(toClearanceCheckpointDto(
+                clearanceService.reviewCheckpoint(id, body.approve(), body.comment(), admin)));
     }
 
     @GetMapping("/surveys")
     public ResponseEntity<?> listSurveys(@RequestHeader("Authorization") String authHeader) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
-        return ResponseEntity.ok(surveyService.listAll());
+        return ResponseEntity.ok(surveyService.listAll().stream()
+                .map(this::toSurveyDto)
+                .toList());
     }
 
     @PostMapping("/surveys")
@@ -294,9 +311,9 @@ public class AdminV1Controller {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody CreateSurveyBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
-        return ResponseEntity.ok(surveyService.create(
+        return ResponseEntity.ok(toSurveyDto(surveyService.create(
                 body.title(), LocalDate.parse(body.startDate()), LocalDate.parse(body.endDate()),
-                body.anonymous(), body.semesterId(), body.questions(), admin));
+                body.anonymous(), body.semesterId(), body.questions(), admin)));
     }
 
     @PostMapping("/surveys/{id}/close")
@@ -304,7 +321,7 @@ public class AdminV1Controller {
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
-        return ResponseEntity.ok(surveyService.closeSurvey(id, admin));
+        return ResponseEntity.ok(toSurveyDto(surveyService.closeSurvey(id, admin)));
     }
 
     @GetMapping("/surveys/{id}/responses")
@@ -315,7 +332,9 @@ public class AdminV1Controller {
         return ResponseEntity.ok(Map.of(
                 "surveyId", id,
                 "count", surveyService.responseCount(id),
-                "responses", surveyService.exportResponses(id)
+                "responses", surveyService.exportResponses(id).stream()
+                        .map(this::toSurveyResponseDto)
+                        .toList()
         ));
     }
 
@@ -342,7 +361,10 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody AssignBody body) {
         User actor = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
-        return ResponseEntity.ok(requestService.assign(id, body.userId(), actor));
+        StudentRequest request = requestService.assign(id, body.userId(), actor);
+        return ResponseEntity.ok(new RequestDto(request.getId(), request.getCategory(), request.getStatus(),
+                request.getCreatedAt(), request.getUpdatedAt(),
+                request.getAssignedTo() != null ? request.getAssignedTo().getId() : null));
     }
 
     @PostMapping("/requests/{id}/status")
@@ -351,7 +373,10 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody RequestStatusBody body) {
         User actor = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
-        return ResponseEntity.ok(requestService.updateStatus(id, body.status(), actor));
+        StudentRequest request = requestService.updateStatus(id, body.status(), actor);
+        return ResponseEntity.ok(new RequestDto(request.getId(), request.getCategory(), request.getStatus(),
+                request.getCreatedAt(), request.getUpdatedAt(),
+                request.getAssignedTo() != null ? request.getAssignedTo().getId() : null));
     }
 
     @GetMapping("/grade-change-requests")
@@ -379,7 +404,18 @@ public class AdminV1Controller {
             @PathVariable Long id,
             @RequestBody ReviewGradeChangeBody body) {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
-        return ResponseEntity.ok(gradeChangeService.review(id, body.approve(), body.comment(), admin));
+        GradeChangeRequest request = gradeChangeService.review(id, body.approve(), body.comment(), admin);
+        return ResponseEntity.ok(new GradeChangeDto(
+                request.getId(),
+                request.getTeacher() != null ? request.getTeacher().getId() : null,
+                request.getStudent() != null ? request.getStudent().getId() : null,
+                request.getSubjectOffering() != null ? request.getSubjectOffering().getId() : null,
+                request.getOldValue(),
+                request.getNewValue(),
+                request.getReason(),
+                request.getStatus(),
+                request.getCreatedAt()
+        ));
     }
 
     @PostMapping("/students/{id}/status")
@@ -412,7 +448,9 @@ public class AdminV1Controller {
                 .category(body.category())
                 .createdAt(Instant.now())
                 .build();
-        return ResponseEntity.ok(newsRepository.save(news));
+        News saved = newsRepository.save(news);
+        return ResponseEntity.ok(new NewsDto(saved.getId(), saved.getTitle(), saved.getContent(),
+                saved.getCategory(), saved.getCreatedAt()));
     }
 
     @GetMapping("/checklist-templates")
@@ -502,31 +540,174 @@ public class AdminV1Controller {
         )).toList());
     }
 
+    private SectionDto toSectionDto(SubjectOffering section) {
+        return new SectionDto(
+                section.getId(),
+                section.getSubject() != null ? section.getSubject().getId() : null,
+                section.getSubject() != null ? section.getSubject().getCode() : null,
+                section.getSubject() != null ? section.getSubject().getName() : null,
+                section.getSemester() != null ? section.getSemester().getId() : null,
+                section.getSemester() != null ? section.getSemester().getName() : null,
+                section.getTeacher() != null ? section.getTeacher().getId() : null,
+                section.getTeacher() != null ? section.getTeacher().getName() : null,
+                section.getCapacity(),
+                section.getLessonType(),
+                section.getDayOfWeek(),
+                section.getStartTime(),
+                section.getEndTime(),
+                section.getRoom()
+        );
+    }
+
+    private MeetingTimeDto toMeetingTimeDto(MeetingTime meetingTime) {
+        return new MeetingTimeDto(
+                meetingTime.getId(),
+                meetingTime.getSubjectOffering() != null ? meetingTime.getSubjectOffering().getId() : null,
+                meetingTime.getDayOfWeek(),
+                meetingTime.getStartTime(),
+                meetingTime.getEndTime(),
+                meetingTime.getRoom(),
+                meetingTime.getLessonType()
+        );
+    }
+
+    private WindowDto toWindowDto(RegistrationWindow window) {
+        return new WindowDto(
+                window.getId(),
+                window.getSemester() != null ? window.getSemester().getId() : null,
+                window.getSemester() != null ? window.getSemester().getName() : null,
+                window.getType(),
+                window.getStartDate(),
+                window.getEndDate(),
+                window.isActive()
+        );
+    }
+
+    private ExamDto toExamDto(ExamSchedule exam) {
+        return new ExamDto(
+                exam.getId(),
+                exam.getSubjectOffering() != null ? exam.getSubjectOffering().getId() : null,
+                exam.getSubjectOffering() != null && exam.getSubjectOffering().getSubject() != null
+                        ? exam.getSubjectOffering().getSubject().getCode() : null,
+                exam.getSubjectOffering() != null && exam.getSubjectOffering().getSubject() != null
+                        ? exam.getSubjectOffering().getSubject().getName() : null,
+                exam.getExamDate(),
+                exam.getExamTime(),
+                exam.getRoom(),
+                exam.getFormat()
+        );
+    }
+
+    private InvoiceDto toInvoiceDto(Charge charge) {
+        return new InvoiceDto(
+                charge.getId(),
+                charge.getStudent() != null ? charge.getStudent().getId() : null,
+                charge.getAmount(),
+                charge.getDescription(),
+                charge.getDueDate(),
+                charge.getStatus()
+        );
+    }
+
+    private PaymentDto toPaymentDto(Payment payment) {
+        return new PaymentDto(
+                payment.getId(),
+                payment.getStudent() != null ? payment.getStudent().getId() : null,
+                payment.getCharge() != null ? payment.getCharge().getId() : null,
+                payment.getAmount(),
+                payment.getDate()
+        );
+    }
+
+    private ClearanceDto toClearanceDto(ClearanceSheet sheet) {
+        return new ClearanceDto(
+                sheet.getId(),
+                sheet.getStudent() != null ? sheet.getStudent().getId() : null,
+                sheet.getStudent() != null ? sheet.getStudent().getName() : null,
+                sheet.getStatus(),
+                sheet.getCheckpoints().stream().map(this::toClearanceCheckpointDto).toList()
+        );
+    }
+
+    private ClearanceCheckpointDto toClearanceCheckpointDto(ClearanceCheckpoint checkpoint) {
+        return new ClearanceCheckpointDto(
+                checkpoint.getId(),
+                checkpoint.getClearanceSheet() != null ? checkpoint.getClearanceSheet().getId() : null,
+                checkpoint.getDepartment(),
+                checkpoint.getStatus(),
+                checkpoint.getComment()
+        );
+    }
+
+    private SurveyDto toSurveyDto(Survey survey) {
+        return new SurveyDto(
+                survey.getId(),
+                survey.getTitle(),
+                survey.getStartDate(),
+                survey.getEndDate(),
+                survey.isAnonymous(),
+                survey.getSemester() != null ? survey.getSemester().getId() : null,
+                survey.getSemester() != null ? survey.getSemester().getName() : null
+        );
+    }
+
+    private SurveyResponseDto toSurveyResponseDto(SurveyResponse response) {
+        return new SurveyResponseDto(
+                response.getId(),
+                response.getSurvey() != null ? response.getSurvey().getId() : null,
+                response.getStudent() != null ? response.getStudent().getId() : null,
+                response.getAnswersJson(),
+                response.getSubmittedAt()
+        );
+    }
+
     public record UserDto(Long id, String email, String fullName, User.UserRole role,
                            java.util.Set<User.AdminPermission> permissions, boolean enabled) {}
     public record PermissionBody(java.util.Set<User.AdminPermission> permissions) {}
     public record CreateTermBody(String name, String startDate, String endDate, boolean current) {}
+    public record SectionDto(Long id, Long subjectId, String subjectCode, String subjectName,
+                             Long semesterId, String semesterName, Long teacherId, String teacherName,
+                             int capacity, SubjectOffering.LessonType lessonType,
+                             java.time.DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, String room) {}
     public record CreateSectionBody(Long subjectId, Long semesterId, Long teacherId, int capacity,
                                      SubjectOffering.LessonType lessonType) {}
     public record AssignProfessorBody(Long teacherId) {}
+    public record MeetingTimeDto(Long id, Long sectionId, java.time.DayOfWeek dayOfWeek,
+                                 LocalTime startTime, LocalTime endTime, String room,
+                                 SubjectOffering.LessonType lessonType) {}
     public record MeetingTimeBody(java.time.DayOfWeek dayOfWeek, String startTime, String endTime,
                                    String room, SubjectOffering.LessonType lessonType) {}
+    public record WindowDto(Long id, Long semesterId, String semesterName,
+                            RegistrationWindow.WindowType type, LocalDate startDate,
+                            LocalDate endDate, boolean active) {}
     public record WindowBody(Long semesterId, RegistrationWindow.WindowType type, String startDate,
                               String endDate, boolean active) {}
     public record EnrollmentOverrideBody(Long studentId, Long subjectOfferingId, String reason) {}
+    public record ExamDto(Long id, Long sectionId, String subjectCode, String subjectName,
+                          LocalDate examDate, LocalTime examTime, String room, String format) {}
     public record CreateExamBody(Long sectionId, String examDate, String examTime, String room, String format) {}
     public record HoldDto(Long id, Long studentId, String studentName, Hold.HoldType type,
                            String reason, Instant createdAt) {}
     public record CreateHoldBody(Long studentId, Hold.HoldType type, String reason) {}
     public record RemoveHoldBody(String removalReason) {}
+    public record InvoiceDto(Long id, Long studentId, BigDecimal amount, String description,
+                             LocalDate dueDate, Charge.ChargeStatus status) {}
     public record InvoiceBody(Long studentId, BigDecimal amount, String description, String dueDate) {}
+    public record PaymentDto(Long id, Long studentId, Long chargeId, BigDecimal amount, LocalDate date) {}
     public record PaymentBody(Long studentId, Long chargeId, BigDecimal amount, String date) {}
     public record MobilityDto(Long id, Long studentId, String studentName, String university,
                                MobilityApplication.MobilityStatus status, Instant createdAt) {}
     public record UpdateStatusBody(MobilityApplication.MobilityStatus status) {}
+    public record ClearanceDto(Long id, Long studentId, String studentName,
+                               ClearanceSheet.ClearanceStatus status, List<ClearanceCheckpointDto> checkpoints) {}
+    public record ClearanceCheckpointDto(Long id, Long clearanceSheetId, String department,
+                                         ClearanceCheckpoint.CheckpointStatus status, String comment) {}
     public record ReviewCheckpointBody(boolean approve, String comment) {}
+    public record SurveyDto(Long id, String title, LocalDate startDate, LocalDate endDate,
+                            boolean anonymous, Long semesterId, String semesterName) {}
     public record CreateSurveyBody(String title, String startDate, String endDate, boolean anonymous,
                                     Long semesterId, List<SurveyService.QuestionInput> questions) {}
+    public record SurveyResponseDto(Long id, Long surveyId, Long studentId, String answersJson, Instant submittedAt) {}
     public record RequestDto(Long id, String category, StudentRequest.RequestStatus status,
                               Instant createdAt, Instant updatedAt, Long assignedToUserId) {}
     public record AssignBody(Long userId) {}
@@ -536,6 +717,7 @@ public class AdminV1Controller {
                                   GradeChangeRequest.RequestStatus status, Instant createdAt) {}
     public record ReviewGradeChangeBody(boolean approve, String comment) {}
     public record UpdateStudentStatusBody(Student.StudentStatus status) {}
+    public record NewsDto(Long id, String title, String content, String category, Instant createdAt) {}
     public record NewsBody(String title, String content, String category) {}
     public record CreateChecklistTemplateBody(String title, String linkToSection,
                                                ChecklistTemplate.TriggerEvent triggerEvent, int offsetDays) {}
