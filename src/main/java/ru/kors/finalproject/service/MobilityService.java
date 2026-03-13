@@ -50,7 +50,7 @@ public class MobilityService {
                 "Mobility application status updated",
                 "Your mobility application to " + app.getUniversityName()
                         + " has been updated to " + newStatus,
-                "/portal/academic-mobility"
+                "/app/student"
         );
         auditService.logUserAction(actor, "MOBILITY_STATUS_CHANGED", "MobilityApplication", saved.getId(),
                 "oldStatus=" + oldStatus + ", newStatus=" + newStatus);

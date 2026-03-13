@@ -70,7 +70,7 @@ public class AddDropService {
                 Notification.NotificationType.ENROLLMENT,
                 "Course dropped",
                 "You have dropped " + so.getSubject().getCode() + " " + so.getSubject().getName(),
-                "/portal/add-drop-courses"
+                "/app/student/enrollments"
         );
         auditService.logStudentAction(
                 student,
@@ -193,7 +193,7 @@ public class AddDropService {
                 Notification.NotificationType.ENROLLMENT,
                 "Enrollment updated",
                 "Enrollment for " + so.getSubject().getCode() + " is now " + targetStatus,
-                "/portal/course-registration"
+                "/app/student/enrollments"
         );
         auditService.logStudentAction(
                 student,

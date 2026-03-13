@@ -79,7 +79,7 @@ public class ClearanceService {
                     Notification.NotificationType.CLEARANCE,
                     "Clearance completed",
                     "All departments have approved your clearance",
-                    "/portal/clearance-sheet"
+                    "/app/student"
             );
         }
 

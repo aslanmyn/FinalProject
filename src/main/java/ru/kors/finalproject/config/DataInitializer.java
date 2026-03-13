@@ -554,14 +554,14 @@ public class DataInitializer implements CommandLineRunner {
                         .title("Submit registration draft")
                         .deadline(today.plusDays(3))
                         .completed(false)
-                        .linkToSection("/portal/course-registration")
+                        .linkToSection("/app/student/enrollments")
                         .build(),
                 ChecklistItem.builder()
                         .student(student)
                         .title("Complete active survey")
                         .deadline(today.plusDays(7))
                         .completed(false)
-                        .linkToSection("/portal/surveys")
+                        .linkToSection("/app/student")
                         .build()
         ));
 
@@ -611,21 +611,21 @@ public class DataInitializer implements CommandLineRunner {
         checklistTemplateRepository.saveAll(List.of(
                 ChecklistTemplate.builder()
                         .title("Complete course registration")
-                        .linkToSection("/portal/course-registration")
+                        .linkToSection("/app/student/enrollments")
                         .triggerEvent(ChecklistTemplate.TriggerEvent.ENROLLMENT)
                         .offsetDays(7)
                         .active(true)
                         .build(),
                 ChecklistTemplate.builder()
                         .title("Review academic schedule")
-                        .linkToSection("/portal/student-schedule")
+                        .linkToSection("/app/student/schedule")
                         .triggerEvent(ChecklistTemplate.TriggerEvent.SEMESTER_START)
                         .offsetDays(3)
                         .active(true)
                         .build(),
                 ChecklistTemplate.builder()
                         .title("Complete course evaluation surveys")
-                        .linkToSection("/portal/surveys")
+                        .linkToSection("/app/student")
                         .triggerEvent(ChecklistTemplate.TriggerEvent.SEMESTER_END)
                         .offsetDays(-7)
                         .active(true)

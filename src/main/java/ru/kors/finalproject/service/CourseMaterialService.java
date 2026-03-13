@@ -88,7 +88,7 @@ public class CourseMaterialService {
                     Notification.NotificationType.SYSTEM,
                     "New course material",
                     "New material posted in " + section.getSubject().getCode() + ": " + title,
-                    "/portal/student-journal"
+                    "/app/student/journal"
             );
         }
         return saved;

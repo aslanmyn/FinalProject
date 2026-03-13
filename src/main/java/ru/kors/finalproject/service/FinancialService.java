@@ -63,7 +63,7 @@ public class FinancialService {
         refreshFinancialHold(student);
         auditService.logStudentAction(student, "INVOICE_CREATED", "Charge", saved.getId(), "amount=" + amount + ", dueDate=" + dueDate);
         notificationService.notifyStudent(student.getEmail(), Notification.NotificationType.FINANCE, "New invoice issued",
-                description + " | Amount: " + amount, "/portal/student-financial-account");
+                description + " | Amount: " + amount, "/app/student/financial");
         return saved;
     }
 
@@ -82,7 +82,7 @@ public class FinancialService {
         refreshFinancialHold(student);
         auditService.logStudentAction(student, "PAYMENT_REGISTERED", "Payment", saved.getId(), "amount=" + amount + ", chargeId=" + chargeId);
         notificationService.notifyStudent(student.getEmail(), Notification.NotificationType.FINANCE, "Payment recorded",
-                "Payment of " + amount + " was recorded", "/portal/student-financial-account");
+                "Payment of " + amount + " was recorded", "/app/student/financial");
         return saved;
     }
 
@@ -136,7 +136,7 @@ public class FinancialService {
             holdRepository.save(hold);
             auditService.logStudentAction(student, "HOLD_CREATED", "Hold", hold.getId(), "type=FINANCIAL");
             notificationService.notifyStudent(student.getEmail(), Notification.NotificationType.FINANCE, "Financial hold activated",
-                    "You have overdue invoices. Registration and FX are blocked until payment.", "/portal/student-financial-account");
+                    "You have overdue invoices. Registration and FX are blocked until payment.", "/app/student/financial");
         }
 
         if (!overdue && existing.isPresent()) {
@@ -146,7 +146,7 @@ public class FinancialService {
             holdRepository.save(hold);
             auditService.logStudentAction(student, "HOLD_RESOLVED", "Hold", hold.getId(), "type=FINANCIAL");
             notificationService.notifyStudent(student.getEmail(), Notification.NotificationType.FINANCE, "Financial hold removed",
-                    "All overdue invoices are cleared.", "/portal/student-financial-account");
+                    "All overdue invoices are cleared.", "/app/student/financial");
         }
     }
 
