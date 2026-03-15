@@ -23,6 +23,7 @@ function getNav(role: string | null): NavGroup[] {
       {
         title: "Services",
         items: [
+          { to: "/app/chat", label: "Chat" },
           { to: "/app/student/requests", label: "Requests" },
           { to: "/app/student/financial", label: "Financial" },
           { to: "/app/student/files", label: "Files" },
@@ -38,6 +39,7 @@ function getNav(role: string | null): NavGroup[] {
         items: [
           { to: "/app/teacher", label: "Overview" },
           { to: "/app/teacher/sections", label: "Sections" },
+          { to: "/app/chat", label: "Chat" },
           { to: "/app/teacher/attendance", label: "Attendance" },
           { to: "/app/teacher/gradebook", label: "Gradebook" },
           { to: "/app/teacher/announcements", label: "Announcements" },

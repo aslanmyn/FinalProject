@@ -676,6 +676,45 @@ export function buildFileDownloadUrl(path: string): string {
   return buildApiUrl(path);
 }
 
+// ─── Chat API ────────────────────────────────────────────
+
+import type { ChatRoom, ChatMessagePage, ChatMember, ChatUserResult } from "../types/chat";
+
+export async function fetchChatRooms(): Promise<ChatRoom[]> {
+  return request<ChatRoom[]>("/api/v1/chat/rooms");
+}
+
+export async function getOrCreateSectionRoom(sectionId: number): Promise<ChatRoom> {
+  return request<ChatRoom>(`/api/v1/chat/rooms/section/${sectionId}`, { method: "POST" });
+}
+
+export async function getOrCreateDirectRoom(userId: number): Promise<ChatRoom> {
+  return request<ChatRoom>("/api/v1/chat/rooms/direct", {
+    method: "POST",
+    body: { userId }
+  });
+}
+
+export async function createGroupRoom(name: string, userIds: number[]): Promise<ChatRoom> {
+  return request<ChatRoom>("/api/v1/chat/rooms/group", {
+    method: "POST",
+    body: { name, userIds }
+  });
+}
+
+export async function searchChatUsers(q: string): Promise<ChatUserResult[]> {
+  const qs = q ? `?q=${encodeURIComponent(q)}` : "";
+  return request<ChatUserResult[]>(`/api/v1/chat/users${qs}`);
+}
+
+export async function fetchChatMessages(roomId: number, page = 0, size = 50): Promise<ChatMessagePage> {
+  return request<ChatMessagePage>(`/api/v1/chat/rooms/${roomId}/messages?page=${page}&size=${size}`);
+}
+
+export async function fetchChatMembers(roomId: number): Promise<ChatMember[]> {
+  return request<ChatMember[]>(`/api/v1/chat/rooms/${roomId}/members`);
+}
+
 export async function downloadTeacherSectionGrades(sectionId: number): Promise<{ blob: Blob; fileName: string }> {
   const token = getAccessToken();
   const response = await fetch(buildApiUrl(`/api/v1/teacher/sections/${sectionId}/grades/export`), {

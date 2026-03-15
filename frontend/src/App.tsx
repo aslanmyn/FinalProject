@@ -31,6 +31,7 @@ import AdminFinancePage from "./pages/app/AdminFinancePage";
 import AdminModerationPage from "./pages/app/AdminModerationPage";
 import AdminRequestsPage from "./pages/app/AdminRequestsPage";
 import AdminUsersPage from "./pages/app/AdminUsersPage";
+import ChatPage from "./pages/app/ChatPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import RoleProtectedRoute from "./routes/RoleProtectedRoute";
@@ -54,6 +55,15 @@ export default function App() {
         }
       >
         <Route index element={<RoleIndexRedirect />} />
+
+        <Route
+          path="chat"
+          element={
+            <RoleProtectedRoute roles={["STUDENT", "PROFESSOR"]}>
+              <ChatPage />
+            </RoleProtectedRoute>
+          }
+        />
 
         <Route
           path="student"

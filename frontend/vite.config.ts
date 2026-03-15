@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true
         },
+        "/ws": {
+          target: proxyTarget,
+          changeOrigin: true,
+          ws: true
+        },
         "/v3/api-docs": {
           target: proxyTarget,
           changeOrigin: true
