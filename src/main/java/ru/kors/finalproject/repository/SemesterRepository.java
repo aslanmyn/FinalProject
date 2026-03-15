@@ -7,4 +7,5 @@ import java.util.Optional;
 
 public interface SemesterRepository extends JpaRepository<Semester, Long> {
     Optional<Semester> findByCurrentTrue();
+    Optional<Semester> findByName(String name);
 }
