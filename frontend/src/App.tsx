@@ -19,6 +19,7 @@ import StudentFilesPage from "./pages/app/StudentFilesPage";
 import StudentNewsPage from "./pages/app/StudentNewsPage";
 import StudentRequestsPage from "./pages/app/StudentRequestsPage";
 import TeacherDashboardPage from "./pages/app/TeacherDashboardPage";
+import TeacherAssistantPage from "./pages/app/TeacherAssistantPage";
 import TeacherSectionsPage from "./pages/app/TeacherSectionsPage";
 import TeacherSectionPage from "./pages/app/TeacherSectionPage";
 import TeacherAttendancePage from "./pages/app/TeacherAttendancePage";
@@ -169,6 +170,14 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["PROFESSOR"]}>
               <TeacherDashboardPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="teacher/assistant"
+          element={
+            <RoleProtectedRoute roles={["PROFESSOR"]}>
+              <TeacherAssistantPage />
             </RoleProtectedRoute>
           }
         />

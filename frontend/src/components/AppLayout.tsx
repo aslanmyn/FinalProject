@@ -40,6 +40,7 @@ function getNav(role: string | null): NavGroup[] {
         items: [
           { to: "/app/teacher", label: "Overview" },
           { to: "/app/teacher/sections", label: "Sections" },
+          { to: "/app/teacher/assistant", label: "AI Assistant" },
           { to: "/app/chat", label: "Chat" },
           { to: "/app/teacher/attendance", label: "Attendance" },
           { to: "/app/teacher/gradebook", label: "Gradebook" },

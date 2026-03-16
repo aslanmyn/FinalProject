@@ -106,3 +106,9 @@ export interface TeacherGradeChangeRequestItem {
   newValue?: number;
   createdAt: string;
 }
+
+export interface TeacherAssistantReply {
+  answer: string;
+  model: string;
+  generatedAt: string;
+}

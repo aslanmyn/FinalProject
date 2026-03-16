@@ -37,6 +37,7 @@ import type {
 } from "../types/student";
 import type {
   TeacherAnnouncementItem,
+  TeacherAssistantReply,
   TeacherComponentItem,
   TeacherGradeChangeRequestItem,
   TeacherMaterialItem,
@@ -283,6 +284,13 @@ export async function uploadTeacherProfilePhoto(file: File): Promise<TeacherProf
 
 export async function fetchTeacherSections(): Promise<TeacherSectionItem[]> {
   return request<TeacherSectionItem[]>("/api/v1/teacher/sections");
+}
+
+export async function askTeacherAssistant(message: string): Promise<TeacherAssistantReply> {
+  return request<TeacherAssistantReply>("/api/v1/teacher/assistant/chat", {
+    method: "POST",
+    body: { message }
+  });
 }
 
 export async function fetchTeacherRoster(sectionId: number): Promise<TeacherRosterItem[]> {
