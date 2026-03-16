@@ -23,6 +23,7 @@ function getNav(role: string | null): NavGroup[] {
       {
         title: "Services",
         items: [
+          { to: "/app/student/assistant", label: "AI Assistant" },
           { to: "/app/chat", label: "Chat" },
           { to: "/app/student/requests", label: "Requests" },
           { to: "/app/student/financial", label: "Financial" },

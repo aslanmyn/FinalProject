@@ -1531,6 +1531,196 @@ button:disabled {
   min-width: 260px;
 }
 
+/* Student AI assistant */
+.assistant-page {
+  gap: 18px;
+}
+
+.assistant-hero-card,
+.assistant-chat-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.assistant-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 24px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 35%),
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.assistant-eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.assistant-hero h3 {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.assistant-suggestion-list {
+  display: grid;
+  gap: 12px;
+}
+
+.assistant-suggestion {
+  width: 100%;
+  text-align: left;
+  padding: 16px 18px;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.assistant-suggestion:hover {
+  transform: translateY(-1px);
+  background: #fff;
+}
+
+.assistant-chat-card {
+  display: grid;
+  gap: 0;
+}
+
+.assistant-messages {
+  display: grid;
+  gap: 14px;
+  padding: 24px 24px 18px;
+  max-height: 560px;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #fcfdff 0%, #f7fbff 100%);
+}
+
+.assistant-message {
+  max-width: min(820px, 100%);
+  border-radius: 22px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+
+.assistant-message-user {
+  margin-left: auto;
+  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
+  color: #fff;
+  border-color: transparent;
+}
+
+.assistant-message-ai {
+  background: #fff;
+}
+
+.assistant-message-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.88;
+}
+
+.assistant-message-head strong {
+  font-size: 13px;
+}
+
+.assistant-message-body {
+  display: grid;
+  gap: 8px;
+  line-height: 1.55;
+}
+
+.assistant-message-body p {
+  margin: 0;
+}
+
+.assistant-typing {
+  display: flex;
+  gap: 8px;
+}
+
+.assistant-typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #94a3b8;
+  animation: assistant-bounce 1.2s infinite ease-in-out;
+}
+
+.assistant-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.assistant-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.assistant-composer {
+  padding: 18px 24px 24px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+}
+
+.assistant-composer-label {
+  display: grid;
+  gap: 8px;
+}
+
+.assistant-composer-label span {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.assistant-composer-label textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.assistant-composer-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@keyframes assistant-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 980px) {
+  .assistant-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .assistant-composer-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* Teacher dashboard */
 .teacher-hero-card {
   padding: 0;

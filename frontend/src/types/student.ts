@@ -98,6 +98,12 @@ export interface StudentJournalOptions {
   semesters: StudentScheduleSemesterOption[];
 }
 
+export interface StudentAssistantReply {
+  answer: string;
+  model: string;
+  generatedAt: string;
+}
+
 export interface StudentTranscriptGradeItem {
   id: number;
   courseCode: string;

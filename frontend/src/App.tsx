@@ -13,6 +13,7 @@ import StudentJournalPage from "./pages/app/StudentJournalPage";
 import StudentTranscriptPage from "./pages/app/StudentTranscriptPage";
 import StudentAttendancePage from "./pages/app/StudentAttendancePage";
 import StudentExamsPage from "./pages/app/StudentExamsPage";
+import StudentAssistantPage from "./pages/app/StudentAssistantPage";
 import StudentFinancialPage from "./pages/app/StudentFinancialPage";
 import StudentFilesPage from "./pages/app/StudentFilesPage";
 import StudentNewsPage from "./pages/app/StudentNewsPage";
@@ -127,6 +128,14 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentExamsPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/assistant"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentAssistantPage />
             </RoleProtectedRoute>
           }
         />

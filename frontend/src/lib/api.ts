@@ -19,6 +19,7 @@ import type {
   PublicProfessorProfile
 } from "../types/public";
 import type {
+  StudentAssistantReply,
   StudentAttendanceData,
   StudentEnrollmentItem,
   StudentEnrollmentOptions,
@@ -231,6 +232,13 @@ export async function fetchStudentTranscript(): Promise<StudentTranscriptData> {
 
 export async function fetchStudentAttendance(): Promise<StudentAttendanceData> {
   return request<StudentAttendanceData>("/api/v1/student/attendance");
+}
+
+export async function askStudentAssistant(message: string): Promise<StudentAssistantReply> {
+  return request<StudentAssistantReply>("/api/v1/student/assistant/chat", {
+    method: "POST",
+    body: { message }
+  });
 }
 
 export async function fetchStudentExamSchedule(): Promise<StudentExamScheduleItem[]> {
