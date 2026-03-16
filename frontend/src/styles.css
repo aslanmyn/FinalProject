@@ -1642,3 +1642,153 @@ button:disabled {
     align-items: flex-start;
   }
 }
+
+/* Teacher sections */
+.teacher-sections-card {
+  display: grid;
+  gap: 18px;
+}
+
+.teacher-sections-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.teacher-sections-stat {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fffd 100%);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  gap: 8px;
+}
+
+.teacher-sections-stat span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.teacher-sections-stat strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.teacher-sections-table-wrap {
+  border-radius: 22px;
+}
+
+.teacher-sections-table th {
+  white-space: nowrap;
+}
+
+.teacher-sections-table td {
+  vertical-align: top;
+}
+
+.teacher-section-id-cell,
+.teacher-section-course-cell,
+.teacher-section-subject-cell,
+.teacher-section-program-cell,
+.teacher-section-semester-cell,
+.teacher-section-enrollment-cell {
+  display: grid;
+  gap: 6px;
+}
+
+.teacher-section-id-cell strong,
+.teacher-section-course-cell strong,
+.teacher-section-subject-cell strong,
+.teacher-section-program-cell strong,
+.teacher-section-semester-cell strong,
+.teacher-section-enrollment-cell strong {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.teacher-section-subject-cell {
+  min-width: 220px;
+}
+
+.teacher-section-subject-cell span,
+.teacher-section-program-cell span,
+.teacher-section-semester-cell span,
+.teacher-section-enrollment-cell span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.teacher-section-kind {
+  width: fit-content;
+}
+
+.teacher-meeting-list {
+  display: grid;
+  gap: 8px;
+  min-width: 250px;
+}
+
+.teacher-meeting-item {
+  border: 1px solid #cce7e3;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, #f9fffe 0%, #effcf8 100%);
+}
+
+.teacher-meeting-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.teacher-meeting-line strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.teacher-meeting-badge {
+  flex-shrink: 0;
+  border-color: #bde9de;
+  background: #e8faf4;
+  color: #0f766e;
+}
+
+.teacher-section-credit {
+  display: inline-flex;
+  min-width: 42px;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.teacher-section-status {
+  min-width: 84px;
+  justify-content: center;
+}
+
+.teacher-section-status.current {
+  border-color: #bbf7d0;
+  background: #ecfdf3;
+  color: #15803d;
+}
+
+.teacher-section-status.archive {
+  border-color: #dbeafe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+@media (max-width: 980px) {
+  .teacher-meeting-list {
+    min-width: 210px;
+  }
+}

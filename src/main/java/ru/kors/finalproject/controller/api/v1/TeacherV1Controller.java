@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.FileAssetRepository;
+import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.*;
@@ -19,6 +20,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +31,7 @@ public class TeacherV1Controller {
     private final MobileApiAuthService mobileApiAuthService;
     private final TeacherRepository teacherRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
+    private final RegistrationRepository registrationRepository;
     private final TeacherAcademicService teacherAcademicService;
     private final AnnouncementService announcementService;
     private final GradeChangeService gradeChangeService;
@@ -86,14 +89,9 @@ public class TeacherV1Controller {
     public ResponseEntity<?> sections(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(teacherAcademicService.getMySections(teacher).stream().map(s -> Map.of(
-                "id", s.getId(),
-                "subjectCode", s.getSubject().getCode(),
-                "subjectName", s.getSubject().getName(),
-                "semesterName", s.getSemester().getName(),
-                "capacity", s.getCapacity(),
-                "lessonType", s.getLessonType()
-        )).toList());
+        return ResponseEntity.ok(teacherAcademicService.getMySections(teacher).stream()
+                .map(this::toTeacherSectionDto)
+                .toList());
     }
 
     @GetMapping("/sections/{sectionId}/roster")
@@ -422,6 +420,58 @@ public class TeacherV1Controller {
         );
     }
 
+    private TeacherSectionDto toTeacherSectionDto(SubjectOffering offering) {
+        long enrolledCount = registrationRepository.countBySubjectOfferingIdAndStatusIn(
+                offering.getId(),
+                List.of(Registration.RegistrationStatus.CONFIRMED, Registration.RegistrationStatus.SUBMITTED)
+        );
+
+        List<TeacherSectionMeetingTimeDto> meetingTimes = offering.getMeetingTimes() == null
+                ? List.of()
+                : offering.getMeetingTimes().stream()
+                .sorted(Comparator
+                        .comparing(MeetingTime::getDayOfWeek)
+                        .thenComparing(MeetingTime::getStartTime))
+                .map(this::toTeacherSectionMeetingTimeDto)
+                .toList();
+
+        String programName = offering.getSubject() != null && offering.getSubject().getProgram() != null
+                ? offering.getSubject().getProgram().getName()
+                : null;
+        String facultyName = offering.getSubject() != null
+                && offering.getSubject().getProgram() != null
+                && offering.getSubject().getProgram().getFaculty() != null
+                ? offering.getSubject().getProgram().getFaculty().getName()
+                : null;
+
+        return new TeacherSectionDto(
+                offering.getId(),
+                offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering.getSubject() != null ? offering.getSubject().getName() : null,
+                offering.getSubject() != null ? offering.getSubject().getCredits() : 0,
+                programName,
+                facultyName,
+                offering.getSemester() != null ? offering.getSemester().getId() : null,
+                offering.getSemester() != null ? offering.getSemester().getName() : null,
+                offering.getSemester() != null && offering.getSemester().isCurrent(),
+                offering.getCapacity(),
+                enrolledCount,
+                offering.getLessonType(),
+                meetingTimes
+        );
+    }
+
+    private TeacherSectionMeetingTimeDto toTeacherSectionMeetingTimeDto(MeetingTime meetingTime) {
+        return new TeacherSectionMeetingTimeDto(
+                meetingTime.getId(),
+                meetingTime.getDayOfWeek(),
+                meetingTime.getStartTime(),
+                meetingTime.getEndTime(),
+                meetingTime.getRoom(),
+                meetingTime.getLessonType()
+        );
+    }
+
     private String buildTeacherProfilePhotoUrl(Teacher teacher) {
         if (teacher.getProfilePhotoAssetId() != null) {
             return fileAssetRepository.findById(teacher.getProfilePhotoAssetId())
@@ -526,6 +576,15 @@ public class TeacherV1Controller {
                                     String position, String officeHours, String officeRoom,
                                     Teacher.TeacherRole teacherRole, String faculty,
                                     String profilePhotoUrl) {}
+    public record TeacherSectionDto(Long id, String subjectCode, String subjectName, int credits,
+                                    String programName, String facultyName,
+                                    Long semesterId, String semesterName, boolean currentSemester,
+                                    int capacity, long enrolledCount,
+                                    SubjectOffering.LessonType lessonType,
+                                    List<TeacherSectionMeetingTimeDto> meetingTimes) {}
+    public record TeacherSectionMeetingTimeDto(Long id, java.time.DayOfWeek dayOfWeek,
+                                               java.time.LocalTime startTime, java.time.LocalTime endTime,
+                                               String room, SubjectOffering.LessonType lessonType) {}
     public record ComponentDto(Long id, Long sectionId, String name, AssessmentComponent.ComponentType type,
                                double weightPercent, AssessmentComponent.ComponentStatus status,
                                boolean published, boolean locked, Instant createdAt) {}

@@ -15,8 +15,24 @@ export interface TeacherSectionItem {
   id: number;
   subjectCode: string;
   subjectName: string;
+  credits: number;
+  programName: string | null;
+  facultyName: string | null;
+  semesterId: number | null;
   semesterName: string;
+  currentSemester: boolean;
   capacity: number;
+  enrolledCount: number;
+  lessonType: string;
+  meetingTimes: TeacherSectionMeetingTimeItem[];
+}
+
+export interface TeacherSectionMeetingTimeItem {
+  id: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  room: string | null;
   lessonType: string;
 }
 

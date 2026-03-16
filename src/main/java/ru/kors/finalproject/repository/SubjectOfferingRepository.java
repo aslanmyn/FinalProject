@@ -25,10 +25,24 @@ public interface SubjectOfferingRepository extends JpaRepository<SubjectOffering
 
     List<SubjectOffering> findByTeacherId(Long teacherId);
 
-    @Query("SELECT so FROM SubjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.semester LEFT JOIN FETCH so.teacher WHERE so.teacher.id = :teacherId")
+    @Query("SELECT DISTINCT so FROM SubjectOffering so " +
+           "LEFT JOIN FETCH so.subject s " +
+           "LEFT JOIN FETCH s.program p " +
+           "LEFT JOIN FETCH p.faculty " +
+           "LEFT JOIN FETCH so.semester " +
+           "LEFT JOIN FETCH so.teacher " +
+           "LEFT JOIN FETCH so.meetingTimes " +
+           "WHERE so.teacher.id = :teacherId")
     List<SubjectOffering> findByTeacherIdWithDetails(Long teacherId);
 
-    @Query("SELECT so FROM SubjectOffering so LEFT JOIN FETCH so.subject LEFT JOIN FETCH so.semester LEFT JOIN FETCH so.teacher WHERE so.id = :id")
+    @Query("SELECT DISTINCT so FROM SubjectOffering so " +
+           "LEFT JOIN FETCH so.subject s " +
+           "LEFT JOIN FETCH s.program p " +
+           "LEFT JOIN FETCH p.faculty " +
+           "LEFT JOIN FETCH so.semester " +
+           "LEFT JOIN FETCH so.teacher " +
+           "LEFT JOIN FETCH so.meetingTimes " +
+           "WHERE so.id = :id")
     Optional<SubjectOffering> findByIdWithDetails(Long id);
 
     /** Lock the offering row to prevent concurrent enrollment race conditions. */
