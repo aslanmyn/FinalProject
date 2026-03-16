@@ -44,6 +44,7 @@ public class Student {
     private String address;
     private String phone;
     private String emergencyContact;
+    private Long profilePhotoAssetId;
 
     public enum StudentStatus { ACTIVE, ON_LEAVE, GRADUATED }
 }

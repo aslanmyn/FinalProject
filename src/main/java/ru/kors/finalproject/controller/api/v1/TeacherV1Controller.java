@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
+import ru.kors.finalproject.repository.FileAssetRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.*;
@@ -33,21 +34,52 @@ public class TeacherV1Controller {
     private final GradeChangeService gradeChangeService;
     private final CourseMaterialService courseMaterialService;
     private final FileLinkService fileLinkService;
+    private final FileAssetRepository fileAssetRepository;
+    private final FileStorageService fileStorageService;
 
     @GetMapping("/profile")
     public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         Teacher teacher = getTeacher(user);
-        return ResponseEntity.ok(Map.of(
-                "id", teacher.getId(),
-                "name", teacher.getName(),
-                "email", teacher.getEmail(),
-                "department", teacher.getDepartment() != null ? teacher.getDepartment() : "",
-                "position", teacher.getPositionTitle() != null ? teacher.getPositionTitle() : "",
-                "officeHours", teacher.getOfficeHours() != null ? teacher.getOfficeHours() : "",
-                "officeRoom", teacher.getOfficeRoom() != null ? teacher.getOfficeRoom() : "",
-                "teacherRole", teacher.getRole()
-        ));
+        return ResponseEntity.ok(toTeacherProfileDto(teacher));
+    }
+
+    @PostMapping(value = "/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadProfilePhoto(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("file") MultipartFile file) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        Teacher teacher = getTeacher(user);
+        if (file.getContentType() == null || !file.getContentType().toLowerCase().startsWith("image/")) {
+            throw new IllegalArgumentException("Only image files are allowed for profile photo");
+        }
+
+        FileStorageService.StoredFile stored = fileStorageService.store(file, "profile-photos/teacher-" + teacher.getId());
+        FileAsset previousAsset = teacher.getProfilePhotoAssetId() != null
+                ? fileAssetRepository.findById(teacher.getProfilePhotoAssetId()).orElse(null)
+                : null;
+
+        FileAsset savedAsset = fileAssetRepository.save(FileAsset.builder()
+                .originalName(stored.originalName())
+                .storagePath(stored.storagePath())
+                .contentType(stored.contentType())
+                .sizeBytes(stored.sizeBytes())
+                .category(FileAsset.FileCategory.OTHER)
+                .linkedEntityType("TEACHER_PROFILE_PHOTO")
+                .linkedEntityId(teacher.getId())
+                .uploadedBy(user)
+                .uploadedAt(Instant.now())
+                .build());
+
+        teacher.setProfilePhotoAssetId(savedAsset.getId());
+        teacherRepository.save(teacher);
+
+        if (previousAsset != null) {
+            fileStorageService.deleteSilently(previousAsset.getStoragePath());
+            fileAssetRepository.delete(previousAsset);
+        }
+
+        return ResponseEntity.ok(toTeacherProfileDto(teacher));
     }
 
     @GetMapping("/sections")
@@ -371,8 +403,32 @@ public class TeacherV1Controller {
     }
 
     private Teacher getTeacher(User user) {
-        return teacherRepository.findByEmail(user.getEmail())
+        return teacherRepository.findByEmailWithDetails(user.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("Teacher profile not found"));
+    }
+
+    private TeacherProfileDto toTeacherProfileDto(Teacher teacher) {
+        return new TeacherProfileDto(
+                teacher.getId(),
+                teacher.getName(),
+                teacher.getEmail(),
+                teacher.getDepartment() != null ? teacher.getDepartment() : "",
+                teacher.getPositionTitle() != null ? teacher.getPositionTitle() : "",
+                teacher.getOfficeHours() != null ? teacher.getOfficeHours() : "",
+                teacher.getOfficeRoom() != null ? teacher.getOfficeRoom() : "",
+                teacher.getRole(),
+                teacher.getFaculty() != null ? teacher.getFaculty().getName() : "",
+                buildTeacherProfilePhotoUrl(teacher)
+        );
+    }
+
+    private String buildTeacherProfilePhotoUrl(Teacher teacher) {
+        if (teacher.getProfilePhotoAssetId() != null) {
+            return fileAssetRepository.findById(teacher.getProfilePhotoAssetId())
+                    .map(file -> fileLinkService.createAssetDownloadUrl(file.getId()))
+                    .orElse(null);
+        }
+        return teacher.getPhotoUrl();
     }
 
     private ComponentDto toComponentDto(AssessmentComponent component) {
@@ -466,6 +522,10 @@ public class TeacherV1Controller {
     }
 
     public record AttendanceBody(String classDate, List<TeacherAcademicService.AttendanceMarkInput> marks) {}
+    public record TeacherProfileDto(Long id, String name, String email, String department,
+                                    String position, String officeHours, String officeRoom,
+                                    Teacher.TeacherRole teacherRole, String faculty,
+                                    String profilePhotoUrl) {}
     public record ComponentDto(Long id, Long sectionId, String name, AssessmentComponent.ComponentType type,
                                double weightPercent, AssessmentComponent.ComponentStatus status,
                                boolean published, boolean locked, Instant createdAt) {}

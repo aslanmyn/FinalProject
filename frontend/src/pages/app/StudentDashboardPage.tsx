@@ -1,12 +1,75 @@
-import { useEffect, useState } from "react";
-import { ApiError, fetchStudentProfile, fetchStudentSchedule } from "../../lib/api";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import {
+  ApiError,
+  buildFileDownloadUrl,
+  fetchStudentProfile,
+  fetchStudentSchedule,
+  uploadStudentProfilePhoto
+} from "../../lib/api";
 import type { StudentProfile, StudentScheduleItem } from "../../types/student";
+
+const DAY_ORDER: Record<string, number> = {
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+  SUNDAY: 7
+};
+
+const DAY_LABELS: Record<string, string> = {
+  MONDAY: "Monday",
+  TUESDAY: "Tuesday",
+  WEDNESDAY: "Wednesday",
+  THURSDAY: "Thursday",
+  FRIDAY: "Friday",
+  SATURDAY: "Saturday",
+  SUNDAY: "Sunday"
+};
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  if (parts.length === 0) return "ST";
+  return parts.map((part) => part[0]?.toUpperCase() || "").join("");
+}
+
+function formatDay(dayOfWeek: string | null): string {
+  if (!dayOfWeek) return "Day TBA";
+  return DAY_LABELS[dayOfWeek] || dayOfWeek;
+}
+
+function formatTime(value: string | null): string {
+  if (!value) return "--:--";
+  return value.slice(0, 5);
+}
+
+function formatStatus(status: string): string {
+  return status
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function sortSchedule(items: StudentScheduleItem[]): StudentScheduleItem[] {
+  return [...items].sort((left, right) => {
+    const dayDiff = (DAY_ORDER[left.dayOfWeek || ""] || 99) - (DAY_ORDER[right.dayOfWeek || ""] || 99);
+    if (dayDiff !== 0) return dayDiff;
+    return (left.startTime || "").localeCompare(right.startTime || "");
+  });
+}
 
 export default function StudentDashboardPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -15,14 +78,17 @@ export default function StudentDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [p, s] = await Promise.all([fetchStudentProfile(), fetchStudentSchedule()]);
+        const [profilePayload, schedulePayload] = await Promise.all([
+          fetchStudentProfile(),
+          fetchStudentSchedule()
+        ]);
         if (!cancelled) {
-          setProfile(p);
-          setSchedule(s);
+          setProfile(profilePayload);
+          setSchedule(sortSchedule(schedulePayload));
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Failed to load student data");
+          setError(err instanceof ApiError ? err.message : "Failed to load student dashboard");
         }
       } finally {
         if (!cancelled) {
@@ -31,53 +97,166 @@ export default function StudentDashboardPage() {
       }
     }
 
-    load();
+    void load();
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const schedulePreview = useMemo(() => schedule.slice(0, 4), [schedule]);
+
+  async function handleProfilePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadSuccess(null);
+      setUploadError("Please select an image file.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadSuccess(null);
+    try {
+      const updatedProfile = await uploadStudentProfilePhoto(file);
+      setProfile(updatedProfile);
+      setUploadSuccess("Profile photo updated.");
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : "Failed to upload profile photo");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const profileFacts = profile
+    ? [
+        { label: "Program", value: profile.program || "Not assigned" },
+        { label: "Faculty", value: profile.faculty || "Not assigned" },
+        { label: "Course year", value: `${profile.course}` },
+        { label: "Credits earned", value: `${profile.creditsEarned}` },
+        ...(profile.phone ? [{ label: "Phone", value: profile.phone }] : []),
+        ...(profile.groupName?.trim() ? [{ label: "Group", value: profile.groupName }] : [])
+      ]
+    : [];
+
+  const photoUrl = profile?.profilePhotoUrl ? buildFileDownloadUrl(profile.profilePhotoUrl) : null;
+  const statusClass = profile?.status?.toLowerCase() || "active";
+
   return (
     <div className="screen app-screen">
       <header className="topbar">
         <h2>Student Overview</h2>
+        <div className="actions">
+          <Link className="link-btn" to="/app/student/schedule">
+            View full schedule
+          </Link>
+          <Link className="link-btn" to="/app/student/files">
+            Open files
+          </Link>
+        </div>
       </header>
 
-      {loading ? <p>Loading...</p> : null}
-      {error ? <p className="error">{error}</p> : null}
+      {loading ? (
+        <section className="card">
+          <p>Loading dashboard...</p>
+        </section>
+      ) : null}
+
+      {error ? (
+        <section className="card">
+          <p className="error">{error}</p>
+        </section>
+      ) : null}
 
       {!loading && !error && profile ? (
         <>
-          <section className="card">
-            <h3>{profile.name}</h3>
-            <p className="muted">{profile.email}</p>
-            <div className="kv-grid">
-              <div>Program: {profile.program || "-"}</div>
-              <div>Faculty: {profile.faculty || "-"}</div>
-              <div>Course: {profile.course}</div>
-              <div>Group: {profile.groupName}</div>
-              <div>Status: {profile.status}</div>
-              <div>Credits: {profile.creditsEarned}</div>
+          <section className="card student-hero-card">
+            <div className="student-hero">
+              <div className="student-avatar-panel">
+                <div className="student-avatar">
+                  {photoUrl ? (
+                    <img className="student-avatar-image" src={photoUrl} alt={profile.name} />
+                  ) : (
+                    <span className="student-avatar-fallback">{getInitials(profile.name)}</span>
+                  )}
+                </div>
+
+                <div className="profile-upload-control">
+                  <input
+                    ref={fileInputRef}
+                    className="profile-upload-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePhotoChange}
+                  />
+                  <button
+                    type="button"
+                    className="profile-upload-button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? "Uploading..." : photoUrl ? "Change photo" : "Add profile photo"}
+                  </button>
+                  <p className="profile-upload-hint">Use a clear JPG or PNG portrait for your account.</p>
+                  {uploadError ? <p className="error">{uploadError}</p> : null}
+                  {uploadSuccess ? <p className="success">{uploadSuccess}</p> : null}
+                </div>
+              </div>
+
+              <div className="student-hero-content">
+                <div className="student-status-row">
+                  <div className="student-status-line">
+                    <p className="student-section-kicker">Student profile</p>
+                    <h2>{profile.name}</h2>
+                    <p className="student-contact-line">{profile.email}</p>
+                  </div>
+                  <span className={`student-status-pill ${statusClass}`}>{formatStatus(profile.status)}</span>
+                </div>
+
+                <div className="student-profile-grid">
+                  {profileFacts.map((fact) => (
+                    <div className="profile-fact" key={fact.label}>
+                      <span className="profile-fact-label">{fact.label}</span>
+                      <strong className="profile-fact-value">{fact.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
 
-          <section className="card">
-            <h3>Current Schedule</h3>
-            {schedule.length === 0 ? <p className="muted">No active schedule items.</p> : null}
-            {schedule.map((item) => (
-              <div key={`${item.sectionId}-${item.courseCode}`} className="row">
-                <strong>{item.courseCode}</strong> {item.courseName}
-                <span className="muted">
-                  {" "}
-                  | {item.dayOfWeek || "-"} {item.startTime || ""}-{item.endTime || ""} | {item.room || "-"} |{" "}
-                  {item.teacherName || "-"}
-                </span>
+          <section className="card schedule-summary-card">
+            <div className="schedule-summary-header">
+              <div>
+                <h3>Current Schedule</h3>
+                <p className="muted">Only the nearest active classes are shown here.</p>
               </div>
-            ))}
+              <Link className="link-btn" to="/app/student/schedule">
+                Open full timetable
+              </Link>
+            </div>
+
+            {schedulePreview.length === 0 ? (
+              <p className="muted">No current semester classes found.</p>
+            ) : (
+              <div className="schedule-summary-grid">
+                {schedulePreview.map((item) => (
+                  <article className="schedule-summary-item" key={`${item.sectionId}-${item.dayOfWeek}-${item.startTime}`}>
+                    <span className="badge schedule-summary-code">{item.courseCode}</span>
+                    <h3>{item.courseName}</h3>
+                    <p className="schedule-summary-meta">
+                      {formatDay(item.dayOfWeek)} • {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                    </p>
+                    <p className="schedule-summary-meta">{item.room || "Room to be assigned"}</p>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         </>
       ) : null}
     </div>
   );
 }
-

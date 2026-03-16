@@ -13,6 +13,7 @@ import ru.kors.finalproject.repository.NewsRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.AnnouncementService;
+import ru.kors.finalproject.service.FileLinkService;
 
 import java.time.Instant;
 import java.time.LocalTime;
@@ -27,6 +28,7 @@ public class PublicV1Controller {
     private final TeacherRepository teacherRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final AnnouncementService announcementService;
+    private final FileLinkService fileLinkService;
 
     @GetMapping("/news")
     public ResponseEntity<?> news() {
@@ -50,7 +52,7 @@ public class PublicV1Controller {
                         t.getName() != null ? t.getName() : "",
                         t.getDepartment() != null ? t.getDepartment() : "",
                         t.getPositionTitle() != null ? t.getPositionTitle() : "",
-                        t.getPhotoUrl() != null ? t.getPhotoUrl() : "",
+                        resolveTeacherPhotoUrl(t),
                         t.getPublicEmail() != null ? t.getPublicEmail() : "",
                         t.getOfficeRoom() != null ? t.getOfficeRoom() : "",
                         t.getOfficeHours() != null ? t.getOfficeHours() : "",
@@ -92,7 +94,7 @@ public class PublicV1Controller {
                 teacher.getName() != null ? teacher.getName() : "",
                 teacher.getDepartment() != null ? teacher.getDepartment() : "",
                 teacher.getPositionTitle() != null ? teacher.getPositionTitle() : "",
-                teacher.getPhotoUrl() != null ? teacher.getPhotoUrl() : "",
+                resolveTeacherPhotoUrl(teacher),
                 teacher.getPublicEmail() != null ? teacher.getPublicEmail() : "",
                 teacher.getOfficeRoom() != null ? teacher.getOfficeRoom() : "",
                 teacher.getOfficeHours() != null ? teacher.getOfficeHours() : "",
@@ -117,6 +119,13 @@ public class PublicV1Controller {
                 so.getEndTime(),
                 so.getRoom() != null ? so.getRoom() : ""
         );
+    }
+
+    private String resolveTeacherPhotoUrl(Teacher teacher) {
+        if (teacher.getProfilePhotoAssetId() != null) {
+            return fileLinkService.createAssetDownloadUrl(teacher.getProfilePhotoAssetId());
+        }
+        return teacher.getPhotoUrl() != null ? teacher.getPhotoUrl() : "";
     }
 
     public record NewsDto(Long id, String title, String content, String category, Instant createdAt) {}
@@ -172,4 +181,3 @@ public class PublicV1Controller {
             boolean pinned
     ) {}
 }
-

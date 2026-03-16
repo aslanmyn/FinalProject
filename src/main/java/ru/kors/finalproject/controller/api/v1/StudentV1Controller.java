@@ -1,7 +1,9 @@
 package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
@@ -11,8 +13,12 @@ import ru.kors.finalproject.web.api.v1.ApiPageableFactory;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 @RestController
@@ -43,50 +49,193 @@ public class StudentV1Controller {
     private final ApiPageableFactory apiPageableFactory;
     private final FileLinkService fileLinkService;
     private final FileAssetRepository fileAssetRepository;
+    private final FileStorageService fileStorageService;
 
     @GetMapping("/profile")
     public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(new StudentProfileDto(
-                student.getId(), student.getName(), student.getEmail(), student.getCourse(),
-                student.getGroupName(), student.getStatus(),
-                student.getProgram() != null ? student.getProgram().getName() : null,
-                student.getFaculty() != null ? student.getFaculty().getName() : null,
-                student.getCreditsEarned(), student.getPhone()));
+        return ResponseEntity.ok(toStudentProfileDto(student));
+    }
+
+    @PostMapping(value = "/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadProfilePhoto(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("file") MultipartFile file) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        if (file.getContentType() == null || !file.getContentType().toLowerCase().startsWith("image/")) {
+            throw new IllegalArgumentException("Only image files are allowed for profile photo");
+        }
+
+        FileStorageService.StoredFile stored = fileStorageService.store(file, "profile-photos/student-" + student.getId());
+        FileAsset previousAsset = student.getProfilePhotoAssetId() != null
+                ? fileAssetRepository.findById(student.getProfilePhotoAssetId()).orElse(null)
+                : null;
+
+        FileAsset savedAsset = fileAssetRepository.save(FileAsset.builder()
+                .originalName(stored.originalName())
+                .storagePath(stored.storagePath())
+                .contentType(stored.contentType())
+                .sizeBytes(stored.sizeBytes())
+                .category(FileAsset.FileCategory.OTHER)
+                .linkedEntityType("STUDENT_PROFILE_PHOTO")
+                .linkedEntityId(student.getId())
+                .ownerStudent(student)
+                .uploadedBy(user)
+                .uploadedAt(Instant.now())
+                .build());
+
+        student.setProfilePhotoAssetId(savedAsset.getId());
+        studentRepository.save(student);
+
+        if (previousAsset != null) {
+            fileStorageService.deleteSilently(previousAsset.getStoragePath());
+            fileAssetRepository.delete(previousAsset);
+        }
+
+        return ResponseEntity.ok(toStudentProfileDto(student));
     }
 
     @GetMapping("/schedule")
-    public ResponseEntity<?> schedule(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> schedule(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) Long semesterId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        List<Registration> enrollments = registrationRepository.findActiveByStudentIdWithDetails(student.getId());
-        List<ScheduleItemDto> items = enrollments.stream().map(r -> new ScheduleItemDto(
-                r.getSubjectOffering().getId(),
-                r.getSubjectOffering().getSubject().getCode(),
-                r.getSubjectOffering().getSubject().getName(),
-                r.getSubjectOffering().getDayOfWeek(),
-                r.getSubjectOffering().getStartTime(),
-                r.getSubjectOffering().getEndTime(),
-                r.getSubjectOffering().getRoom(),
-                r.getSubjectOffering().getTeacher() != null ? r.getSubjectOffering().getTeacher().getName() : null,
-                r.getStatus()
-        )).toList();
+        List<Registration> enrollments = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
+                .filter(r -> r.getStatus() != Registration.RegistrationStatus.DROPPED)
+                .toList();
+        Long effectiveSemesterId = semesterId != null
+                ? semesterId
+                : student.getCurrentSemester() != null
+                ? student.getCurrentSemester().getId()
+                : semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
+        List<ScheduleItemDto> items = enrollments.stream()
+                .filter(r -> effectiveSemesterId == null
+                        || (r.getSubjectOffering().getSemester() != null
+                        && Objects.equals(r.getSubjectOffering().getSemester().getId(), effectiveSemesterId)))
+                .map(this::toScheduleItemDto)
+                .toList();
         return ResponseEntity.ok(items);
     }
 
+    @GetMapping("/schedule/options")
+    public ResponseEntity<?> scheduleOptions(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        List<SemesterOptionDto> semesters = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
+                .filter(r -> r.getStatus() != Registration.RegistrationStatus.DROPPED)
+                .map(r -> r.getSubjectOffering() != null ? r.getSubjectOffering().getSemester() : null)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toMap(
+                        Semester::getId,
+                        semester -> semester,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                .values().stream()
+                .sorted(Comparator.comparing(Semester::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .map(this::toSemesterOptionDto)
+                .toList();
+
+        Long currentSemesterId = student.getCurrentSemester() != null
+                ? student.getCurrentSemester().getId()
+                : semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
+
+        return ResponseEntity.ok(new ScheduleOptionsDto(currentSemesterId, semesters));
+    }
+
     @GetMapping("/journal")
-    public ResponseEntity<?> journal(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> journal(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) Long semesterId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
         List<Grade> grades = gradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
-        return ResponseEntity.ok(grades.stream().map(g -> new JournalGradeDto(
-                g.getId(),
-                g.getSubjectOffering().getSubject().getCode(),
-                g.getSubjectOffering().getSubject().getName(),
-                g.getComponent() != null ? g.getComponent().getName() : g.getType().name(),
-                g.getGradeValue(), g.getMaxGradeValue(), g.getComment(), g.getCreatedAt()
-        )).toList());
+        List<FinalGrade> finalGrades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
+        Long effectiveSemesterId = semesterId != null
+                ? semesterId
+                : student.getCurrentSemester() != null
+                ? student.getCurrentSemester().getId()
+                : buildJournalSemesterOptions(student.getId()).stream()
+                .findFirst()
+                .map(SemesterOptionDto::id)
+                .orElse(null);
+
+        Map<Long, JournalCourseRowAccumulator> rows = new LinkedHashMap<>();
+
+        grades.stream()
+                .filter(g -> effectiveSemesterId == null
+                        || (g.getSubjectOffering().getSemester() != null
+                        && Objects.equals(g.getSubjectOffering().getSemester().getId(), effectiveSemesterId)))
+                .forEach(grade -> {
+                    SubjectOffering offering = grade.getSubjectOffering();
+                    if (offering == null || offering.getSubject() == null) {
+                        return;
+                    }
+                    Semester semester = offering.getSemester();
+                    JournalCourseRowAccumulator row = rows.computeIfAbsent(offering.getId(), id -> new JournalCourseRowAccumulator(
+                            offering.getId(),
+                            offering.getSubject().getCode(),
+                            offering.getSubject().getName(),
+                            semester != null ? semester.getId() : null,
+                            semester != null ? semester.getName() : null,
+                            semester != null ? extractAcademicYear(semester.getName()) : null,
+                            semester != null ? extractSeason(semester.getName()) : null
+                    ));
+
+                    String componentName = grade.getComponent() != null ? grade.getComponent().getName() : grade.getType().name();
+                    if (isAttestationOne(componentName, grade)) {
+                        row.attestation1 = grade.getGradeValue();
+                        row.attestation1Max = grade.getMaxGradeValue();
+                    } else if (isAttestationTwo(componentName, grade)) {
+                        row.attestation2 = grade.getGradeValue();
+                        row.attestation2Max = grade.getMaxGradeValue();
+                    } else if (isFinalComponent(componentName, grade)) {
+                        row.finalExam = grade.getGradeValue();
+                        row.finalExamMax = grade.getMaxGradeValue();
+                    }
+                });
+
+        finalGrades.stream()
+                .filter(finalGrade -> effectiveSemesterId == null
+                        || (finalGrade.getSubjectOffering().getSemester() != null
+                        && Objects.equals(finalGrade.getSubjectOffering().getSemester().getId(), effectiveSemesterId)))
+                .forEach(finalGrade -> {
+                    SubjectOffering offering = finalGrade.getSubjectOffering();
+                    if (offering == null || offering.getSubject() == null) {
+                        return;
+                    }
+                    Semester semester = offering.getSemester();
+                    JournalCourseRowAccumulator row = rows.computeIfAbsent(offering.getId(), id -> new JournalCourseRowAccumulator(
+                            offering.getId(),
+                            offering.getSubject().getCode(),
+                            offering.getSubject().getName(),
+                            semester != null ? semester.getId() : null,
+                            semester != null ? semester.getName() : null,
+                            semester != null ? extractAcademicYear(semester.getName()) : null,
+                            semester != null ? extractSeason(semester.getName()) : null
+                    ));
+                    row.totalScore = finalGrade.getNumericValue();
+                    row.letterValue = finalGrade.getLetterValue();
+                });
+
+        return ResponseEntity.ok(rows.values().stream()
+                .sorted(Comparator.comparing(JournalCourseRowAccumulator::courseCode))
+                .map(JournalCourseRowAccumulator::toDto)
+                .toList());
+    }
+
+    @GetMapping("/journal/options")
+    public ResponseEntity<?> journalOptions(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        List<SemesterOptionDto> semesters = buildJournalSemesterOptions(student.getId());
+        Long currentSemesterId = student.getCurrentSemester() != null
+                ? student.getCurrentSemester().getId()
+                : semesters.stream().findFirst().map(SemesterOptionDto::id).orElse(null);
+        return ResponseEntity.ok(new JournalOptionsDto(currentSemesterId, semesters));
     }
 
     @GetMapping("/transcript")
@@ -437,6 +586,98 @@ public class StudentV1Controller {
         );
     }
 
+    private List<SemesterOptionDto> buildJournalSemesterOptions(Long studentId) {
+        Map<Long, Semester> semesters = new LinkedHashMap<>();
+
+        gradeRepository.findByStudentIdAndPublishedTrueWithDetails(studentId).stream()
+                .map(grade -> grade.getSubjectOffering() != null ? grade.getSubjectOffering().getSemester() : null)
+                .filter(Objects::nonNull)
+                .forEach(semester -> semesters.putIfAbsent(semester.getId(), semester));
+
+        finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(studentId).stream()
+                .map(finalGrade -> finalGrade.getSubjectOffering() != null ? finalGrade.getSubjectOffering().getSemester() : null)
+                .filter(Objects::nonNull)
+                .forEach(semester -> semesters.putIfAbsent(semester.getId(), semester));
+
+        return semesters.values().stream()
+                .sorted(Comparator.comparing(Semester::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .map(this::toSemesterOptionDto)
+                .toList();
+    }
+
+    private boolean isAttestationOne(String componentName, Grade grade) {
+        String normalized = normalizeComponent(componentName, grade);
+        return normalized.contains("attestation 1");
+    }
+
+    private boolean isAttestationTwo(String componentName, Grade grade) {
+        String normalized = normalizeComponent(componentName, grade);
+        return normalized.contains("attestation 2");
+    }
+
+    private boolean isFinalComponent(String componentName, Grade grade) {
+        String normalized = normalizeComponent(componentName, grade);
+        return normalized.contains("final") || grade.getType() == Grade.GradeType.FINAL;
+    }
+
+    private String normalizeComponent(String componentName, Grade grade) {
+        List<String> parts = new ArrayList<>();
+        if (componentName != null) {
+            parts.add(componentName.toLowerCase());
+        }
+        if (grade.getComment() != null) {
+            parts.add(grade.getComment().toLowerCase());
+        }
+        return String.join(" ", parts);
+    }
+
+    private ScheduleItemDto toScheduleItemDto(Registration registration) {
+        SubjectOffering offering = registration.getSubjectOffering();
+        Semester semester = offering != null ? offering.getSemester() : null;
+        return new ScheduleItemDto(
+                offering != null ? offering.getId() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getName() : null,
+                offering != null ? offering.getDayOfWeek() : null,
+                offering != null ? offering.getStartTime() : null,
+                offering != null ? offering.getEndTime() : null,
+                offering != null ? offering.getRoom() : null,
+                offering != null && offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                registration.getStatus(),
+                semester != null ? semester.getId() : null,
+                semester != null ? semester.getName() : null,
+                semester != null ? extractAcademicYear(semester.getName()) : null,
+                semester != null ? extractSeason(semester.getName()) : null,
+                offering != null ? offering.getLessonType() : null
+        );
+    }
+
+    private SemesterOptionDto toSemesterOptionDto(Semester semester) {
+        return new SemesterOptionDto(
+                semester.getId(),
+                semester.getName(),
+                extractAcademicYear(semester.getName()),
+                extractSeason(semester.getName()),
+                semester.isCurrent()
+        );
+    }
+
+    private String extractAcademicYear(String semesterName) {
+        if (semesterName == null || semesterName.isBlank()) {
+            return "";
+        }
+        int separatorIndex = semesterName.lastIndexOf(' ');
+        return separatorIndex > 0 ? semesterName.substring(0, separatorIndex).trim() : semesterName;
+    }
+
+    private String extractSeason(String semesterName) {
+        if (semesterName == null || semesterName.isBlank()) {
+            return "";
+        }
+        int separatorIndex = semesterName.lastIndexOf(' ');
+        return separatorIndex > 0 ? semesterName.substring(separatorIndex + 1).trim() : semesterName;
+    }
+
     private ChecklistItemDto toChecklistItemDto(ChecklistItem item) {
         return new ChecklistItemDto(
                 item.getId(),
@@ -481,15 +722,48 @@ public class StudentV1Controller {
         );
     }
 
+    private StudentProfileDto toStudentProfileDto(Student student) {
+        return new StudentProfileDto(
+                student.getId(),
+                student.getName(),
+                student.getEmail(),
+                student.getCourse(),
+                student.getGroupName(),
+                student.getStatus(),
+                student.getProgram() != null ? student.getProgram().getName() : null,
+                student.getFaculty() != null ? student.getFaculty().getName() : null,
+                student.getCreditsEarned(),
+                student.getPhone(),
+                buildProfilePhotoUrl(student.getProfilePhotoAssetId())
+        );
+    }
+
+    private String buildProfilePhotoUrl(Long fileAssetId) {
+        if (fileAssetId == null) {
+            return null;
+        }
+        return fileAssetRepository.findById(fileAssetId)
+                .map(file -> fileLinkService.createAssetDownloadUrl(file.getId()))
+                .orElse(null);
+    }
+
     public record StudentProfileDto(Long id, String name, String email, int course, String groupName,
                                      Student.StudentStatus status, String program, String faculty,
-                                     int creditsEarned, String phone) {}
+                                     int creditsEarned, String phone, String profilePhotoUrl) {}
     public record ScheduleItemDto(Long sectionId, String courseCode, String courseName,
                                    java.time.DayOfWeek dayOfWeek, java.time.LocalTime startTime,
                                    java.time.LocalTime endTime, String room, String teacherName,
-                                   Registration.RegistrationStatus status) {}
-    public record JournalGradeDto(Long id, String courseCode, String courseName, String component,
-                                   double value, double max, String comment, Instant createdAt) {}
+                                   Registration.RegistrationStatus status, Long semesterId,
+                                   String semesterName, String academicYear, String season,
+                                   SubjectOffering.LessonType lessonType) {}
+    public record ScheduleOptionsDto(Long currentSemesterId, List<SemesterOptionDto> semesters) {}
+    public record SemesterOptionDto(Long id, String name, String academicYear, String season, boolean current) {}
+    public record JournalCourseRowDto(Long sectionId, String courseCode, String courseName,
+                                      Long semesterId, String semesterName, String academicYear,
+                                      String season, Double attestation1, Double attestation1Max,
+                                      Double attestation2, Double attestation2Max, Double finalExam,
+                                      Double finalExamMax, Double totalScore, String letterValue) {}
+    public record JournalOptionsDto(Long currentSemesterId, List<SemesterOptionDto> semesters) {}
     public record TranscriptItemDto(Long id, String courseCode, String courseName, int credits,
                                      double numericValue, String letterValue, double points,
                                      FinalGrade.FinalGradeStatus status) {}
@@ -520,4 +794,58 @@ public class StudentV1Controller {
     public record CreateRequestBody(String category, String description) {}
     public record AddMessageBody(String message) {}
     public record CourseActionBody(Long sectionId) {}
+
+    private static class JournalCourseRowAccumulator {
+        private final Long sectionId;
+        private final String courseCode;
+        private final String courseName;
+        private final Long semesterId;
+        private final String semesterName;
+        private final String academicYear;
+        private final String season;
+        private Double attestation1;
+        private Double attestation1Max;
+        private Double attestation2;
+        private Double attestation2Max;
+        private Double finalExam;
+        private Double finalExamMax;
+        private Double totalScore;
+        private String letterValue;
+
+        private JournalCourseRowAccumulator(Long sectionId, String courseCode, String courseName,
+                                            Long semesterId, String semesterName, String academicYear,
+                                            String season) {
+            this.sectionId = sectionId;
+            this.courseCode = courseCode;
+            this.courseName = courseName;
+            this.semesterId = semesterId;
+            this.semesterName = semesterName;
+            this.academicYear = academicYear;
+            this.season = season;
+        }
+
+        private String courseCode() {
+            return courseCode;
+        }
+
+        private JournalCourseRowDto toDto() {
+            return new JournalCourseRowDto(
+                    sectionId,
+                    courseCode,
+                    courseName,
+                    semesterId,
+                    semesterName,
+                    academicYear,
+                    season,
+                    attestation1,
+                    attestation1Max,
+                    attestation2,
+                    attestation2Max,
+                    finalExam,
+                    finalExamMax,
+                    totalScore,
+                    letterValue
+            );
+        }
+    }
 }

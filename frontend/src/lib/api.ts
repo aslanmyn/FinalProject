@@ -25,10 +25,12 @@ import type {
   StudentFileItem,
   StudentFinancialData,
   StudentJournalItem,
+  StudentJournalOptions,
   StudentNewsItem,
   StudentProfile,
   StudentRequestPage,
   StudentScheduleItem,
+  StudentScheduleOptions,
   StudentTranscriptData
 } from "../types/student";
 import type {
@@ -186,16 +188,35 @@ export async function fetchStudentProfile(): Promise<StudentProfile> {
   return request<StudentProfile>("/api/v1/student/profile");
 }
 
-export async function fetchStudentSchedule(): Promise<StudentScheduleItem[]> {
-  return request<StudentScheduleItem[]>("/api/v1/student/schedule");
+export async function uploadStudentProfilePhoto(file: File): Promise<StudentProfile> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<StudentProfile>("/api/v1/student/profile-photo", {
+    method: "POST",
+    body: formData
+  });
+}
+
+export async function fetchStudentSchedule(semesterId?: number): Promise<StudentScheduleItem[]> {
+  const suffix = semesterId ? `?semesterId=${semesterId}` : "";
+  return request<StudentScheduleItem[]>(`/api/v1/student/schedule${suffix}`);
+}
+
+export async function fetchStudentScheduleOptions(): Promise<StudentScheduleOptions> {
+  return request<StudentScheduleOptions>("/api/v1/student/schedule/options");
 }
 
 export async function fetchStudentEnrollments(): Promise<StudentEnrollmentItem[]> {
   return request<StudentEnrollmentItem[]>("/api/v1/student/enrollments");
 }
 
-export async function fetchStudentJournal(): Promise<StudentJournalItem[]> {
-  return request<StudentJournalItem[]>("/api/v1/student/journal");
+export async function fetchStudentJournal(semesterId?: number): Promise<StudentJournalItem[]> {
+  const suffix = semesterId ? `?semesterId=${semesterId}` : "";
+  return request<StudentJournalItem[]>(`/api/v1/student/journal${suffix}`);
+}
+
+export async function fetchStudentJournalOptions(): Promise<StudentJournalOptions> {
+  return request<StudentJournalOptions>("/api/v1/student/journal/options");
 }
 
 export async function fetchStudentTranscript(): Promise<StudentTranscriptData> {
@@ -235,6 +256,15 @@ export async function createStudentRequest(category: string, description: string
 
 export async function fetchTeacherProfile(): Promise<TeacherProfile> {
   return request<TeacherProfile>("/api/v1/teacher/profile");
+}
+
+export async function uploadTeacherProfilePhoto(file: File): Promise<TeacherProfile> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return request<TeacherProfile>("/api/v1/teacher/profile-photo", {
+    method: "POST",
+    body: formData
+  });
 }
 
 export async function fetchTeacherSections(): Promise<TeacherSectionItem[]> {

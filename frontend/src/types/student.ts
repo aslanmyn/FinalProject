@@ -11,6 +11,7 @@ export interface StudentProfile {
   faculty: string | null;
   creditsEarned: number;
   phone: string | null;
+  profilePhotoUrl: string | null;
 }
 
 export interface StudentScheduleItem {
@@ -23,6 +24,24 @@ export interface StudentScheduleItem {
   room: string;
   teacherName: string | null;
   status: string;
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: string | null;
+  season: string | null;
+  lessonType: string | null;
+}
+
+export interface StudentScheduleSemesterOption {
+  id: number;
+  name: string;
+  academicYear: string;
+  season: string;
+  current: boolean;
+}
+
+export interface StudentScheduleOptions {
+  currentSemesterId: number | null;
+  semesters: StudentScheduleSemesterOption[];
 }
 
 export interface StudentRequestItem {
@@ -46,14 +65,26 @@ export interface StudentEnrollmentItem {
 }
 
 export interface StudentJournalItem {
-  id: number;
+  sectionId: number;
   courseCode: string;
   courseName: string;
-  component: string;
-  value: number;
-  max: number;
-  comment: string;
-  createdAt: string;
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: string | null;
+  season: string | null;
+  attestation1: number | null;
+  attestation1Max: number | null;
+  attestation2: number | null;
+  attestation2Max: number | null;
+  finalExam: number | null;
+  finalExamMax: number | null;
+  totalScore: number | null;
+  letterValue: string | null;
+}
+
+export interface StudentJournalOptions {
+  currentSemesterId: number | null;
+  semesters: StudentScheduleSemesterOption[];
 }
 
 export interface StudentTranscriptGradeItem {

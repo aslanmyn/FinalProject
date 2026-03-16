@@ -28,6 +28,7 @@ public class Teacher {
     private String bio;
     @Column(columnDefinition = "TEXT")
     private String officeHours;
+    private Long profilePhotoAssetId;
     @Enumerated(EnumType.STRING)
     @Builder.Default
     private TeacherRole role = TeacherRole.TEACHER;

@@ -7,6 +7,8 @@ export interface TeacherProfile {
   officeHours: string;
   officeRoom: string;
   teacherRole: string;
+  faculty: string;
+  profilePhotoUrl: string | null;
 }
 
 export interface TeacherSectionItem {
