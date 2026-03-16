@@ -453,17 +453,38 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/enrollments")
-    public ResponseEntity<?> enrollments(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<?> enrollments(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam(required = false) Long semesterId) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
-        return ResponseEntity.ok(registrationRepository.findByStudentIdWithDetails(student.getId()).stream().map(r -> Map.of(
-                "id", (Object) r.getId(),
-                "sectionId", r.getSubjectOffering().getId(),
-                "subjectCode", r.getSubjectOffering().getSubject().getCode(),
-                "subjectName", r.getSubjectOffering().getSubject().getName(),
-                "status", r.getStatus(),
-                "createdAt", r.getCreatedAt().toString()
-        )).toList());
+        return ResponseEntity.ok(registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
+                .filter(registration -> registration.getSubjectOffering() != null
+                        && registration.getSubjectOffering().getSubject() != null)
+                .filter(registration -> semesterId == null
+                        || (registration.getSubjectOffering().getSemester() != null
+                        && Objects.equals(registration.getSubjectOffering().getSemester().getId(), semesterId)))
+                .sorted(Comparator
+                        .comparing((Registration registration) -> {
+                            Semester semester = registration.getSubjectOffering().getSemester();
+                            return semester != null ? semester.getStartDate() : null;
+                        }, Comparator.nullsLast(Comparator.reverseOrder()))
+                        .thenComparing(registration -> registration.getSubjectOffering().getSubject().getCode(),
+                                Comparator.nullsLast(String::compareTo))
+                        .thenComparing(Registration::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toEnrollmentDto)
+                .toList());
+    }
+
+    @GetMapping("/enrollments/options")
+    public ResponseEntity<?> enrollmentOptions(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        List<SemesterOptionDto> semesters = buildEnrollmentSemesterOptions(student.getId());
+        Long currentSemesterId = student.getCurrentSemester() != null
+                ? student.getCurrentSemester().getId()
+                : semesters.stream().findFirst().map(SemesterOptionDto::id).orElse(null);
+        return ResponseEntity.ok(new EnrollmentOptionsDto(currentSemesterId, semesters));
     }
 
     @GetMapping("/course-registration/available")
@@ -586,6 +607,22 @@ public class StudentV1Controller {
         );
     }
 
+    private List<SemesterOptionDto> buildEnrollmentSemesterOptions(Long studentId) {
+        return registrationRepository.findByStudentIdWithDetails(studentId).stream()
+                .map(registration -> registration.getSubjectOffering() != null ? registration.getSubjectOffering().getSemester() : null)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toMap(
+                        Semester::getId,
+                        semester -> semester,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                .values().stream()
+                .sorted(Comparator.comparing(Semester::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .map(this::toSemesterOptionDto)
+                .toList();
+    }
+
     private List<SemesterOptionDto> buildJournalSemesterOptions(Long studentId) {
         Map<Long, Semester> semesters = new LinkedHashMap<>();
 
@@ -649,6 +686,25 @@ public class StudentV1Controller {
                 semester != null ? extractAcademicYear(semester.getName()) : null,
                 semester != null ? extractSeason(semester.getName()) : null,
                 offering != null ? offering.getLessonType() : null
+        );
+    }
+
+    private StudentEnrollmentDto toEnrollmentDto(Registration registration) {
+        SubjectOffering offering = registration.getSubjectOffering();
+        Semester semester = offering != null ? offering.getSemester() : null;
+        return new StudentEnrollmentDto(
+                registration.getId(),
+                offering != null ? offering.getId() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getName() : null,
+                offering != null && offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getCredits() : null,
+                semester != null ? semester.getId() : null,
+                semester != null ? semester.getName() : null,
+                semester != null ? extractAcademicYear(semester.getName()) : null,
+                semester != null ? extractSeason(semester.getName()) : null,
+                registration.getStatus(),
+                registration.getCreatedAt()
         );
     }
 
@@ -758,6 +814,11 @@ public class StudentV1Controller {
                                    SubjectOffering.LessonType lessonType) {}
     public record ScheduleOptionsDto(Long currentSemesterId, List<SemesterOptionDto> semesters) {}
     public record SemesterOptionDto(Long id, String name, String academicYear, String season, boolean current) {}
+    public record StudentEnrollmentDto(Long id, Long sectionId, String subjectCode, String subjectName,
+                                       String teacherName, Integer credits, Long semesterId,
+                                       String semesterName, String academicYear, String season,
+                                       Registration.RegistrationStatus status, Instant createdAt) {}
+    public record EnrollmentOptionsDto(Long currentSemesterId, List<SemesterOptionDto> semesters) {}
     public record JournalCourseRowDto(Long sectionId, String courseCode, String courseName,
                                       Long semesterId, String semesterName, String academicYear,
                                       String season, Double attestation1, Double attestation1Max,

@@ -187,7 +187,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private boolean isLargeDemoDatasetPresent() {
         return facultyRepository.findByName(SITE).isPresent()
-                && teacherRepository.findByEmail("aidos.nurgaliyev@kbtu.kz").isPresent()
+                && teacherRepository.findByEmail(DemoIdentitySupport.teacherEmailFromFullName("Professor Aidos Nurgaliyev")).isPresent()
                 && studentRepository.count() >= STUDENT_COUNT;
     }
 
@@ -344,7 +344,7 @@ public class DataInitializer implements CommandLineRunner {
     private void seedTeachers(SeedContext context) {
         int index = 0;
         for (TeacherSeed seed : teacherSeeds()) {
-            String email = emailFromName(seed.name());
+            String email = DemoIdentitySupport.teacherEmailFromFullName(seed.name());
             User user = userRepository.save(User.builder()
                     .email(email)
                     .password(passwordEncoder.encode(PROFESSOR_PASSWORD))
@@ -438,8 +438,8 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void createStudentWithAcademics(SeedContext context, int studentIndex, String facultyName, int course) {
-        String fullName = generateStudentName(studentIndex);
-        String email = String.format(Locale.ROOT, "student%03d@kbtu.kz", studentIndex);
+        String fullName = DemoIdentitySupport.generateStudentName(studentIndex);
+        String email = DemoIdentitySupport.studentEmailFromFullName(fullName);
         User user = userRepository.save(User.builder()
                 .email(email)
                 .password(passwordEncoder.encode(STUDENT_PASSWORD))
@@ -1197,10 +1197,11 @@ public class DataInitializer implements CommandLineRunner {
         credentials.add(new AccountCredential("ADMIN", "support@kbtu.kz", ADMIN_PASSWORD, "Student Support Office", "[SUPPORT, CONTENT]"));
         credentials.add(new AccountCredential("ADMIN", "mobility@kbtu.kz", ADMIN_PASSWORD, "Mobility Office", "[MOBILITY]"));
         for (TeacherSeed seed : teacherSeeds()) {
-            credentials.add(new AccountCredential("PROFESSOR", emailFromName(seed.name()), PROFESSOR_PASSWORD, seed.name(), seed.facultyName()));
+            credentials.add(new AccountCredential("PROFESSOR", DemoIdentitySupport.teacherEmailFromFullName(seed.name()), PROFESSOR_PASSWORD, seed.name(), seed.facultyName()));
         }
         for (int i = 1; i <= STUDENT_COUNT; i++) {
-            credentials.add(new AccountCredential("STUDENT", String.format(Locale.ROOT, "student%03d@kbtu.kz", i), STUDENT_PASSWORD, generateStudentName(i), "Demo seeded student"));
+            String fullName = DemoIdentitySupport.generateStudentName(i);
+            credentials.add(new AccountCredential("STUDENT", DemoIdentitySupport.studentEmailFromFullName(fullName), STUDENT_PASSWORD, fullName, "Demo seeded student"));
         }
         return credentials;
     }
@@ -1295,27 +1296,6 @@ public class DataInitializer implements CommandLineRunner {
             return 3;
         }
         return 4;
-    }
-
-    private String emailFromName(String fullName) {
-        return fullName.toLowerCase(Locale.ROOT)
-                .replace("professor ", "")
-                .replace("dr. ", "")
-                .replace(" ", ".")
-                + "@kbtu.kz";
-    }
-
-    private String generateStudentName(int index) {
-        String[] firstNames = {
-                "Aruzhan", "Aigerim", "Dana", "Aisha", "Madina", "Adiya", "Kamila", "Asel", "Zhanel", "Tomiris",
-                "Nursultan", "Aslan", "Alikhan", "Dias", "Bekzat", "Yerkebulan", "Arman", "Sanzhar", "Miras", "Daulet"
-        };
-        String[] lastNames = {
-                "Nurgaliyev", "Suleimenov", "Akhmetov", "Tulegenov", "Kassymov", "Omarov", "Abdikarim", "Zhaksylykov",
-                "Serikbayev", "Baimukhanov", "Tursynbekov", "Kenzhebek", "Myrzabek", "Saparov", "Iskakov", "Sadykov",
-                "Yesenov", "Mukhanbetov", "Zhaparov", "Beketov"
-        };
-        return firstNames[(index - 1) % firstNames.length] + " " + lastNames[Math.floorMod(index * 3, lastNames.length)];
     }
 
     private List<String> facultyNames() {

@@ -21,6 +21,7 @@ import type {
 import type {
   StudentAttendanceData,
   StudentEnrollmentItem,
+  StudentEnrollmentOptions,
   StudentExamScheduleItem,
   StudentFileItem,
   StudentFinancialData,
@@ -206,8 +207,13 @@ export async function fetchStudentScheduleOptions(): Promise<StudentScheduleOpti
   return request<StudentScheduleOptions>("/api/v1/student/schedule/options");
 }
 
-export async function fetchStudentEnrollments(): Promise<StudentEnrollmentItem[]> {
-  return request<StudentEnrollmentItem[]>("/api/v1/student/enrollments");
+export async function fetchStudentEnrollments(semesterId?: number): Promise<StudentEnrollmentItem[]> {
+  const suffix = semesterId ? `?semesterId=${semesterId}` : "";
+  return request<StudentEnrollmentItem[]>(`/api/v1/student/enrollments${suffix}`);
+}
+
+export async function fetchStudentEnrollmentOptions(): Promise<StudentEnrollmentOptions> {
+  return request<StudentEnrollmentOptions>("/api/v1/student/enrollments/options");
 }
 
 export async function fetchStudentJournal(semesterId?: number): Promise<StudentJournalItem[]> {

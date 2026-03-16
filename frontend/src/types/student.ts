@@ -60,8 +60,19 @@ export interface StudentEnrollmentItem {
   sectionId: number;
   subjectCode: string;
   subjectName: string;
+  teacherName: string | null;
+  credits: number | null;
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: string | null;
+  season: string | null;
   status: string;
   createdAt: string;
+}
+
+export interface StudentEnrollmentOptions {
+  currentSemesterId: number | null;
+  semesters: StudentScheduleSemesterOption[];
 }
 
 export interface StudentJournalItem {

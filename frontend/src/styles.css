@@ -1507,6 +1507,20 @@ button:disabled {
   overflow-x: auto;
 }
 
+.enrollment-table td:nth-child(3) {
+  min-width: 280px;
+}
+
+.enrollment-table td:nth-child(4) {
+  min-width: 220px;
+}
+
+.enrollment-table td:nth-child(5),
+.enrollment-table td:nth-child(7),
+.enrollment-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
 .journal-table th:nth-child(n + 3),
 .journal-table td:nth-child(n + 3) {
   text-align: center;

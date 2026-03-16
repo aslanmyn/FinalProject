@@ -82,7 +82,7 @@ public class AuthV1Controller {
 
         UserRole detectedRole = roleDetector.detectRole(email);
         if (detectedRole == UserRole.UNKNOWN) {
-            throw new IllegalArgumentException("Invalid email format. Use admin@..., a_name@... (student), or z.name@... (professor)");
+            throw new IllegalArgumentException("Invalid email format. Use admin@..., a_surname@... (student), or a.surname@... (professor)");
         }
 
         User user = User.builder()
