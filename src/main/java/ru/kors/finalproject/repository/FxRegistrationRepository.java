@@ -11,4 +11,7 @@ public interface FxRegistrationRepository extends JpaRepository<FxRegistration, 
 
     @Query("SELECT fx FROM FxRegistration fx LEFT JOIN FETCH fx.student LEFT JOIN FETCH fx.subjectOffering so LEFT JOIN FETCH so.subject WHERE fx.student.id = :studentId ORDER BY fx.createdAt DESC")
     List<FxRegistration> findByStudentIdWithDetailsOrderByCreatedAtDesc(Long studentId);
+
+    @Query("SELECT fx FROM FxRegistration fx LEFT JOIN FETCH fx.student LEFT JOIN FETCH fx.subjectOffering so LEFT JOIN FETCH so.subject ORDER BY fx.createdAt DESC")
+    List<FxRegistration> findAllWithDetailsOrderByCreatedAtDesc();
 }

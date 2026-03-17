@@ -124,6 +124,15 @@ public class AdminAcademicService {
         SubjectOffering saved = subjectOfferingRepository.save(section);
         auditService.logUserAction(actor, "SECTION_CREATED", "SubjectOffering", saved.getId(),
                 "subjectCode=" + subject.getCode() + ", semesterName=" + semester.getName());
+        if (teacher != null) {
+            notificationService.notifyStudent(
+                    teacher.getEmail(),
+                    Notification.NotificationType.SYSTEM,
+                    "New section assigned",
+                    "You were assigned to teach " + subject.getCode() + " in " + semester.getName(),
+                    "/app/teacher/sections"
+            );
+        }
         return saved;
     }
 
@@ -137,6 +146,14 @@ public class AdminAcademicService {
         SubjectOffering saved = subjectOfferingRepository.save(section);
         auditService.logUserAction(actor, "PROFESSOR_ASSIGNED", "SubjectOffering", saved.getId(),
                 "teacherId=" + teacherId);
+        notificationService.notifyStudent(
+                teacher.getEmail(),
+                Notification.NotificationType.SYSTEM,
+                "Section assignment updated",
+                "You were assigned to section #" + saved.getId() + " for "
+                        + saved.getSubject().getCode() + " " + saved.getSubject().getName(),
+                "/app/teacher/sections"
+        );
         return saved;
     }
 
@@ -223,6 +240,22 @@ public class AdminAcademicService {
         RegistrationWindow saved = registrationWindowRepository.save(window);
         auditService.logUserAction(actor, "WINDOW_UPSERTED", "RegistrationWindow", saved.getId(),
                 "type=" + type + ", active=" + active);
+        if (active) {
+            List<String> recipientEmails = studentRepository.findAllWithDetails().stream()
+                    .filter(student -> student.getCurrentSemester() != null
+                            && student.getCurrentSemester().getId().equals(semesterId))
+                    .map(Student::getEmail)
+                    .filter(email -> email != null && !email.isBlank())
+                    .distinct()
+                    .toList();
+            notificationService.notifyMany(
+                    recipientEmails,
+                    Notification.NotificationType.ENROLLMENT,
+                    type + " window updated",
+                    type + " is active for " + semester.getName() + " from " + startDate + " to " + endDate,
+                    "/app/student/registration"
+            );
+        }
         return saved;
     }
 

@@ -7,6 +7,8 @@ import NewsPage from "./pages/NewsPage";
 import ProfessorsPage from "./pages/ProfessorsPage";
 import ProfessorProfilePage from "./pages/ProfessorProfilePage";
 import StudentDashboardPage from "./pages/app/StudentDashboardPage";
+import StudentRegistrationPage from "./pages/app/StudentRegistrationPage";
+import StudentNotificationsPage from "./pages/app/StudentNotificationsPage";
 import StudentSchedulePage from "./pages/app/StudentSchedulePage";
 import StudentEnrollmentsPage from "./pages/app/StudentEnrollmentsPage";
 import StudentJournalPage from "./pages/app/StudentJournalPage";
@@ -19,6 +21,7 @@ import StudentFilesPage from "./pages/app/StudentFilesPage";
 import StudentNewsPage from "./pages/app/StudentNewsPage";
 import StudentRequestsPage from "./pages/app/StudentRequestsPage";
 import TeacherDashboardPage from "./pages/app/TeacherDashboardPage";
+import TeacherNotificationsPage from "./pages/app/TeacherNotificationsPage";
 import TeacherAssistantPage from "./pages/app/TeacherAssistantPage";
 import TeacherSectionsPage from "./pages/app/TeacherSectionsPage";
 import TeacherSectionPage from "./pages/app/TeacherSectionPage";
@@ -29,6 +32,8 @@ import TeacherMaterialsPage from "./pages/app/TeacherMaterialsPage";
 import TeacherNotesPage from "./pages/app/TeacherNotesPage";
 import TeacherGradeChangesPage from "./pages/app/TeacherGradeChangesPage";
 import AdminDashboardPage from "./pages/app/AdminDashboardPage";
+import AdminRegistrationPage from "./pages/app/AdminRegistrationPage";
+import AdminNotificationsPage from "./pages/app/AdminNotificationsPage";
 import AdminAcademicPage from "./pages/app/AdminAcademicPage";
 import AdminFinancePage from "./pages/app/AdminFinancePage";
 import AdminModerationPage from "./pages/app/AdminModerationPage";
@@ -73,6 +78,22 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentDashboardPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/registration"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentRegistrationPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/notifications"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentNotificationsPage />
             </RoleProtectedRoute>
           }
         />
@@ -182,6 +203,14 @@ export default function App() {
           }
         />
         <Route
+          path="teacher/notifications"
+          element={
+            <RoleProtectedRoute roles={["PROFESSOR"]}>
+              <TeacherNotificationsPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
           path="teacher/sections"
           element={
             <RoleProtectedRoute roles={["PROFESSOR"]}>
@@ -251,6 +280,22 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["ADMIN"]}>
               <AdminDashboardPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/registration"
+          element={
+            <RoleProtectedRoute roles={["ADMIN"]}>
+              <AdminRegistrationPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/notifications"
+          element={
+            <RoleProtectedRoute roles={["ADMIN"]}>
+              <AdminNotificationsPage />
             </RoleProtectedRoute>
           }
         />

@@ -11,6 +11,7 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
+    List<User> findByRoleAndEnabledTrue(User.UserRole role);
 
     @Query("SELECT u FROM User u WHERE (u.role = 'STUDENT' OR u.role = 'PROFESSOR') " +
            "AND (:q IS NULL OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :q, '%'))) " +

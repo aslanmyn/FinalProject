@@ -39,6 +39,7 @@ public class TeacherV1Controller {
     private final FileLinkService fileLinkService;
     private final FileAssetRepository fileAssetRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
 
     @GetMapping("/profile")
     public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
@@ -92,6 +93,33 @@ public class TeacherV1Controller {
         return ResponseEntity.ok(teacherAcademicService.getMySections(teacher).stream()
                 .map(this::toTeacherSectionDto)
                 .toList());
+    }
+
+    @GetMapping("/notifications")
+    public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        return ResponseEntity.ok(Map.of(
+                "notifications", notificationService.listForEmail(user.getEmail()).stream()
+                        .map(this::toNotificationDto)
+                        .toList(),
+                "unreadCount", notificationService.unreadCount(user.getEmail())
+        ));
+    }
+
+    @PostMapping("/notifications/{id}/read")
+    public ResponseEntity<?> markNotificationRead(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        notificationService.markReadForEmail(id, user.getEmail());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/notifications/read-all")
+    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+        notificationService.markAllReadForEmail(user.getEmail());
+        return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @GetMapping("/sections/{sectionId}/roster")
@@ -571,11 +599,25 @@ public class TeacherV1Controller {
         );
     }
 
+    private NotificationDto toNotificationDto(Notification notification) {
+        return new NotificationDto(
+                notification.getId(),
+                notification.getType(),
+                notification.getTitle(),
+                notification.getMessage(),
+                notification.getLink(),
+                notification.isRead(),
+                notification.getCreatedAt()
+        );
+    }
+
     public record AttendanceBody(String classDate, List<TeacherAcademicService.AttendanceMarkInput> marks) {}
     public record TeacherProfileDto(Long id, String name, String email, String department,
                                     String position, String officeHours, String officeRoom,
                                     Teacher.TeacherRole teacherRole, String faculty,
                                     String profilePhotoUrl) {}
+    public record NotificationDto(Long id, Notification.NotificationType type, String title,
+                                  String message, String link, boolean read, Instant createdAt) {}
     public record TeacherSectionDto(Long id, String subjectCode, String subjectName, int credits,
                                     String programName, String facultyName,
                                     Long semesterId, String semesterName, boolean currentSemester,

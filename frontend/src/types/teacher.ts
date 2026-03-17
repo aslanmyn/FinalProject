@@ -1,3 +1,5 @@
+import type { NotificationCenterData } from "./common";
+
 export interface TeacherProfile {
   id: number;
   name: string;
@@ -112,3 +114,5 @@ export interface TeacherAssistantReply {
   model: string;
   generatedAt: string;
 }
+
+export type TeacherNotificationCenterData = NotificationCenterData;

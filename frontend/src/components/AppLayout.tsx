@@ -12,6 +12,7 @@ function getNav(role: string | null): NavGroup[] {
         title: "Academic",
         items: [
           { to: "/app/student", label: "Overview" },
+          { to: "/app/student/registration", label: "Registration" },
           { to: "/app/student/schedule", label: "Schedule" },
           { to: "/app/student/enrollments", label: "Enrollments" },
           { to: "/app/student/journal", label: "Journal" },
@@ -24,6 +25,7 @@ function getNav(role: string | null): NavGroup[] {
         title: "Services",
         items: [
           { to: "/app/student/assistant", label: "AI Assistant" },
+          { to: "/app/student/notifications", label: "Notifications" },
           { to: "/app/chat", label: "Chat" },
           { to: "/app/student/requests", label: "Requests" },
           { to: "/app/student/financial", label: "Financial" },
@@ -40,6 +42,7 @@ function getNav(role: string | null): NavGroup[] {
         items: [
           { to: "/app/teacher", label: "Overview" },
           { to: "/app/teacher/sections", label: "Sections" },
+          { to: "/app/teacher/notifications", label: "Notifications" },
           { to: "/app/teacher/assistant", label: "AI Assistant" },
           { to: "/app/chat", label: "Chat" },
           { to: "/app/teacher/attendance", label: "Attendance" },
@@ -58,6 +61,8 @@ function getNav(role: string | null): NavGroup[] {
         title: "Administration",
         items: [
           { to: "/app/admin", label: "Overview" },
+          { to: "/app/admin/registration", label: "Registration Ops" },
+          { to: "/app/admin/notifications", label: "Notifications" },
           { to: "/app/admin/academic", label: "Academic Setup" },
           { to: "/app/admin/finance", label: "Finance" },
           { to: "/app/admin/moderation", label: "Moderation & News" },

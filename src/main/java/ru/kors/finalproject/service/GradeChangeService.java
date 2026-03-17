@@ -7,6 +7,7 @@ import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.GradeChangeRequestRepository;
 import ru.kors.finalproject.repository.GradeRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
+import ru.kors.finalproject.repository.UserRepository;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,6 +18,7 @@ public class GradeChangeService {
     private final GradeChangeRequestRepository gradeChangeRequestRepository;
     private final GradeRepository gradeRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
+    private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AuditService auditService;
 
@@ -55,6 +57,14 @@ public class GradeChangeService {
                 "Grade change request submitted",
                 "A grade change request was submitted for " + offering.getSubject().getCode(),
                 "/app/student/journal"
+        );
+        notificationService.notifyUsers(
+                userRepository.findByRoleAndEnabledTrue(User.UserRole.ADMIN),
+                Notification.NotificationType.REQUEST,
+                "Grade change request submitted",
+                "Teacher " + teacher.getName() + " submitted a grade change request for "
+                        + offering.getSubject().getCode(),
+                "/app/admin/moderation"
         );
         auditService.logStudentAction(null, "GRADE_CHANGE_REQUEST_CREATED", "GradeChangeRequest", saved.getId(),
                 "gradeId=" + gradeId + ", old=" + grade.getGradeValue() + ", new=" + newValue);

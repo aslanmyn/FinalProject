@@ -3,6 +3,7 @@ package ru.kors.finalproject.controller.api.v1;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
@@ -41,11 +42,14 @@ public class StudentV1Controller {
     private final ClearanceSheetRepository clearanceSheetRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final SemesterRepository semesterRepository;
+    private final RegistrationWindowRepository registrationWindowRepository;
     private final AnnouncementService announcementService;
     private final RequestService requestService;
     private final NotificationService notificationService;
     private final CourseMaterialService courseMaterialService;
     private final AddDropService addDropService;
+    private final FxRegistrationService fxRegistrationService;
+    private final WindowPolicyService windowPolicyService;
     private final ApiPageableFactory apiPageableFactory;
     private final FileLinkService fileLinkService;
     private final FileAssetRepository fileAssetRepository;
@@ -372,7 +376,9 @@ public class StudentV1Controller {
     public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         return ResponseEntity.ok(Map.of(
-                "notifications", notificationService.listForEmail(user.getEmail()),
+                "notifications", notificationService.listForEmail(user.getEmail()).stream()
+                        .map(this::toNotificationDto)
+                        .toList(),
                 "unreadCount", notificationService.unreadCount(user.getEmail())
         ));
     }
@@ -381,8 +387,15 @@ public class StudentV1Controller {
     public ResponseEntity<?> markNotificationRead(
             @RequestHeader("Authorization") String authHeader,
             @PathVariable Long id) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        notificationService.markRead(id);
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        notificationService.markReadForEmail(id, user.getEmail());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/notifications/read-all")
+    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        notificationService.markAllReadForEmail(user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
@@ -487,6 +500,76 @@ public class StudentV1Controller {
         return ResponseEntity.ok(new EnrollmentOptionsDto(currentSemesterId, semesters));
     }
 
+    @GetMapping("/course-registration/overview")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> registrationOverview(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        Semester semester = student.getCurrentSemester();
+        List<Registration> currentRegistrations = registrationRepository.findActiveByStudentIdWithDetails(student.getId()).stream()
+                .filter(registration -> registration.getSubjectOffering() != null
+                        && registration.getSubjectOffering().getSemester() != null
+                        && semester != null
+                        && registration.getSubjectOffering().getSemester().getId().equals(semester.getId()))
+                .toList();
+        int currentCredits = currentRegistrations.stream()
+                .mapToInt(registration -> registration.getSubjectOffering().getSubject().getCredits())
+                .sum();
+        List<Hold> activeHolds = holdRepository.findByStudentIdAndActiveTrue(student.getId());
+        List<WindowStatusDto> windows = semester == null
+                ? List.of()
+                : registrationWindowRepository.findBySemesterIdOrderByStartDateAsc(semester.getId()).stream()
+                .map(window -> new WindowStatusDto(
+                        window.getId(),
+                        window.getType(),
+                        window.getStartDate(),
+                        window.getEndDate(),
+                        window.isActive(),
+                        windowPolicyService.isWindowActive(semester.getId(), window.getType())
+                ))
+                .toList();
+        List<RegistrationBoardItemDto> registrations = currentRegistrations.stream()
+                .map(registration -> {
+                    AddDropService.DropCheck dropCheck = addDropService.evaluateDrop(student, registration.getSubjectOffering().getId());
+                    return new RegistrationBoardItemDto(
+                            registration.getId(),
+                            registration.getSubjectOffering().getId(),
+                            registration.getSubjectOffering().getSubject().getCode(),
+                            registration.getSubjectOffering().getSubject().getName(),
+                            registration.getSubjectOffering().getTeacher() != null ? registration.getSubjectOffering().getTeacher().getName() : null,
+                            registration.getSubjectOffering().getSubject().getCredits(),
+                            registration.getStatus(),
+                            dropCheck.allowed(),
+                            dropCheck.reasons(),
+                            buildMeetingSlots(registration.getSubjectOffering())
+                    );
+                })
+                .toList();
+
+        return ResponseEntity.ok(new RegistrationOverviewDto(
+                semester != null ? semester.getId() : null,
+                semester != null ? semester.getName() : null,
+                currentCredits,
+                student.getProgram() != null ? student.getProgram().getCreditLimit() : null,
+                addDropService.hasActiveRegistrationHold(student),
+                activeHolds.stream().map(this::toHoldDto).toList(),
+                windows,
+                registrations,
+                fxRegistrationService.listEligible(student).size(),
+                fxRegistrationService.listForStudent(student).size()
+        ));
+    }
+
+    @GetMapping("/course-registration/catalog")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> registrationCatalog(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        return ResponseEntity.ok(addDropService.getCatalogForCurrentSemester(student).stream()
+                .map(offering -> toCourseCatalogDto(student, offering))
+                .toList());
+    }
+
     @GetMapping("/course-registration/available")
     public ResponseEntity<?> availableCourses(@RequestHeader("Authorization") String authHeader) {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
@@ -521,6 +604,37 @@ public class StudentV1Controller {
         User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         Student student = getStudent(user);
         return ResponseEntity.ok(addDropService.dropCourse(student, body.sectionId()));
+    }
+
+    @GetMapping("/fx")
+    public ResponseEntity<?> fx(@RequestHeader("Authorization") String authHeader) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        Semester semester = student.getCurrentSemester();
+        return ResponseEntity.ok(new FxOverviewDto(
+                semester != null && windowPolicyService.isWindowActive(semester.getId(), RegistrationWindow.WindowType.FX),
+                fxRegistrationService.listEligible(student).stream()
+                        .map(eligible -> new FxEligibleCourseDto(
+                                eligible.sectionId(),
+                                eligible.subjectCode(),
+                                eligible.subjectName(),
+                                eligible.finalScore(),
+                                eligible.alreadyRequested()
+                        ))
+                        .toList(),
+                fxRegistrationService.listForStudent(student).stream()
+                        .map(this::toFxDto)
+                        .toList()
+        ));
+    }
+
+    @PostMapping("/fx")
+    public ResponseEntity<?> createFx(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestBody CourseActionBody body) {
+        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+        Student student = getStudent(user);
+        return ResponseEntity.ok(toFxDto(fxRegistrationService.submit(student, body.sectionId())));
     }
 
     @GetMapping("/requests")
@@ -708,6 +822,43 @@ public class StudentV1Controller {
         );
     }
 
+    private CourseCatalogItemDto toCourseCatalogDto(Student student, SubjectOffering offering) {
+        AddDropService.EnrollmentCheck registrationCheck = addDropService.evaluateEnrollment(
+                student, offering, RegistrationWindow.WindowType.REGISTRATION, false);
+        AddDropService.EnrollmentCheck addDropCheck = addDropService.evaluateEnrollment(
+                student, offering, RegistrationWindow.WindowType.ADD_DROP, false);
+        Registration currentRegistration = registrationRepository.findByStudentIdAndSubjectOfferingIdWithDetails(student.getId(), offering.getId())
+                .filter(registration -> registration.getStatus() != Registration.RegistrationStatus.DROPPED)
+                .orElse(null);
+        AddDropService.DropCheck dropCheck = currentRegistration != null
+                ? addDropService.evaluateDrop(student, offering.getId())
+                : new AddDropService.DropCheck(false, List.of(), false);
+        Semester semester = offering.getSemester();
+        return new CourseCatalogItemDto(
+                offering.getId(),
+                offering.getSubject().getCode(),
+                offering.getSubject().getName(),
+                offering.getSubject().getCredits(),
+                semester != null ? semester.getId() : null,
+                semester != null ? semester.getName() : null,
+                semester != null ? extractAcademicYear(semester.getName()) : null,
+                semester != null ? extractSeason(semester.getName()) : null,
+                offering.getTeacher() != null ? offering.getTeacher().getId() : null,
+                offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                offering.getCapacity(),
+                registrationCheck.occupiedSeats(),
+                offering.getLessonType(),
+                buildMeetingSlots(offering),
+                currentRegistration != null ? currentRegistration.getStatus() : null,
+                registrationCheck.allowed(),
+                registrationCheck.reasons(),
+                addDropCheck.allowed(),
+                addDropCheck.reasons(),
+                dropCheck.allowed(),
+                dropCheck.reasons()
+        );
+    }
+
     private SemesterOptionDto toSemesterOptionDto(Semester semester) {
         return new SemesterOptionDto(
                 semester.getId(),
@@ -778,6 +929,62 @@ public class StudentV1Controller {
         );
     }
 
+    private List<MeetingSlotDto> buildMeetingSlots(SubjectOffering offering) {
+        if (offering == null) {
+            return List.of();
+        }
+        if (offering.getMeetingTimes() != null && !offering.getMeetingTimes().isEmpty()) {
+            return offering.getMeetingTimes().stream()
+                    .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                    .map(slot -> new MeetingSlotDto(
+                            slot.getDayOfWeek(),
+                            slot.getStartTime(),
+                            slot.getEndTime(),
+                            slot.getRoom(),
+                            slot.getLessonType()
+                    ))
+                    .toList();
+        }
+        if (offering.getDayOfWeek() == null || offering.getStartTime() == null || offering.getEndTime() == null) {
+            return List.of();
+        }
+        return List.of(new MeetingSlotDto(
+                offering.getDayOfWeek(),
+                offering.getStartTime(),
+                offering.getEndTime(),
+                offering.getRoom(),
+                offering.getLessonType()
+        ));
+    }
+
+    private NotificationDto toNotificationDto(Notification notification) {
+        return new NotificationDto(
+                notification.getId(),
+                notification.getType(),
+                notification.getTitle(),
+                notification.getMessage(),
+                notification.getLink(),
+                notification.isRead(),
+                notification.getCreatedAt()
+        );
+    }
+
+    private HoldDto toHoldDto(Hold hold) {
+        return new HoldDto(hold.getId(), hold.getType(), hold.getReason(), hold.getCreatedAt());
+    }
+
+    private FxRegistrationDto toFxDto(FxRegistration fx) {
+        SubjectOffering offering = fx.getSubjectOffering();
+        return new FxRegistrationDto(
+                fx.getId(),
+                offering != null ? offering.getId() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering != null && offering.getSubject() != null ? offering.getSubject().getName() : null,
+                fx.getStatus(),
+                fx.getCreatedAt()
+        );
+    }
+
     private StudentProfileDto toStudentProfileDto(Student student) {
         return new StudentProfileDto(
                 student.getId(),
@@ -843,11 +1050,40 @@ public class StudentV1Controller {
                                ClearanceSheet.ClearanceStatus status, List<ClearanceCheckpointDto> checkpoints) {}
     public record ClearanceCheckpointDto(Long id, String department,
                                          ClearanceCheckpoint.CheckpointStatus status, String comment) {}
+    public record HoldDto(Long id, Hold.HoldType type, String reason, Instant createdAt) {}
+    public record NotificationDto(Long id, Notification.NotificationType type, String title,
+                                  String message, String link, boolean read, Instant createdAt) {}
     public record AvailableCourseDto(Long sectionId, String subjectCode, String subjectName, int credits,
                                      Long semesterId, String semesterName, Long teacherId, String teacherName,
                                      int capacity, SubjectOffering.LessonType lessonType,
                                      java.time.DayOfWeek dayOfWeek, java.time.LocalTime startTime,
                                      java.time.LocalTime endTime, String room) {}
+    public record MeetingSlotDto(java.time.DayOfWeek dayOfWeek, java.time.LocalTime startTime,
+                                 java.time.LocalTime endTime, String room, SubjectOffering.LessonType lessonType) {}
+    public record RegistrationBoardItemDto(Long registrationId, Long sectionId, String subjectCode, String subjectName,
+                                           String teacherName, int credits, Registration.RegistrationStatus status,
+                                           boolean canDrop, List<String> dropBlockedReasons,
+                                           List<MeetingSlotDto> meetingTimes) {}
+    public record WindowStatusDto(Long id, RegistrationWindow.WindowType type, java.time.LocalDate startDate,
+                                  java.time.LocalDate endDate, boolean active, boolean openNow) {}
+    public record RegistrationOverviewDto(Long currentSemesterId, String currentSemesterName, int currentCredits,
+                                          Integer creditLimit, boolean hasRegistrationHold, List<HoldDto> holds,
+                                          List<WindowStatusDto> windows, List<RegistrationBoardItemDto> currentRegistrations,
+                                          int eligibleFxCount, int fxRequestCount) {}
+    public record CourseCatalogItemDto(Long sectionId, String subjectCode, String subjectName, int credits,
+                                       Long semesterId, String semesterName, String academicYear, String season,
+                                       Long teacherId, String teacherName, int capacity, long occupiedSeats,
+                                       SubjectOffering.LessonType lessonType, List<MeetingSlotDto> meetingTimes,
+                                       Registration.RegistrationStatus registrationStatus, boolean canRegister,
+                                       List<String> registrationBlockedReasons, boolean canAddDrop,
+                                       List<String> addDropBlockedReasons, boolean canDrop,
+                                       List<String> dropBlockedReasons) {}
+    public record FxEligibleCourseDto(Long sectionId, String subjectCode, String subjectName,
+                                      double finalScore, boolean alreadyRequested) {}
+    public record FxRegistrationDto(Long id, Long sectionId, String subjectCode, String subjectName,
+                                    FxRegistration.FxStatus status, Instant createdAt) {}
+    public record FxOverviewDto(boolean windowOpen, List<FxEligibleCourseDto> eligibleCourses,
+                                List<FxRegistrationDto> registrations) {}
     public record RequestDto(Long id, String category, String description,
                               StudentRequest.RequestStatus status, Instant createdAt, Instant updatedAt) {}
     public record RequestMessageDto(Long id, Long senderUserId, String senderEmail,

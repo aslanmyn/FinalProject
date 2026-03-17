@@ -33,6 +33,13 @@ public class RequestService {
                 .updatedAt(Instant.now())
                 .build();
         StudentRequest saved = studentRequestRepository.save(request);
+        notificationService.notifyUsers(
+                userRepository.findByRoleAndEnabledTrue(User.UserRole.ADMIN),
+                Notification.NotificationType.REQUEST,
+                "New student request",
+                "Request #" + saved.getId() + " was created in category " + category,
+                "/app/admin/requests"
+        );
         auditService.logStudentAction(student, "REQUEST_CREATED", "StudentRequest", saved.getId(), "category=" + category);
         return saved;
     }
@@ -64,6 +71,15 @@ public class RequestService {
                     "New response for request",
                     "There is a new message in request #" + request.getId(),
                     "/app/student/requests"
+            );
+        }
+        if (request.getAssignedTo() != null && (sender == null || !request.getAssignedTo().getId().equals(sender.getId()))) {
+            notificationService.notifyUser(
+                    request.getAssignedTo(),
+                    Notification.NotificationType.REQUEST,
+                    "Request updated",
+                    "There is a new message in request #" + request.getId(),
+                    "/app/admin/requests"
             );
         }
         auditService.logUserAction(sender, "REQUEST_MESSAGE_ADDED", "RequestMessage", saved.getId(), "requestId=" + requestId);
@@ -103,6 +119,13 @@ public class RequestService {
         request.setStatus(StudentRequest.RequestStatus.IN_REVIEW);
         request.setUpdatedAt(Instant.now());
         StudentRequest saved = studentRequestRepository.save(request);
+        notificationService.notifyUser(
+                assignee,
+                Notification.NotificationType.REQUEST,
+                "Request assigned",
+                "Request #" + saved.getId() + " was assigned to you",
+                "/app/admin/requests"
+        );
         auditService.logUserAction(actor, "REQUEST_ASSIGNED", "StudentRequest", requestId, "assigneeUserId=" + adminUserId);
         return saved;
     }

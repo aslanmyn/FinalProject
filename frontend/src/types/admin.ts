@@ -1,4 +1,4 @@
-import type { ApiPageResponse } from "./common";
+import type { ApiPageResponse, NotificationCenterData } from "./common";
 
 export interface AdminStats {
   adminId: number;
@@ -118,3 +118,26 @@ export interface AdminGradeChangeItem {
   status: string;
   createdAt: string;
 }
+
+export interface AdminWindowItem {
+  id: number;
+  semesterId: number | null;
+  semesterName: string | null;
+  type: string;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+}
+
+export interface AdminFxItem {
+  id: number;
+  studentId: number | null;
+  studentName: string | null;
+  sectionId: number | null;
+  subjectCode: string | null;
+  subjectName: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export type AdminNotificationCenterData = NotificationCenterData;

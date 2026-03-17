@@ -34,11 +34,14 @@ public class AdminV1Controller {
     private final GradeChangeService gradeChangeService;
     private final RequestService requestService;
     private final AddDropService addDropService;
+    private final FxRegistrationService fxRegistrationService;
+    private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final SubjectRepository subjectRepository;
     private final SemesterRepository semesterRepository;
+    private final RegistrationWindowRepository registrationWindowRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final StudentRequestRepository studentRequestRepository;
@@ -154,6 +157,14 @@ public class AdminV1Controller {
                 LocalDate.parse(body.endDate()), body.active(), admin)));
     }
 
+    @GetMapping("/windows")
+    public ResponseEntity<?> listWindows(@RequestHeader("Authorization") String authHeader) {
+        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+        return ResponseEntity.ok(registrationWindowRepository.findAllWithSemesterOrderByStartDateDesc().stream()
+                .map(this::toWindowDto)
+                .toList());
+    }
+
     @PostMapping("/enrollments/override")
     public ResponseEntity<?> overrideEnrollment(
             @RequestHeader("Authorization") String authHeader,
@@ -210,6 +221,23 @@ public class AdminV1Controller {
         return ResponseEntity.ok(Map.of("status", "deleted"));
     }
 
+    @GetMapping("/fx")
+    public ResponseEntity<?> listFx(@RequestHeader("Authorization") String authHeader) {
+        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+        return ResponseEntity.ok(fxRegistrationService.listAll().stream()
+                .map(this::toFxDto)
+                .toList());
+    }
+
+    @PostMapping("/fx/{id}/status")
+    public ResponseEntity<?> updateFxStatus(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id,
+            @RequestBody FxStatusBody body) {
+        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+        return ResponseEntity.ok(toFxDto(fxRegistrationService.updateStatus(id, body.status(), admin)));
+    }
+
     @GetMapping("/holds")
     public ResponseEntity<?> listHolds(@RequestHeader("Authorization") String authHeader) {
         mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
@@ -237,6 +265,33 @@ public class AdminV1Controller {
         User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         holdService.removeHold(id, body.removalReason(), admin);
         return ResponseEntity.ok(Map.of("status", "removed"));
+    }
+
+    @GetMapping("/notifications")
+    public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
+        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        return ResponseEntity.ok(Map.of(
+                "notifications", notificationService.listForEmail(admin.getEmail()).stream()
+                        .map(this::toNotificationDto)
+                        .toList(),
+                "unreadCount", notificationService.unreadCount(admin.getEmail())
+        ));
+    }
+
+    @PostMapping("/notifications/{id}/read")
+    public ResponseEntity<?> markNotificationRead(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id) {
+        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        notificationService.markReadForEmail(id, admin.getEmail());
+        return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @PostMapping("/notifications/read-all")
+    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
+        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+        notificationService.markAllReadForEmail(admin.getEmail());
+        return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @PostMapping("/finance/invoices")
@@ -661,6 +716,33 @@ public class AdminV1Controller {
         );
     }
 
+    private FxDto toFxDto(FxRegistration fxRegistration) {
+        return new FxDto(
+                fxRegistration.getId(),
+                fxRegistration.getStudent() != null ? fxRegistration.getStudent().getId() : null,
+                fxRegistration.getStudent() != null ? fxRegistration.getStudent().getName() : null,
+                fxRegistration.getSubjectOffering() != null ? fxRegistration.getSubjectOffering().getId() : null,
+                fxRegistration.getSubjectOffering() != null && fxRegistration.getSubjectOffering().getSubject() != null
+                        ? fxRegistration.getSubjectOffering().getSubject().getCode() : null,
+                fxRegistration.getSubjectOffering() != null && fxRegistration.getSubjectOffering().getSubject() != null
+                        ? fxRegistration.getSubjectOffering().getSubject().getName() : null,
+                fxRegistration.getStatus(),
+                fxRegistration.getCreatedAt()
+        );
+    }
+
+    private NotificationDto toNotificationDto(Notification notification) {
+        return new NotificationDto(
+                notification.getId(),
+                notification.getType(),
+                notification.getTitle(),
+                notification.getMessage(),
+                notification.getLink(),
+                notification.isRead(),
+                notification.getCreatedAt()
+        );
+    }
+
     public record UserDto(Long id, String email, String fullName, User.UserRole role,
                            java.util.Set<User.AdminPermission> permissions, boolean enabled) {}
     public record PermissionBody(java.util.Set<User.AdminPermission> permissions) {}
@@ -688,6 +770,10 @@ public class AdminV1Controller {
     public record CreateExamBody(Long sectionId, String examDate, String examTime, String room, String format) {}
     public record HoldDto(Long id, Long studentId, String studentName, Hold.HoldType type,
                            String reason, Instant createdAt) {}
+    public record FxDto(Long id, Long studentId, String studentName, Long sectionId,
+                        String subjectCode, String subjectName, FxRegistration.FxStatus status,
+                        Instant createdAt) {}
+    public record FxStatusBody(FxRegistration.FxStatus status) {}
     public record CreateHoldBody(Long studentId, Hold.HoldType type, String reason) {}
     public record RemoveHoldBody(String removalReason) {}
     public record InvoiceDto(Long id, Long studentId, BigDecimal amount, String description,
@@ -719,6 +805,8 @@ public class AdminV1Controller {
     public record UpdateStudentStatusBody(Student.StudentStatus status) {}
     public record NewsDto(Long id, String title, String content, String category, Instant createdAt) {}
     public record NewsBody(String title, String content, String category) {}
+    public record NotificationDto(Long id, Notification.NotificationType type, String title,
+                                  String message, String link, boolean read, Instant createdAt) {}
     public record CreateChecklistTemplateBody(String title, String linkToSection,
                                                ChecklistTemplate.TriggerEvent triggerEvent, int offsetDays) {}
     public record GenerateChecklistBody(Long studentId, ChecklistTemplate.TriggerEvent trigger, String baseDate) {}

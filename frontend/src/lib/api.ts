@@ -2,8 +2,10 @@ import { clearAuthSession, getAccessToken, getRefreshToken, saveAuthSession } fr
 import type { LoginResponse, RegisterResponse } from "../types/auth";
 import type {
   AdminExamItem,
+  AdminFxItem,
   AdminGradeChangeItem,
   AdminHoldItem,
+  AdminNotificationCenterData,
   AdminRequestPage,
   AdminSectionItem,
   AdminSimpleStudentItem,
@@ -11,7 +13,8 @@ import type {
   AdminSimpleTeacherItem,
   AdminStats,
   AdminTermItem,
-  AdminUserPage
+  AdminUserPage,
+  AdminWindowItem
 } from "../types/admin";
 import type {
   PublicNewsItem,
@@ -26,10 +29,15 @@ import type {
   StudentExamScheduleItem,
   StudentFileItem,
   StudentFinancialData,
+  StudentFxOverview,
   StudentJournalItem,
   StudentJournalOptions,
   StudentNewsItem,
+  StudentNotificationCenterData,
   StudentProfile,
+  StudentRegistrationOverview,
+  StudentCourseCatalogItem,
+  StudentActionResult,
   StudentRequestPage,
   StudentScheduleItem,
   StudentScheduleOptions,
@@ -41,6 +49,7 @@ import type {
   TeacherComponentItem,
   TeacherGradeChangeRequestItem,
   TeacherMaterialItem,
+  TeacherNotificationCenterData,
   TeacherNoteItem,
   TeacherStudentFileItem,
   TeacherProfile,
@@ -235,6 +244,58 @@ export async function fetchStudentAttendance(): Promise<StudentAttendanceData> {
   return request<StudentAttendanceData>("/api/v1/student/attendance");
 }
 
+export async function fetchStudentRegistrationOverview(): Promise<StudentRegistrationOverview> {
+  return request<StudentRegistrationOverview>("/api/v1/student/course-registration/overview");
+}
+
+export async function fetchStudentRegistrationCatalog(): Promise<StudentCourseCatalogItem[]> {
+  return request<StudentCourseCatalogItem[]>("/api/v1/student/course-registration/catalog");
+}
+
+export async function submitStudentRegistration(sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/submit", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
+export async function addStudentCourse(sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/add-drop/add", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
+export async function dropStudentCourse(sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/add-drop/drop", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
+export async function fetchStudentFxOverview(): Promise<StudentFxOverview> {
+  return request<StudentFxOverview>("/api/v1/student/fx");
+}
+
+export async function createStudentFxRegistration(sectionId: number): Promise<void> {
+  await request("/api/v1/student/fx", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
+export async function fetchStudentNotifications(): Promise<StudentNotificationCenterData> {
+  return request<StudentNotificationCenterData>("/api/v1/student/notifications");
+}
+
+export async function markStudentNotificationRead(id: number): Promise<void> {
+  await request(`/api/v1/student/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllStudentNotificationsRead(): Promise<void> {
+  await request("/api/v1/student/notifications/read-all", { method: "POST" });
+}
+
 export async function askStudentAssistant(message: string): Promise<StudentAssistantReply> {
   return request<StudentAssistantReply>("/api/v1/student/assistant/chat", {
     method: "POST",
@@ -284,6 +345,18 @@ export async function uploadTeacherProfilePhoto(file: File): Promise<TeacherProf
 
 export async function fetchTeacherSections(): Promise<TeacherSectionItem[]> {
   return request<TeacherSectionItem[]>("/api/v1/teacher/sections");
+}
+
+export async function fetchTeacherNotifications(): Promise<TeacherNotificationCenterData> {
+  return request<TeacherNotificationCenterData>("/api/v1/teacher/notifications");
+}
+
+export async function markTeacherNotificationRead(id: number): Promise<void> {
+  await request(`/api/v1/teacher/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllTeacherNotificationsRead(): Promise<void> {
+  await request("/api/v1/teacher/notifications/read-all", { method: "POST" });
 }
 
 export async function askTeacherAssistant(message: string): Promise<TeacherAssistantReply> {
@@ -517,6 +590,10 @@ export async function fetchAdminTerms(): Promise<AdminTermItem[]> {
   return request<AdminTermItem[]>("/api/v1/admin/terms");
 }
 
+export async function fetchAdminWindows(): Promise<AdminWindowItem[]> {
+  return request<AdminWindowItem[]>("/api/v1/admin/windows");
+}
+
 export async function createAdminTerm(
   name: string,
   startDate: string,
@@ -598,6 +675,20 @@ export async function fetchAdminExams(semesterId?: number): Promise<AdminExamIte
   return request<AdminExamItem[]>(`/api/v1/admin/exams${suffix}`);
 }
 
+export async function fetchAdminFx(): Promise<AdminFxItem[]> {
+  return request<AdminFxItem[]>("/api/v1/admin/fx");
+}
+
+export async function updateAdminFxStatus(
+  fxId: number,
+  status: "PENDING" | "APPROVED" | "PAID" | "CONFIRMED"
+): Promise<void> {
+  await request(`/api/v1/admin/fx/${fxId}/status`, {
+    method: "POST",
+    body: { status }
+  });
+}
+
 export async function createAdminExam(
   sectionId: number,
   examDate: string,
@@ -631,6 +722,18 @@ export async function deleteAdminExam(examId: number): Promise<void> {
 
 export async function fetchAdminHolds(): Promise<AdminHoldItem[]> {
   return request<AdminHoldItem[]>("/api/v1/admin/holds");
+}
+
+export async function fetchAdminNotifications(): Promise<AdminNotificationCenterData> {
+  return request<AdminNotificationCenterData>("/api/v1/admin/notifications");
+}
+
+export async function markAdminNotificationRead(id: number): Promise<void> {
+  await request(`/api/v1/admin/notifications/${id}/read`, { method: "POST" });
+}
+
+export async function markAllAdminNotificationsRead(): Promise<void> {
+  await request("/api/v1/admin/notifications/read-all", { method: "POST" });
 }
 
 export async function createAdminHold(

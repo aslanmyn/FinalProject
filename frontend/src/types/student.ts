@@ -1,4 +1,4 @@
-import type { ApiPageResponse } from "./common";
+import type { ApiPageResponse, NotificationCenterData } from "./common";
 
 export interface StudentProfile {
   id: number;
@@ -142,6 +142,111 @@ export interface StudentAttendanceSummary {
 export interface StudentAttendanceData {
   records: StudentAttendanceRecordItem[];
   summary: StudentAttendanceSummary;
+}
+
+export interface StudentHoldItem {
+  id: number;
+  type: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface StudentRegistrationMeetingSlot {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  lessonType: string | null;
+}
+
+export interface StudentWindowStatusItem {
+  id: number;
+  type: string;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  openNow: boolean;
+}
+
+export interface StudentRegistrationBoardItem {
+  registrationId: number;
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  teacherName: string | null;
+  credits: number;
+  status: string;
+  canDrop: boolean;
+  dropBlockedReasons: string[];
+  meetingTimes: StudentRegistrationMeetingSlot[];
+}
+
+export interface StudentRegistrationOverview {
+  currentSemesterId: number | null;
+  currentSemesterName: string | null;
+  currentCredits: number;
+  creditLimit: number | null;
+  hasRegistrationHold: boolean;
+  holds: StudentHoldItem[];
+  windows: StudentWindowStatusItem[];
+  currentRegistrations: StudentRegistrationBoardItem[];
+  eligibleFxCount: number;
+  fxRequestCount: number;
+}
+
+export interface StudentCourseCatalogItem {
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: string | null;
+  season: string | null;
+  teacherId: number | null;
+  teacherName: string | null;
+  capacity: number;
+  occupiedSeats: number;
+  lessonType: string | null;
+  meetingTimes: StudentRegistrationMeetingSlot[];
+  registrationStatus: string | null;
+  canRegister: boolean;
+  registrationBlockedReasons: string[];
+  canAddDrop: boolean;
+  addDropBlockedReasons: string[];
+  canDrop: boolean;
+  dropBlockedReasons: string[];
+}
+
+export interface StudentFxEligibleCourse {
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  finalScore: number;
+  alreadyRequested: boolean;
+}
+
+export interface StudentFxRegistrationItem {
+  id: number;
+  sectionId: number | null;
+  subjectCode: string | null;
+  subjectName: string | null;
+  status: string;
+  createdAt: string;
+}
+
+export interface StudentFxOverview {
+  windowOpen: boolean;
+  eligibleCourses: StudentFxEligibleCourse[];
+  registrations: StudentFxRegistrationItem[];
+}
+
+export type StudentNotificationCenterData = NotificationCenterData;
+
+export interface StudentActionResult {
+  success: boolean;
+  message: string;
+  errors: string[];
 }
 
 export interface StudentExamScheduleItem {
