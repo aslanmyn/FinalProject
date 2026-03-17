@@ -1,6 +1,10 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { logout } from "../lib/api";
 import { clearAuthSession, getUserRole } from "../lib/auth";
+import { bindNotificationLiveSocket, loadNotificationCenterData } from "../lib/notifications";
+import { disconnectStomp } from "../lib/ws";
+import type { UserRole } from "../types/auth";
 
 type NavItem = { to: string; label: string };
 type NavGroup = { title: string; items: NavItem[] };
@@ -79,6 +83,43 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const role = getUserRole();
   const nav = getNav(role);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useEffect(() => {
+    if (!role) {
+      setUnreadNotifications(0);
+      return undefined;
+    }
+
+    let active = true;
+
+    async function loadUnreadCount(currentRole: UserRole) {
+      try {
+        const data = await loadNotificationCenterData(currentRole);
+        if (active) {
+          setUnreadNotifications(data.unreadCount);
+        }
+      } catch {
+        if (active) {
+          setUnreadNotifications(0);
+        }
+      }
+    }
+
+    void loadUnreadCount(role);
+
+    const unsubscribe = bindNotificationLiveSocket((payload) => {
+      if (active) {
+        setUnreadNotifications(payload.unreadCount);
+      }
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+      disconnectStomp();
+    };
+  }, [role]);
 
   async function handleLogout() {
     try {
@@ -107,7 +148,12 @@ export default function AppLayout() {
                   to={item.to}
                   className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
                 >
-                  {item.label}
+                  <span>{item.label}</span>
+                  {item.to.endsWith("/notifications") && unreadNotifications > 0 ? (
+                    <span className="sidebar-badge">
+                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                    </span>
+                  ) : null}
                 </NavLink>
               ))}
             </div>

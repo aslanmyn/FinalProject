@@ -1,6 +1,7 @@
 package ru.kors.finalproject.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import ru.kors.finalproject.entity.Notification;
 import ru.kors.finalproject.entity.User;
@@ -15,6 +16,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class NotificationService {
     private final NotificationRepository notificationRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public void notifyStudent(String email, Notification.NotificationType type, String title, String message, String link) {
         notify(email, type, title, message, link);
@@ -59,7 +61,8 @@ public class NotificationService {
                 .read(false)
                 .createdAt(Instant.now())
                 .build();
-        notificationRepository.save(notification);
+        Notification saved = notificationRepository.save(notification);
+        publishUpdate(email, saved.getId());
     }
 
     public List<Notification> listForEmail(String email) {
@@ -73,7 +76,8 @@ public class NotificationService {
     public void markRead(Long id) {
         notificationRepository.findById(id).ifPresent(n -> {
             n.setRead(true);
-            notificationRepository.save(n);
+            Notification saved = notificationRepository.save(n);
+            publishUpdate(saved.getRecipientEmail(), saved.getId());
         });
     }
 
@@ -83,7 +87,8 @@ public class NotificationService {
                         && notification.getRecipientEmail().equalsIgnoreCase(email))
                 .ifPresent(notification -> {
                     notification.setRead(true);
-                    notificationRepository.save(notification);
+                    Notification saved = notificationRepository.save(notification);
+                    publishUpdate(email, saved.getId());
                 });
     }
 
@@ -96,5 +101,24 @@ public class NotificationService {
                 .filter(notification -> !notification.isRead())
                 .forEach(notification -> notification.setRead(true));
         notificationRepository.saveAll(notifications);
+        publishUpdate(email, null);
     }
+
+    private void publishUpdate(String email, Long notificationId) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        messagingTemplate.convertAndSendToUser(
+                email,
+                "/queue/notifications",
+                new NotificationRealtimeEvent(
+                        "NOTIFICATIONS_UPDATED",
+                        unreadCount(email),
+                        notificationId,
+                        Instant.now()
+                )
+        );
+    }
+
+    public record NotificationRealtimeEvent(String eventType, long unreadCount, Long notificationId, Instant timestamp) {}
 }

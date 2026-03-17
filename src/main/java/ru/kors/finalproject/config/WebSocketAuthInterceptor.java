@@ -49,7 +49,8 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                             }
                         }
                         UsernamePasswordAuthenticationToken auth =
-                                new UsernamePasswordAuthenticationToken(user, null, authorities);
+                                new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
+                        auth.setDetails(user);
                         accessor.setUser(auth);
                     }
                 } catch (Exception ignored) {

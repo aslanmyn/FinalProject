@@ -313,7 +313,10 @@ button:disabled {
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition: all 0.15s;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   font-size: 14px;
   font-weight: 500;
 }
@@ -347,6 +350,21 @@ button:disabled {
 
 .sidebar button:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar-badge {
+  min-width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  background: #3b82f6;
+  color: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.28);
 }
 
 .panel-content {

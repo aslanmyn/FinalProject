@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import type { NotificationCenterData } from "../types/common";
 import { ApiError } from "../lib/api";
+import { NOTIFICATION_LIVE_EVENT } from "../lib/notifications";
 
 interface NotificationCenterProps {
   title: string;
@@ -36,7 +37,7 @@ export default function NotificationCenter({
   const [markingAll, setMarkingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -46,11 +47,20 @@ export default function NotificationCenter({
     } finally {
       setLoading(false);
     }
-  }
+  }, [loadData]);
 
   useEffect(() => {
     void reload();
-  }, []);
+  }, [reload]);
+
+  useEffect(() => {
+    function handleLiveUpdate() {
+      void reload();
+    }
+
+    window.addEventListener(NOTIFICATION_LIVE_EVENT, handleLiveUpdate as EventListener);
+    return () => window.removeEventListener(NOTIFICATION_LIVE_EVENT, handleLiveUpdate as EventListener);
+  }, [reload]);
 
   async function handleMarkRead(id: number) {
     setBusyId(id);
