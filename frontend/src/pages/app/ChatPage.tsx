@@ -11,7 +11,7 @@ import {
   fetchTeacherSections,
 } from "../../lib/api";
 import { getUserRole } from "../../lib/auth";
-import { connectStomp, disconnectStomp, subscribeTo, sendStompMessage } from "../../lib/ws";
+import { connectStomp, isStompConnected, subscribeTo, sendStompMessage } from "../../lib/ws";
 import type { ChatRoom, ChatMessageItem, ChatMember, ChatUserResult } from "../../types/chat";
 
 export default function ChatPage() {
@@ -51,8 +51,16 @@ export default function ChatPage() {
   useEffect(() => { loadRooms(); }, [loadRooms]);
 
   useEffect(() => {
-    connectStomp(() => setConnected(true));
-    return () => { disconnectStomp(); setConnected(false); };
+    let active = true;
+    setConnected(isStompConnected());
+    connectStomp(() => {
+      if (active) {
+        setConnected(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

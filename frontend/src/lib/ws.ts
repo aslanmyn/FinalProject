@@ -3,6 +3,8 @@ import { getAccessToken } from "./auth";
 
 let stompClient: Client | null = null;
 const subscriptions = new Map<string, { unsubscribe: () => void }>();
+const pendingSubscriptions = new Map<string, (msg: IMessage) => void>();
+let pendingConnectCallbacks: Array<() => void> = [];
 
 function getWsUrl(): string {
   const loc = window.location;
@@ -17,8 +19,18 @@ function getWsUrl(): string {
 }
 
 export function connectStomp(onConnect?: () => void): Client {
+  if (onConnect) {
+    pendingConnectCallbacks.push(onConnect);
+  }
+
   if (stompClient?.connected) {
-    onConnect?.();
+    const callbacks = [...pendingConnectCallbacks];
+    pendingConnectCallbacks = [];
+    callbacks.forEach((callback) => callback());
+    return stompClient;
+  }
+
+  if (stompClient) {
     return stompClient;
   }
 
@@ -31,7 +43,10 @@ export function connectStomp(onConnect?: () => void): Client {
     heartbeatIncoming: 10000,
     heartbeatOutgoing: 10000,
     onConnect: () => {
-      onConnect?.();
+      const callbacks = [...pendingConnectCallbacks];
+      pendingConnectCallbacks = [];
+      callbacks.forEach((callback) => callback());
+      flushPendingSubscriptions();
     },
     onStompError: (frame) => {
       console.error("STOMP error", frame.headers["message"]);
@@ -46,6 +61,8 @@ export function connectStomp(onConnect?: () => void): Client {
 export function disconnectStomp(): void {
   subscriptions.forEach((sub) => sub.unsubscribe());
   subscriptions.clear();
+  pendingSubscriptions.clear();
+  pendingConnectCallbacks = [];
   stompClient?.deactivate();
   stompClient = null;
 }
@@ -62,16 +79,10 @@ export function subscribeTo(
   }
 
   if (!stompClient?.connected) {
-    console.warn("STOMP not connected, queueing subscription for", destination);
-    const origOnConnect = stompClient?.onConnect;
-    if (stompClient) {
-      stompClient.onConnect = (frame) => {
-        origOnConnect?.(frame);
-        const sub = stompClient!.subscribe(destination, callback);
-        subscriptions.set(key, sub);
-      };
-    }
+    connectStomp();
+    pendingSubscriptions.set(key, callback);
     return () => {
+      pendingSubscriptions.delete(key);
       subscriptions.get(key)?.unsubscribe();
       subscriptions.delete(key);
     };
@@ -99,4 +110,20 @@ export function sendStompMessage(destination: string, body: object): void {
 
 export function isStompConnected(): boolean {
   return stompClient?.connected ?? false;
+}
+
+function flushPendingSubscriptions(): void {
+  if (!stompClient?.connected) {
+    return;
+  }
+
+  pendingSubscriptions.forEach((callback, destination) => {
+    if (subscriptions.has(destination)) {
+      subscriptions.get(destination)!.unsubscribe();
+      subscriptions.delete(destination);
+    }
+    const sub = stompClient!.subscribe(destination, callback);
+    subscriptions.set(destination, sub);
+  });
+  pendingSubscriptions.clear();
 }
