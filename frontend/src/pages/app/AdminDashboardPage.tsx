@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, fetchAdminAnalytics } from "../../lib/api";
 import type { AdminAnalyticsDashboard } from "../../types/admin";
@@ -46,6 +46,15 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
+  const topWorkflow = useMemo(() => dashboard?.workflowSummary[0] ?? null, [dashboard]);
+  const topStudent = useMemo(() => dashboard?.criticalStudents[0] ?? null, [dashboard]);
+  const topSection = useMemo(() => dashboard?.overloadedSections[0] ?? null, [dashboard]);
+  const workflowTotal = useMemo(
+    () => dashboard?.workflowSummary.reduce((sum, item) => sum + item.count, 0) ?? 0,
+    [dashboard]
+  );
+  const overloadPeak = topSection?.utilizationPercent ?? 0;
+
   return (
     <div className="screen app-screen">
       <header className="topbar">
@@ -80,27 +89,94 @@ export default function AdminDashboardPage() {
 
       {!loading && dashboard ? (
         <>
-          <section className="card">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <strong>{dashboard.metrics.students}</strong>
-                <span>Students</span>
+          <section className="card analytics-hero-card analytics-hero-card-admin">
+            <div className="analytics-hero analytics-hero-split">
+              <div className="analytics-hero-main">
+                <span className="assistant-eyebrow">Executive snapshot</span>
+                <h3>What needs admin attention first</h3>
+                <p className="muted">
+                  Keep an eye on operational backlog, critical student risk, and overloaded teaching capacity before they turn into service issues.
+                </p>
+                <div className="analytics-pill-group">
+                  <span className="badge badge-warning">{workflowTotal} workflow items</span>
+                  <span className="badge badge-neutral">{dashboard.overloadedSections.length} overloaded sections</span>
+                  <span className="badge badge-neutral">{dashboard.criticalStudents.length} critical students</span>
+                </div>
+                <div className="analytics-meter-list">
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Workflow pressure</span>
+                      <strong>{workflowTotal}</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-danger"
+                        style={{ width: `${Math.max(0, Math.min(100, workflowTotal * 10))}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Overload peak</span>
+                      <strong>{overloadPeak.toFixed(1)}%</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-warning"
+                        style={{ width: `${Math.max(0, Math.min(100, overloadPeak))}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Open windows</span>
+                      <strong>{dashboard.metrics.openWindows}</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-accent"
+                        style={{ width: `${Math.max(0, Math.min(100, dashboard.metrics.openWindows * 20))}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="stat-card">
-                <strong>{dashboard.metrics.currentSections}</strong>
-                <span>Current sections</span>
-              </div>
-              <div className="stat-card">
-                <strong>{dashboard.metrics.requests}</strong>
-                <span>Requests</span>
-              </div>
-              <div className="stat-card">
-                <strong>{dashboard.metrics.activeHolds}</strong>
-                <span>Active holds</span>
-              </div>
-              <div className="stat-card">
-                <strong>{dashboard.overloadedSections.length}</strong>
-                <span>Overloaded sections</span>
+              <div className="analytics-hero-side-grid">
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.students}</strong>
+                    <span>Students</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.currentSections}</strong>
+                    <span>Current sections</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.requests}</strong>
+                    <span>Requests</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.activeHolds}</strong>
+                    <span>Active holds</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.openWindows}</strong>
+                    <span>Open windows</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{dashboard.metrics.teachers}</strong>
+                    <span>Teachers</span>
+                  </div>
+                </div>
+                <div className="analytics-spotlight-card">
+                  <span className="assistant-summary-label">Priority spotlight</span>
+                  <strong>{topWorkflow ? topWorkflow.workflowType : "No backlog"}</strong>
+                  <p className="muted">
+                    {topWorkflow
+                      ? `${topWorkflow.count} items sit in the busiest workflow queue right now.`
+                      : "Operational queues are clear."}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -109,17 +185,33 @@ export default function AdminDashboardPage() {
             <section className="card analytics-panel">
               <div className="section-heading">
                 <div>
-                  <h3>Top workflow backlog</h3>
-                  <p className="muted">The biggest queues that currently need operational attention.</p>
+                  <h3>Operational hotspot</h3>
+                  <p className="muted">The queue or section most likely to need intervention next.</p>
                 </div>
               </div>
-              <div className="analytics-mini-list">
-                {dashboard.workflowSummary.map((item) => (
-                  <div key={item.workflowType} className="analytics-mini-row">
-                    <span>{item.workflowType}</span>
-                    <strong>{item.count}</strong>
+              <div className="analytics-card-grid">
+                <article className="analytics-focus-card">
+                  <div className="analytics-focus-card-head">
+                    <span className="badge badge-warning">Workflow</span>
+                    <span className="badge badge-neutral">{topWorkflow ? topWorkflow.count : 0} items</span>
                   </div>
-                ))}
+                  <h4>{topWorkflow ? topWorkflow.workflowType : "No backlog"}</h4>
+                  <p className="muted">
+                    {topWorkflow ? "This queue has the highest current operational load." : "All workflow queues are balanced."}
+                  </p>
+                </article>
+                <article className="analytics-focus-card">
+                  <div className="analytics-focus-card-head">
+                    <span className="badge badge-warning">Section</span>
+                    <span className="badge badge-warning">{overloadPeak.toFixed(1)}%</span>
+                  </div>
+                  <h4>{topSection ? topSection.courseCode : "No overloaded sections"}</h4>
+                  <p className="muted">
+                    {topSection
+                      ? `${topSection.courseName} is the most capacity-constrained section right now.`
+                      : "Section capacity is currently under control."}
+                  </p>
+                </article>
               </div>
             </section>
 
@@ -142,8 +234,41 @@ export default function AdminDashboardPage() {
                     </span>
                   </div>
                 ))}
+                {dashboard.criticalStudents.length === 0 ? <p className="muted">No critical students right now.</p> : null}
               </div>
+              {topStudent ? (
+                <div className="analytics-spotlight-card analytics-spotlight-inline">
+                  <span className="assistant-summary-label">Highest risk student</span>
+                  <strong>{topStudent.studentName}</strong>
+                  <p className="muted">{topStudent.primaryReason}</p>
+                </div>
+              ) : null}
             </section>
+          </section>
+
+          <section className="card analytics-panel">
+            <div className="section-heading">
+              <div>
+                <h3>Top workflow backlog</h3>
+                <p className="muted">The biggest queues that currently need operational attention.</p>
+              </div>
+            </div>
+            <div className="analytics-mini-list">
+              {dashboard.workflowSummary.map((item) => (
+                <div key={item.workflowType} className="analytics-load-card">
+                  <div className="analytics-mini-row">
+                    <span>{item.workflowType}</span>
+                    <strong>{item.count}</strong>
+                  </div>
+                  <div className="analytics-meter analytics-meter-compact">
+                    <div
+                      className="analytics-meter-fill analytics-meter-fill-danger"
+                      style={{ width: `${Math.max(0, Math.min(100, item.count * 18))}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
         </>
       ) : null}

@@ -38,6 +38,16 @@ function parseProjectedValue(value: string): number {
   return Math.max(0, Math.min(40, parsed));
 }
 
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function signedDelta(value: number): string {
+  if (value > 0) return `+${value.toFixed(2)}`;
+  if (value < 0) return value.toFixed(2);
+  return "0.00";
+}
+
 export default function StudentPlannerPage() {
   const [risk, setRisk] = useState<StudentRiskDashboard | null>(null);
   const [planner, setPlanner] = useState<StudentPlannerDashboard | null>(null);
@@ -138,6 +148,20 @@ export default function StudentPlannerPage() {
     () => workflows?.items.filter((item) => item.overdue).length ?? 0,
     [workflows]
   );
+  const atRiskCoursesCount = useMemo(
+    () => risk?.courses.filter((course) => course.level === "AT_RISK").length ?? 0,
+    [risk]
+  );
+  const projectionDelta = useMemo(() => {
+    const projected = simulation?.projectedOverallGpa ?? planner?.currentPublishedGpa ?? 0;
+    const current = planner?.currentPublishedGpa ?? 0;
+    return projected - current;
+  }, [planner, simulation]);
+  const strongestProjection = useMemo(() => {
+    const courses = simulation?.courses ?? [];
+    if (courses.length === 0) return null;
+    return [...courses].sort((left, right) => right.projectedTotal - left.projectedTotal)[0];
+  }, [simulation]);
 
   function handleProjectedFinalChange(sectionId: number, value: string) {
     setProjectedFinals((prev) => ({
@@ -177,36 +201,90 @@ export default function StudentPlannerPage() {
 
       {!loading && risk && planner ? (
         <>
-          <section className="card analytics-hero-card">
-            <div className="analytics-hero">
-              <div>
+          <section className="card analytics-hero-card analytics-hero-card-student">
+            <div className="analytics-hero analytics-hero-split">
+              <div className="analytics-hero-main">
                 <span className="assistant-eyebrow">Current semester</span>
                 <h3>{planner.semesterName || "Planner snapshot"}</h3>
                 <p className="muted">
                   We calculate risk from attendance, attestation results, final grades, and active holds.
                 </p>
+                <div className="analytics-pill-group">
+                  <span className={riskBadgeClass(risk.level)}>{formatRiskLevel(risk.level)}</span>
+                  <span className="badge badge-neutral">{planner.courses.length} planned courses</span>
+                  <span className="badge badge-neutral">{workflows?.items.length ?? 0} workflow items</span>
+                </div>
+                <div className="analytics-meter-list">
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Risk intensity</span>
+                      <strong>{risk.riskScore.toFixed(1)} / 100</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-danger"
+                        style={{ width: `${clampPercent(risk.riskScore)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Attendance resilience</span>
+                      <strong>{risk.attendanceRate.toFixed(1)}%</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-success"
+                        style={{ width: `${clampPercent(risk.attendanceRate)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Planner uplift</span>
+                      <strong>{signedDelta(projectionDelta)}</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-accent"
+                        style={{ width: `${clampPercent(Math.abs(projectionDelta) * 30)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="analytics-stat-grid">
-                <article className="analytics-stat">
-                  <span>Overall risk</span>
-                  <strong>{formatRiskLevel(risk.level)}</strong>
-                  <small>{risk.riskScore.toFixed(1)} / 100</small>
-                </article>
-                <article className="analytics-stat">
-                  <span>Published GPA</span>
-                  <strong>{risk.publishedGpa.toFixed(2)}</strong>
-                  <small>Current official GPA</small>
-                </article>
-                <article className="analytics-stat">
-                  <span>Projected GPA</span>
-                  <strong>{(simulation?.projectedOverallGpa ?? planner.currentPublishedGpa).toFixed(2)}</strong>
-                  <small>{simulating ? "Updating projection..." : "Live planner result"}</small>
-                </article>
-                <article className="analytics-stat">
-                  <span>Attendance</span>
-                  <strong>{risk.attendanceRate.toFixed(1)}%</strong>
-                  <small>{workflows?.items.length ?? 0} active workflows</small>
-                </article>
+              <div className="analytics-hero-side-grid">
+                <div className="analytics-stat-grid">
+                  <article className="analytics-stat">
+                    <span>Overall risk</span>
+                    <strong>{formatRiskLevel(risk.level)}</strong>
+                    <small>{risk.riskScore.toFixed(1)} / 100</small>
+                  </article>
+                  <article className="analytics-stat">
+                    <span>Published GPA</span>
+                    <strong>{risk.publishedGpa.toFixed(2)}</strong>
+                    <small>Current official GPA</small>
+                  </article>
+                  <article className="analytics-stat">
+                    <span>Projected GPA</span>
+                    <strong>{(simulation?.projectedOverallGpa ?? planner.currentPublishedGpa).toFixed(2)}</strong>
+                    <small>{simulating ? "Updating projection..." : "Live planner result"}</small>
+                  </article>
+                  <article className="analytics-stat">
+                    <span>Attendance</span>
+                    <strong>{risk.attendanceRate.toFixed(1)}%</strong>
+                    <small>{workflows?.items.length ?? 0} active workflows</small>
+                  </article>
+                </div>
+                <div className="analytics-spotlight-card">
+                  <span className="assistant-summary-label">Planner spotlight</span>
+                  <strong>{strongestProjection ? strongestProjection.courseCode : "No projection yet"}</strong>
+                  <p className="muted">
+                    {strongestProjection
+                      ? `${strongestProjection.courseName} projects to ${strongestProjection.projectedTotal.toFixed(1)} with ${strongestProjection.projectedLetter}.`
+                      : "Start adjusting projected finals to see a stronger scenario."}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -260,6 +338,10 @@ export default function StudentPlannerPage() {
                   <span>Open requests</span>
                   <strong>{risk.openRequests}</strong>
                 </div>
+                <div className="analytics-mini-row">
+                  <span>Courses at risk</span>
+                  <strong>{atRiskCoursesCount}</strong>
+                </div>
               </div>
             </section>
           </section>
@@ -282,6 +364,12 @@ export default function StudentPlannerPage() {
                   <div className="analytics-focus-meta">
                     <span>Attendance {course.attendanceRate.toFixed(1)}%</span>
                     <span>Attestations {(course.attestation1 + course.attestation2).toFixed(1)} / 60</span>
+                  </div>
+                  <div className="analytics-meter analytics-meter-compact">
+                    <div
+                      className="analytics-meter-fill analytics-meter-fill-danger"
+                      style={{ width: `${clampPercent(course.riskScore)}%` }}
+                    />
                   </div>
                   <p className="muted">{course.reasons[0] ?? "Performance is stable."}</p>
                 </article>

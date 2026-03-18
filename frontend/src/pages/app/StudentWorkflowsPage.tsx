@@ -76,6 +76,20 @@ export default function StudentWorkflowsPage() {
 
   const typeOptions = useMemo(() => Array.from(new Set(items.map((item) => item.type))), [items]);
   const overdueCount = useMemo(() => items.filter((item) => item.overdue).length, [items]);
+  const followUpCount = useMemo(
+    () => items.filter((item) => item.status === "NEED_INFO" || item.status === "REJECTED").length,
+    [items]
+  );
+  const overdueRate = items.length > 0 ? (overdueCount / items.length) * 100 : 0;
+  const spotlightItem = useMemo(() => {
+    if (items.length === 0) return null;
+    return [...items].sort((left, right) => {
+      if (left.overdue !== right.overdue) {
+        return left.overdue ? -1 : 1;
+      }
+      return (left.dueAt || "").localeCompare(right.dueAt || "");
+    })[0];
+  }, [items]);
 
   return (
     <div className="screen app-screen">
@@ -108,19 +122,86 @@ export default function StudentWorkflowsPage() {
 
       {!loading && !error ? (
         <>
-          <section className="card">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <strong>{items.length}</strong>
-                <span>Open workflows</span>
+          <section className="card analytics-hero-card analytics-hero-card-student">
+            <div className="analytics-hero analytics-hero-split">
+              <div className="analytics-hero-main">
+                <span className="assistant-eyebrow">Workflow health</span>
+                <h3>Deadlines, approvals, and next actions in one queue</h3>
+                <p className="muted">
+                  Track where student services still need your response, payment, or follow-up before they become blockers.
+                </p>
+                <div className="analytics-pill-group">
+                  <span className="badge badge-neutral">{items.length} open workflows</span>
+                  <span className="badge badge-warning">{overdueCount} overdue</span>
+                  <span className="badge badge-neutral">{followUpCount} needs response</span>
+                </div>
+                <div className="analytics-meter-list">
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Overdue pressure</span>
+                      <strong>{overdueRate.toFixed(0)}%</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-danger"
+                        style={{ width: `${Math.max(0, Math.min(100, overdueRate))}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Workflow variety</span>
+                      <strong>{typeOptions.length}</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-accent"
+                        style={{ width: `${Math.max(0, Math.min(100, typeOptions.length * 20))}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="analytics-meter-card">
+                    <div className="analytics-meter-head">
+                      <span>Follow-up needed</span>
+                      <strong>{followUpCount}</strong>
+                    </div>
+                    <div className="analytics-meter">
+                      <div
+                        className="analytics-meter-fill analytics-meter-fill-warning"
+                        style={{ width: `${Math.max(0, Math.min(100, followUpCount * 20))}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="stat-card">
-                <strong>{overdueCount}</strong>
-                <span>Overdue items</span>
-              </div>
-              <div className="stat-card">
-                <strong>{typeOptions.length}</strong>
-                <span>Workflow types</span>
+              <div className="analytics-hero-side-grid">
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <strong>{items.length}</strong>
+                    <span>Open workflows</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{overdueCount}</strong>
+                    <span>Overdue items</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{typeOptions.length}</strong>
+                    <span>Workflow types</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{followUpCount}</strong>
+                    <span>Awaiting reply</span>
+                  </div>
+                </div>
+                <div className="analytics-spotlight-card">
+                  <span className="assistant-summary-label">Next priority</span>
+                  <strong>{spotlightItem ? spotlightItem.title : "Nothing urgent"}</strong>
+                  <p className="muted">
+                    {spotlightItem
+                      ? `${spotlightItem.subject} is ${spotlightItem.overdue ? "already overdue" : `due ${formatDate(spotlightItem.dueAt)}`}.`
+                      : "Your queue is clear right now."}
+                  </p>
+                </div>
               </div>
             </div>
           </section>

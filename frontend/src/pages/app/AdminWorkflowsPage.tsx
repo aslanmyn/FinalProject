@@ -154,19 +154,44 @@ export default function AdminWorkflowsPage() {
 
       {!loading ? (
         <>
-          <section className="card">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <strong>{items.length}</strong>
-                <span>Active items</span>
+          <section className="card analytics-hero-card analytics-hero-card-admin">
+            <div className="analytics-hero analytics-hero-split">
+              <div className="analytics-hero-main">
+                <span className="assistant-eyebrow">State machine control</span>
+                <h3>Operational queue and audit trail</h3>
+                <p className="muted">
+                  Watch deadlines, inspect allowed next states, and trace every workflow through audit history.
+                </p>
+                <div className="analytics-pill-group">
+                  <span className="badge badge-warning">{overdueCount} overdue</span>
+                  <span className="badge badge-neutral">{typeOptions.length} workflow types</span>
+                  <span className="badge badge-neutral">{selected ? `${formatWorkflowType(selected.type)} selected` : "Select an item"}</span>
+                </div>
               </div>
-              <div className="stat-card">
-                <strong>{overdueCount}</strong>
-                <span>Overdue items</span>
-              </div>
-              <div className="stat-card">
-                <strong>{typeOptions.length}</strong>
-                <span>Workflow types</span>
+              <div className="analytics-hero-side-grid">
+                <div className="stats-grid">
+                  <div className="stat-card">
+                    <strong>{items.length}</strong>
+                    <span>Active items</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{overdueCount}</strong>
+                    <span>Overdue items</span>
+                  </div>
+                  <div className="stat-card">
+                    <strong>{typeOptions.length}</strong>
+                    <span>Workflow types</span>
+                  </div>
+                </div>
+                <div className="analytics-spotlight-card">
+                  <span className="assistant-summary-label">Audit spotlight</span>
+                  <strong>{selected ? selected.title : "No item selected"}</strong>
+                  <p className="muted">
+                    {selected
+                      ? `${selected.subject} is currently in ${formatStatus(selected.status)} with ${selected.nextStatuses.length || 0} possible next states.`
+                      : "Select an item from the queue to inspect its timeline."}
+                  </p>
+                </div>
               </div>
             </div>
           </section>
@@ -220,7 +245,7 @@ export default function AdminWorkflowsPage() {
                         return (
                           <tr
                             key={`${item.type}-${item.entityId}`}
-                            className={isSelected ? "workflow-row-selected" : ""}
+                            className={`workflow-row${isSelected ? " workflow-row-selected" : ""}`}
                             onClick={() => setSelected(item)}
                           >
                             <td>

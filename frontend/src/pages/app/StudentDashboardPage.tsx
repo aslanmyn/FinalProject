@@ -297,7 +297,7 @@ export default function StudentDashboardPage() {
                     <span className="badge schedule-summary-code">{item.courseCode}</span>
                     <h3>{item.courseName}</h3>
                     <p className="schedule-summary-meta">
-                      {formatDay(item.dayOfWeek)} • {formatTime(item.startTime)} - {formatTime(item.endTime)}
+                      {formatDay(item.dayOfWeek)} | {formatTime(item.startTime)} - {formatTime(item.endTime)}
                     </p>
                     <p className="schedule-summary-meta">{item.room || "Room to be assigned"}</p>
                   </article>
@@ -310,3 +310,4 @@ export default function StudentDashboardPage() {
     </div>
   );
 }
+
