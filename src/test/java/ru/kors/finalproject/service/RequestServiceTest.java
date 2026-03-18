@@ -35,6 +35,8 @@ class RequestServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private WorkflowEngineService workflowEngineService;
+    @Mock
     private NotificationService notificationService;
     @Mock
     private AuditService auditService;

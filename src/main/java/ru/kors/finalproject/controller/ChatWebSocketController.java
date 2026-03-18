@@ -44,6 +44,10 @@ public class ChatWebSocketController {
             if (p instanceof User user) {
                 return user;
             }
+            Object details = auth.getDetails();
+            if (details instanceof User user) {
+                return user;
+            }
         }
         return null;
     }

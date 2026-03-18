@@ -42,6 +42,8 @@ class AddDropServiceTest {
     @Mock
     private FinalGradeRepository finalGradeRepository;
     @Mock
+    private WorkflowEngineService workflowEngineService;
+    @Mock
     private FinancialService financialService;
     @Mock
     private AuditService auditService;
@@ -369,7 +371,7 @@ class AddDropServiceTest {
                 .status(Registration.RegistrationStatus.CONFIRMED)
                 .build();
 
-        when(registrationRepository.findByStudentIdAndSubjectOfferingId(1L, 100L)).thenReturn(Optional.of(reg));
+        when(registrationRepository.findByStudentIdAndSubjectOfferingIdWithDetails(1L, 100L)).thenReturn(Optional.of(reg));
 
         // add/drop window active
         RegistrationWindow window = RegistrationWindow.builder()
@@ -403,7 +405,8 @@ class AddDropServiceTest {
     @Test
     @DisplayName("dropCourse - error when not registered")
     void dropCourse_notRegistered() {
-        when(registrationRepository.findByStudentIdAndSubjectOfferingId(1L, 100L)).thenReturn(Optional.empty());
+        // dropCourse uses the WithDetails variant to eagerly load the offering
+        when(registrationRepository.findByStudentIdAndSubjectOfferingIdWithDetails(1L, 100L)).thenReturn(Optional.empty());
 
         AddDropService.AddDropResult result = addDropService.dropCourse(student, 100L);
 
