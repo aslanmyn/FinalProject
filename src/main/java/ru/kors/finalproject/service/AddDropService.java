@@ -23,6 +23,7 @@ public class AddDropService {
     private final MeetingTimeRepository meetingTimeRepository;
     private final HoldRepository holdRepository;
     private final FinalGradeRepository finalGradeRepository;
+    private final WorkflowEngineService workflowEngineService;
     private final FinancialService financialService;
     private final AuditService auditService;
     private final NotificationService notificationService;
@@ -61,6 +62,7 @@ public class AddDropService {
         }
 
         Registration existing = reg.get();
+        workflowEngineService.assertRegistrationTransition(existing.getStatus(), Registration.RegistrationStatus.DROPPED);
         existing.setStatus(Registration.RegistrationStatus.DROPPED);
         existing.setDroppedAt(java.time.Instant.now());
         existing.setDropReason(reason);
@@ -170,8 +172,10 @@ public class AddDropService {
         Registration reg = existingReg.orElseGet(() -> Registration.builder()
                 .student(student)
                 .subjectOffering(so)
+                .status(Registration.RegistrationStatus.DRAFT)
                 .createdAt(Instant.now())
                 .build());
+        workflowEngineService.assertRegistrationTransition(reg.getStatus(), targetStatus);
         reg.setStatus(targetStatus);
         reg.setDroppedAt(null);
         reg.setDropReason(null);

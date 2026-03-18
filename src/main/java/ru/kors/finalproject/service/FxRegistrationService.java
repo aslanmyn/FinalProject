@@ -35,6 +35,7 @@ public class FxRegistrationService {
     private final UserRepository userRepository;
     private final WindowPolicyService windowPolicyService;
     private final AddDropService addDropService;
+    private final WorkflowEngineService workflowEngineService;
     private final FinancialService financialService;
     private final NotificationService notificationService;
     private final AuditService auditService;
@@ -114,6 +115,7 @@ public class FxRegistrationService {
     public FxRegistration updateStatus(Long fxRegistrationId, FxRegistration.FxStatus status, User admin) {
         FxRegistration fx = fxRegistrationRepository.findById(fxRegistrationId)
                 .orElseThrow(() -> new IllegalArgumentException("FX registration not found"));
+        workflowEngineService.assertFxTransition(fx.getStatus(), status);
         fx.setStatus(status);
         FxRegistration saved = fxRegistrationRepository.save(fx);
 

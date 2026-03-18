@@ -1,6 +1,8 @@
 import { clearAuthSession, getAccessToken, getRefreshToken, saveAuthSession } from "./auth";
 import type { LoginResponse, RegisterResponse } from "../types/auth";
 import type {
+  AdminAnalyticsDashboard,
+  AdminAssistantReply,
   AdminExamItem,
   AdminFxItem,
   AdminGradeChangeItem,
@@ -14,6 +16,7 @@ import type {
   AdminStats,
   AdminTermItem,
   AdminUserPage,
+  AdminWorkflowOverview,
   AdminWindowItem
 } from "../types/admin";
 import type {
@@ -38,10 +41,14 @@ import type {
   StudentRegistrationOverview,
   StudentCourseCatalogItem,
   StudentActionResult,
+  StudentPlannerDashboard,
+  StudentPlannerSimulation,
+  StudentRiskDashboard,
   StudentRequestPage,
   StudentScheduleItem,
   StudentScheduleOptions,
-  StudentTranscriptData
+  StudentTranscriptData,
+  StudentWorkflowOverview
 } from "../types/student";
 import type {
   TeacherAnnouncementItem,
@@ -51,12 +58,13 @@ import type {
   TeacherMaterialItem,
   TeacherNotificationCenterData,
   TeacherNoteItem,
+  TeacherRiskDashboard,
   TeacherStudentFileItem,
   TeacherProfile,
   TeacherRosterItem,
   TeacherSectionItem
 } from "../types/teacher";
-import type { ApiPageResponse } from "../types/common";
+import type { ApiPageResponse, WorkflowTimeline, WorkflowType } from "../types/common";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
@@ -303,6 +311,27 @@ export async function askStudentAssistant(message: string): Promise<StudentAssis
   });
 }
 
+export async function fetchStudentRiskDashboard(): Promise<StudentRiskDashboard> {
+  return request<StudentRiskDashboard>("/api/v1/student/analytics/risk");
+}
+
+export async function fetchStudentPlanner(): Promise<StudentPlannerDashboard> {
+  return request<StudentPlannerDashboard>("/api/v1/student/planner");
+}
+
+export async function simulateStudentPlanner(
+  projectedFinals: Array<{ sectionId: number; projectedFinalScore: number }>
+): Promise<StudentPlannerSimulation> {
+  return request<StudentPlannerSimulation>("/api/v1/student/planner/simulate", {
+    method: "POST",
+    body: { projectedFinals }
+  });
+}
+
+export async function fetchStudentWorkflows(): Promise<StudentWorkflowOverview> {
+  return request<StudentWorkflowOverview>("/api/v1/student/workflows");
+}
+
 export async function fetchStudentExamSchedule(): Promise<StudentExamScheduleItem[]> {
   return request<StudentExamScheduleItem[]>("/api/v1/student/exam-schedule");
 }
@@ -364,6 +393,10 @@ export async function askTeacherAssistant(message: string): Promise<TeacherAssis
     method: "POST",
     body: { message }
   });
+}
+
+export async function fetchTeacherRiskDashboard(): Promise<TeacherRiskDashboard> {
+  return request<TeacherRiskDashboard>("/api/v1/teacher/analytics/risk");
 }
 
 export async function fetchTeacherRoster(sectionId: number): Promise<TeacherRosterItem[]> {
@@ -726,6 +759,25 @@ export async function fetchAdminHolds(): Promise<AdminHoldItem[]> {
 
 export async function fetchAdminNotifications(): Promise<AdminNotificationCenterData> {
   return request<AdminNotificationCenterData>("/api/v1/admin/notifications");
+}
+
+export async function fetchAdminAnalytics(): Promise<AdminAnalyticsDashboard> {
+  return request<AdminAnalyticsDashboard>("/api/v1/admin/analytics");
+}
+
+export async function fetchAdminWorkflows(): Promise<AdminWorkflowOverview> {
+  return request<AdminWorkflowOverview>("/api/v1/admin/workflows");
+}
+
+export async function fetchAdminWorkflowTimeline(type: WorkflowType, id: number): Promise<WorkflowTimeline> {
+  return request<WorkflowTimeline>(`/api/v1/admin/workflows/${type}/${id}/timeline`);
+}
+
+export async function askAdminAssistant(message: string): Promise<AdminAssistantReply> {
+  return request<AdminAssistantReply>("/api/v1/admin/assistant/chat", {
+    method: "POST",
+    body: { message }
+  });
 }
 
 export async function markAdminNotificationRead(id: number): Promise<void> {

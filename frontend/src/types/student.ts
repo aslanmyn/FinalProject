@@ -1,4 +1,4 @@
-import type { ApiPageResponse, NotificationCenterData } from "./common";
+import type { ApiPageResponse, NotificationCenterData, WorkflowOverview } from "./common";
 
 export interface StudentProfile {
   id: number;
@@ -102,6 +102,96 @@ export interface StudentAssistantReply {
   answer: string;
   model: string;
   generatedAt: string;
+}
+
+export interface StudentRiskCourse {
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  teacherName: string | null;
+  credits: number;
+  attestation1: number;
+  attestation2: number;
+  finalExam: number | null;
+  totalScore: number | null;
+  attendanceRate: number;
+  present: number;
+  late: number;
+  absent: number;
+  level: string;
+  riskScore: number;
+  reasons: string[];
+  neededForPass: number | null;
+  neededForB: number | null;
+  neededForA: number | null;
+}
+
+export interface StudentRiskDashboard {
+  studentId: number;
+  studentName: string;
+  facultyName: string | null;
+  semesterName: string;
+  level: string;
+  riskScore: number;
+  publishedGpa: number;
+  attendanceRate: number;
+  hasFinancialHold: boolean;
+  activeHolds: number;
+  overdueCharges: number;
+  openRequests: number;
+  reasons: string[];
+  courses: StudentRiskCourse[];
+}
+
+export interface StudentPlannerCourse {
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  teacherName: string | null;
+  credits: number;
+  attestation1: number;
+  attestation2: number;
+  publishedFinal: number | null;
+  publishedTotal: number | null;
+  publishedLetter: string | null;
+  subtotal: number;
+  maxTotal: number;
+  neededForPass: number | null;
+  neededForB: number | null;
+  neededForA: number | null;
+}
+
+export interface StudentPlannerDashboard {
+  studentId: number;
+  studentName: string;
+  semesterId: number | null;
+  semesterName: string | null;
+  currentPublishedGpa: number;
+  publishedFinalCount: number;
+  maxProjectionGpa: number;
+  courses: StudentPlannerCourse[];
+}
+
+export interface StudentPlannerSimulationCourse {
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  teacherName: string | null;
+  credits: number;
+  attestation1: number;
+  attestation2: number;
+  publishedFinal: number | null;
+  projectedFinal: number;
+  projectedTotal: number;
+  projectedLetter: string;
+  projectedPoints: number;
+}
+
+export interface StudentPlannerSimulation {
+  currentPublishedGpa: number;
+  projectedTermGpa: number;
+  projectedOverallGpa: number;
+  courses: StudentPlannerSimulationCourse[];
 }
 
 export interface StudentTranscriptGradeItem {
@@ -242,6 +332,7 @@ export interface StudentFxOverview {
 }
 
 export type StudentNotificationCenterData = NotificationCenterData;
+export type StudentWorkflowOverview = WorkflowOverview;
 
 export interface StudentActionResult {
   success: boolean;

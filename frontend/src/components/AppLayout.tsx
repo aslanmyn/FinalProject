@@ -17,6 +17,7 @@ function getNav(role: string | null): NavGroup[] {
         items: [
           { to: "/app/student", label: "Overview" },
           { to: "/app/student/registration", label: "Registration" },
+          { to: "/app/student/planner", label: "Planner & Risk" },
           { to: "/app/student/schedule", label: "Schedule" },
           { to: "/app/student/enrollments", label: "Enrollments" },
           { to: "/app/student/journal", label: "Journal" },
@@ -29,6 +30,7 @@ function getNav(role: string | null): NavGroup[] {
         title: "Services",
         items: [
           { to: "/app/student/assistant", label: "AI Assistant" },
+          { to: "/app/student/workflows", label: "Workflows" },
           { to: "/app/student/notifications", label: "Notifications" },
           { to: "/app/chat", label: "Chat" },
           { to: "/app/student/requests", label: "Requests" },
@@ -46,6 +48,7 @@ function getNav(role: string | null): NavGroup[] {
         items: [
           { to: "/app/teacher", label: "Overview" },
           { to: "/app/teacher/sections", label: "Sections" },
+          { to: "/app/teacher/risk", label: "Risk Dashboard" },
           { to: "/app/teacher/notifications", label: "Notifications" },
           { to: "/app/teacher/assistant", label: "AI Assistant" },
           { to: "/app/chat", label: "Chat" },
@@ -65,6 +68,9 @@ function getNav(role: string | null): NavGroup[] {
         title: "Administration",
         items: [
           { to: "/app/admin", label: "Overview" },
+          { to: "/app/admin/analytics", label: "Analytics" },
+          { to: "/app/admin/workflows", label: "Workflows" },
+          { to: "/app/admin/assistant", label: "AI Assistant" },
           { to: "/app/admin/registration", label: "Registration Ops" },
           { to: "/app/admin/notifications", label: "Notifications" },
           { to: "/app/admin/academic", label: "Academic Setup" },

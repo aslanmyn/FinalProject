@@ -1,157 +1,116 @@
-import { useMemo, useState } from "react";
-import { ApiError, askStudentAssistant } from "../../lib/api";
-
-type ConversationItem = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  meta?: string;
-};
+import { useEffect, useState } from "react";
+import AssistantConsole from "../../components/AssistantConsole";
+import {
+  ApiError,
+  askStudentAssistant,
+  fetchStudentPlanner,
+  fetchStudentRiskDashboard,
+  fetchStudentWorkflows
+} from "../../lib/api";
+import type { StudentPlannerDashboard, StudentRiskDashboard } from "../../types/student";
+import type { WorkflowOverview } from "../../types/common";
 
 const SUGGESTIONS = [
-  "У меня есть риск по посещаемости?",
-  "Сколько мне нужно набрать на final по Calculus II, чтобы получить 80?",
-  "Кратко разберись по моему текущему семестру.",
-  "Какие у меня ближайшие экзамены?"
+  "Am I at risk because of attendance right now?",
+  "How much do I need on the final to get a B in my weakest course?",
+  "Why is my current GPA lower than expected?",
+  "Which courses should I focus on first this semester?"
 ];
 
+function formatRiskLevel(value: string): string {
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function StudentAssistantPage() {
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
+  const [risk, setRisk] = useState<StudentRiskDashboard | null>(null);
+  const [planner, setPlanner] = useState<StudentPlannerDashboard | null>(null);
+  const [workflows, setWorkflows] = useState<WorkflowOverview | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<ConversationItem[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      text: "Я могу помочь по посещаемости, аттестациям, нужному баллу на final, GPA и ближайшим экзаменам. Спроси простым языком.",
-      meta: "KBTU AI Assistant"
-    }
-  ]);
 
-  const canSend = useMemo(() => draft.trim().length > 0 && !sending, [draft, sending]);
+  useEffect(() => {
+    let cancelled = false;
 
-  async function handleSend(customMessage?: string) {
-    const message = (customMessage ?? draft).trim();
-    if (!message || sending) return;
-
-    const userItem: ConversationItem = {
-      id: `u-${Date.now()}`,
-      role: "user",
-      text: message
-    };
-
-    setConversation((prev) => [...prev, userItem]);
-    setDraft("");
-    setSending(true);
-    setError(null);
-
-    try {
-      const reply = await askStudentAssistant(message);
-      setConversation((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          text: reply.answer,
-          meta: `${reply.model} • ${reply.generatedAt.slice(0, 19).replace("T", " ")}`
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const [riskPayload, plannerPayload, workflowsPayload] = await Promise.all([
+          fetchStudentRiskDashboard(),
+          fetchStudentPlanner(),
+          fetchStudentWorkflows()
+        ]);
+        if (!cancelled) {
+          setRisk(riskPayload);
+          setPlanner(plannerPayload);
+          setWorkflows(workflowsPayload);
         }
-      ]);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to get assistant reply");
-    } finally {
-      setSending(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load student assistant context");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <div className="screen app-screen assistant-page">
-      <header className="topbar">
-        <div>
-          <h2>Student AI Assistant</h2>
-          <p className="muted">Ask about attendance, grades, exams, and what score you still need on the final.</p>
-        </div>
-      </header>
-
-      <section className="card assistant-hero-card">
-        <div className="assistant-hero">
-          <div>
-            <span className="assistant-eyebrow">Read-only academic helper</span>
-            <h3>Your data-aware study assistant</h3>
-            <p className="muted">
-              The assistant uses your current portal data and explains results in plain language. It does not change grades,
-              attendance, or registrations.
-            </p>
+    <AssistantConsole
+      title="Student AI Assistant"
+      subtitle="Ask about attendance, grades, GPA, workflows, and what score you still need on the final."
+      eyebrow="Read-only academic helper"
+      heroTitle="Your data-aware study assistant"
+      heroDescription="The assistant reads your current portal data and explains results in plain language. It does not change grades, attendance, or registrations."
+      placeholder="For example: how much do I need on the final in Calculus II to finish the course with a B?"
+      suggestions={SUGGESTIONS}
+      welcomeMessage="I can help with attendance risk, attestation totals, final score planning, GPA questions, and your active workflows."
+      ask={askStudentAssistant}
+      summary={
+        error ? (
+          <div className="assistant-summary-card">
+            <span className="assistant-summary-label">Status</span>
+            <strong>Could not load student snapshot</strong>
+            <p className="muted">{error}</p>
           </div>
-          <div className="assistant-suggestion-list">
-            {SUGGESTIONS.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                className="assistant-suggestion"
-                onClick={() => void handleSend(prompt)}
-                disabled={sending}
-              >
-                {prompt}
-              </button>
-            ))}
+        ) : loading || !risk || !planner ? (
+          <div className="assistant-summary-card">
+            <span className="assistant-summary-label">Loading</span>
+            <strong>Preparing academic context</strong>
+            <p className="muted">Pulling your attendance, GPA, planner, and workflow data.</p>
           </div>
-        </div>
-      </section>
-
-      <section className="card assistant-chat-card">
-        <div className="assistant-messages">
-          {conversation.map((item) => (
-            <article
-              key={item.id}
-              className={`assistant-message ${item.role === "user" ? "assistant-message-user" : "assistant-message-ai"}`}
-            >
-              <div className="assistant-message-head">
-                <strong>{item.role === "user" ? "You" : "Assistant"}</strong>
-                {item.meta ? <span>{item.meta}</span> : null}
-              </div>
-              <div className="assistant-message-body">
-                {item.text.split("\n").map((line, index) => (
-                  <p key={`${item.id}-${index}`}>{line}</p>
-                ))}
-              </div>
-            </article>
-          ))}
-
-          {sending ? (
-            <article className="assistant-message assistant-message-ai">
-              <div className="assistant-message-head">
-                <strong>Assistant</strong>
-                <span>Generating answer...</span>
-              </div>
-              <div className="assistant-typing">
-                <span />
-                <span />
-                <span />
-              </div>
-            </article>
-          ) : null}
-        </div>
-
-        <div className="assistant-composer">
-          <label className="assistant-composer-label">
-            <span>Your question</span>
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Например: сколько мне нужно на final по CSCI2107, чтобы получить 80?"
-              rows={4}
-              maxLength={2000}
-            />
-          </label>
-          <div className="assistant-composer-footer">
-            <small className="muted">{draft.length} / 2000</small>
-            <button type="button" onClick={() => void handleSend()} disabled={!canSend}>
-              {sending ? "Thinking..." : "Ask assistant"}
-            </button>
-          </div>
-          {error ? <p className="error">{error}</p> : null}
-        </div>
-      </section>
-    </div>
+        ) : (
+          <>
+            <div className="assistant-summary-card">
+              <span className="assistant-summary-label">Overall risk</span>
+              <strong>{formatRiskLevel(risk.level)}</strong>
+              <p className="muted">{risk.riskScore.toFixed(1)} / 100 academic risk score.</p>
+            </div>
+            <div className="assistant-summary-card">
+              <span className="assistant-summary-label">Attendance</span>
+              <strong>{risk.attendanceRate.toFixed(1)}%</strong>
+              <p className="muted">Across all tracked courses in the current view.</p>
+            </div>
+            <div className="assistant-summary-card">
+              <span className="assistant-summary-label">Published GPA</span>
+              <strong>{risk.publishedGpa.toFixed(2)}</strong>
+              <p className="muted">{planner.courses.length} courses available in the planner.</p>
+            </div>
+            <div className="assistant-summary-card">
+              <span className="assistant-summary-label">Open workflows</span>
+              <strong>{workflows?.items.length ?? 0}</strong>
+              <p className="muted">Requests, FX, mobility, clearance, and registration actions.</p>
+            </div>
+          </>
+        )
+      }
+    />
   );
 }

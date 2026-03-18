@@ -17,6 +17,7 @@ public class ClearanceService {
     private final ClearanceSheetRepository clearanceSheetRepository;
     private final ClearanceCheckpointRepository clearanceCheckpointRepository;
     private final StudentRepository studentRepository;
+    private final WorkflowEngineService workflowEngineService;
     private final AuditService auditService;
     private final NotificationService notificationService;
 
@@ -60,9 +61,11 @@ public class ClearanceService {
         ClearanceCheckpoint checkpoint = clearanceCheckpointRepository.findById(checkpointId)
                 .orElseThrow(() -> new IllegalArgumentException("Checkpoint not found"));
 
-        checkpoint.setStatus(approve
+        ClearanceCheckpoint.CheckpointStatus nextStatus = approve
                 ? ClearanceCheckpoint.CheckpointStatus.APPROVED
-                : ClearanceCheckpoint.CheckpointStatus.REJECTED);
+                : ClearanceCheckpoint.CheckpointStatus.REJECTED;
+        workflowEngineService.assertClearanceCheckpointTransition(checkpoint.getStatus(), nextStatus);
+        checkpoint.setStatus(nextStatus);
         checkpoint.setComment(comment);
         ClearanceCheckpoint saved = clearanceCheckpointRepository.save(checkpoint);
 

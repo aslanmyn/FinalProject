@@ -9,6 +9,8 @@ import ProfessorProfilePage from "./pages/ProfessorProfilePage";
 import StudentDashboardPage from "./pages/app/StudentDashboardPage";
 import StudentRegistrationPage from "./pages/app/StudentRegistrationPage";
 import StudentNotificationsPage from "./pages/app/StudentNotificationsPage";
+import StudentPlannerPage from "./pages/app/StudentPlannerPage";
+import StudentWorkflowsPage from "./pages/app/StudentWorkflowsPage";
 import StudentSchedulePage from "./pages/app/StudentSchedulePage";
 import StudentEnrollmentsPage from "./pages/app/StudentEnrollmentsPage";
 import StudentJournalPage from "./pages/app/StudentJournalPage";
@@ -23,6 +25,7 @@ import StudentRequestsPage from "./pages/app/StudentRequestsPage";
 import TeacherDashboardPage from "./pages/app/TeacherDashboardPage";
 import TeacherNotificationsPage from "./pages/app/TeacherNotificationsPage";
 import TeacherAssistantPage from "./pages/app/TeacherAssistantPage";
+import TeacherRiskPage from "./pages/app/TeacherRiskPage";
 import TeacherSectionsPage from "./pages/app/TeacherSectionsPage";
 import TeacherSectionPage from "./pages/app/TeacherSectionPage";
 import TeacherAttendancePage from "./pages/app/TeacherAttendancePage";
@@ -32,8 +35,11 @@ import TeacherMaterialsPage from "./pages/app/TeacherMaterialsPage";
 import TeacherNotesPage from "./pages/app/TeacherNotesPage";
 import TeacherGradeChangesPage from "./pages/app/TeacherGradeChangesPage";
 import AdminDashboardPage from "./pages/app/AdminDashboardPage";
+import AdminAnalyticsPage from "./pages/app/AdminAnalyticsPage";
+import AdminAssistantPage from "./pages/app/AdminAssistantPage";
 import AdminRegistrationPage from "./pages/app/AdminRegistrationPage";
 import AdminNotificationsPage from "./pages/app/AdminNotificationsPage";
+import AdminWorkflowsPage from "./pages/app/AdminWorkflowsPage";
 import AdminAcademicPage from "./pages/app/AdminAcademicPage";
 import AdminFinancePage from "./pages/app/AdminFinancePage";
 import AdminModerationPage from "./pages/app/AdminModerationPage";
@@ -102,6 +108,22 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentRequestsPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/planner"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentPlannerPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/workflows"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentWorkflowsPage />
             </RoleProtectedRoute>
           }
         />
@@ -211,6 +233,14 @@ export default function App() {
           }
         />
         <Route
+          path="teacher/risk"
+          element={
+            <RoleProtectedRoute roles={["PROFESSOR"]}>
+              <TeacherRiskPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
           path="teacher/sections"
           element={
             <RoleProtectedRoute roles={["PROFESSOR"]}>
@@ -280,6 +310,30 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["ADMIN"]}>
               <AdminDashboardPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/analytics"
+          element={
+            <RoleProtectedRoute roles={["ADMIN"]}>
+              <AdminAnalyticsPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/assistant"
+          element={
+            <RoleProtectedRoute roles={["ADMIN"]}>
+              <AdminAssistantPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="admin/workflows"
+          element={
+            <RoleProtectedRoute roles={["ADMIN"]}>
+              <AdminWorkflowsPage />
             </RoleProtectedRoute>
           }
         />

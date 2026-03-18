@@ -4,10 +4,11 @@ import {
   ApiError,
   buildFileDownloadUrl,
   fetchTeacherProfile,
+  fetchTeacherRiskDashboard,
   fetchTeacherSections,
   uploadTeacherProfilePhoto
 } from "../../lib/api";
-import type { TeacherProfile, TeacherSectionItem } from "../../types/teacher";
+import type { TeacherProfile, TeacherRiskDashboard, TeacherSectionItem } from "../../types/teacher";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -38,6 +39,7 @@ function extractAcademicYear(semesterName: string): string {
 export default function TeacherDashboardPage() {
   const [profile, setProfile] = useState<TeacherProfile | null>(null);
   const [sections, setSections] = useState<TeacherSectionItem[]>([]);
+  const [riskDashboard, setRiskDashboard] = useState<TeacherRiskDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -51,10 +53,15 @@ export default function TeacherDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [profilePayload, sectionsPayload] = await Promise.all([fetchTeacherProfile(), fetchTeacherSections()]);
+        const [profilePayload, sectionsPayload, riskPayload] = await Promise.all([
+          fetchTeacherProfile(),
+          fetchTeacherSections(),
+          fetchTeacherRiskDashboard()
+        ]);
         if (!cancelled) {
           setProfile(profilePayload);
           setSections(sectionsPayload);
+          setRiskDashboard(riskPayload);
         }
       } catch (err) {
         if (!cancelled) {
@@ -128,6 +135,9 @@ export default function TeacherDashboardPage() {
       <header className="topbar">
         <h2>Teacher Overview</h2>
         <div className="actions">
+          <Link className="link-btn" to="/app/teacher/risk">
+            Risk dashboard
+          </Link>
           <Link className="link-btn" to="/app/teacher/sections">
             Open sections table
           </Link>
@@ -215,6 +225,33 @@ export default function TeacherDashboardPage() {
               </div>
             </div>
           </section>
+
+          {riskDashboard ? (
+            <section className="card">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <strong>{riskDashboard.currentSections}</strong>
+                  <span>Current sections</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.atRiskStudents}</strong>
+                  <span>Students at risk</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.sectionsNeedingAttention}</strong>
+                  <span>Sections needing attention</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.pendingGradeChanges}</strong>
+                  <span>Pending grade changes</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.unpublishedFinals}</strong>
+                  <span>Unpublished finals</span>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="card schedule-summary-card">
             <div className="schedule-summary-header">

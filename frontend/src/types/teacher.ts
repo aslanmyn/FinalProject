@@ -115,4 +115,57 @@ export interface TeacherAssistantReply {
   generatedAt: string;
 }
 
+export interface TeacherRiskMeetingTimeItem {
+  dayOfWeek: string;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  lessonType: string | null;
+}
+
+export interface TeacherSectionRiskItem {
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  semesterName: string;
+  capacity: number;
+  enrolledCount: number;
+  attendanceRate: number;
+  atRiskStudents: number;
+  pendingGradeChanges: number;
+  unpublishedFinals: number;
+  level: string;
+  riskScore: number;
+  reasons: string[];
+  meetingTimes: TeacherRiskMeetingTimeItem[];
+}
+
+export interface TeacherRiskStudentItem {
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  level: string;
+  riskScore: number;
+  reasons: string[];
+  attendanceRate: number;
+  attestationSubtotal: number;
+  finalTotal: number | null;
+}
+
+export interface TeacherRiskDashboard {
+  teacherId: number;
+  teacherName: string;
+  totalSections: number;
+  currentSections: number;
+  atRiskStudents: number;
+  sectionsNeedingAttention: number;
+  pendingGradeChanges: number;
+  unpublishedFinals: number;
+  sections: TeacherSectionRiskItem[];
+  students: TeacherRiskStudentItem[];
+}
+
 export type TeacherNotificationCenterData = NotificationCenterData;

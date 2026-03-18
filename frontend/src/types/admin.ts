@@ -1,4 +1,4 @@
-import type { ApiPageResponse, NotificationCenterData } from "./common";
+import type { ApiPageResponse, NotificationCenterData, WorkflowOverview } from "./common";
 
 export interface AdminStats {
   adminId: number;
@@ -141,3 +141,69 @@ export interface AdminFxItem {
 }
 
 export type AdminNotificationCenterData = NotificationCenterData;
+export type AdminWorkflowOverview = WorkflowOverview;
+
+export interface AdminAnalyticsMetrics {
+  students: number;
+  teachers: number;
+  currentSections: number;
+  requests: number;
+  activeHolds: number;
+  openWindows: number;
+}
+
+export interface AdminFacultyRiskItem {
+  facultyName: string;
+  studentCount: number;
+  atRiskStudents: number;
+  mediumRiskStudents: number;
+  averageRisk: number;
+  averageAttendance: number;
+  studentsWithFinancialHolds: number;
+}
+
+export interface AdminOverloadedSectionItem {
+  sectionId: number;
+  courseCode: string;
+  courseName: string;
+  semesterName: string;
+  teacherName: string;
+  facultyName: string;
+  capacity: number;
+  enrolledCount: number;
+  utilizationPercent: number;
+}
+
+export interface AdminRequestLoadItem {
+  category: string;
+  count: number;
+}
+
+export interface AdminWorkflowSummaryItem {
+  workflowType: string;
+  count: number;
+}
+
+export interface AdminCriticalStudentItem {
+  studentId: number;
+  studentName: string;
+  facultyName: string | null;
+  level: string;
+  riskScore: number;
+  primaryReason: string;
+}
+
+export interface AdminAnalyticsDashboard {
+  metrics: AdminAnalyticsMetrics;
+  facultyRisks: AdminFacultyRiskItem[];
+  overloadedSections: AdminOverloadedSectionItem[];
+  requestLoads: AdminRequestLoadItem[];
+  workflowSummary: AdminWorkflowSummaryItem[];
+  criticalStudents: AdminCriticalStudentItem[];
+}
+
+export interface AdminAssistantReply {
+  answer: string;
+  model: string;
+  generatedAt: string;
+}

@@ -3,11 +3,15 @@ import { Link } from "react-router-dom";
 import {
   ApiError,
   buildFileDownloadUrl,
+  fetchStudentPlanner,
   fetchStudentProfile,
+  fetchStudentRiskDashboard,
   fetchStudentSchedule,
+  fetchStudentWorkflows,
   uploadStudentProfilePhoto
 } from "../../lib/api";
-import type { StudentProfile, StudentScheduleItem } from "../../types/student";
+import type { WorkflowOverview } from "../../types/common";
+import type { StudentPlannerDashboard, StudentProfile, StudentRiskDashboard, StudentScheduleItem } from "../../types/student";
 
 const DAY_ORDER: Record<string, number> = {
   MONDAY: 1,
@@ -53,6 +57,10 @@ function formatStatus(status: string): string {
     .join(" ");
 }
 
+function formatRiskLevel(value: string): string {
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function sortSchedule(items: StudentScheduleItem[]): StudentScheduleItem[] {
   return [...items].sort((left, right) => {
     const dayDiff = (DAY_ORDER[left.dayOfWeek || ""] || 99) - (DAY_ORDER[right.dayOfWeek || ""] || 99);
@@ -64,6 +72,9 @@ function sortSchedule(items: StudentScheduleItem[]): StudentScheduleItem[] {
 export default function StudentDashboardPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleItem[]>([]);
+  const [riskDashboard, setRiskDashboard] = useState<StudentRiskDashboard | null>(null);
+  const [plannerDashboard, setPlannerDashboard] = useState<StudentPlannerDashboard | null>(null);
+  const [workflowOverview, setWorkflowOverview] = useState<WorkflowOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -78,13 +89,19 @@ export default function StudentDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const [profilePayload, schedulePayload] = await Promise.all([
+        const [profilePayload, schedulePayload, riskPayload, plannerPayload, workflowPayload] = await Promise.all([
           fetchStudentProfile(),
-          fetchStudentSchedule()
+          fetchStudentSchedule(),
+          fetchStudentRiskDashboard(),
+          fetchStudentPlanner(),
+          fetchStudentWorkflows()
         ]);
         if (!cancelled) {
           setProfile(profilePayload);
           setSchedule(sortSchedule(schedulePayload));
+          setRiskDashboard(riskPayload);
+          setPlannerDashboard(plannerPayload);
+          setWorkflowOverview(workflowPayload);
         }
       } catch (err) {
         if (!cancelled) {
@@ -149,6 +166,12 @@ export default function StudentDashboardPage() {
       <header className="topbar">
         <h2>Student Overview</h2>
         <div className="actions">
+          <Link className="link-btn" to="/app/student/planner">
+            Open planner
+          </Link>
+          <Link className="link-btn" to="/app/student/workflows">
+            View workflows
+          </Link>
           <Link className="link-btn" to="/app/student/schedule">
             View full schedule
           </Link>
@@ -226,6 +249,33 @@ export default function StudentDashboardPage() {
               </div>
             </div>
           </section>
+
+          {riskDashboard && plannerDashboard ? (
+            <section className="card">
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <strong>{formatRiskLevel(riskDashboard.level)}</strong>
+                  <span>Current risk level</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.publishedGpa.toFixed(2)}</strong>
+                  <span>Published GPA</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{riskDashboard.attendanceRate.toFixed(1)}%</strong>
+                  <span>Attendance rate</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{workflowOverview?.items.length ?? 0}</strong>
+                  <span>Open workflows</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{plannerDashboard.courses.length}</strong>
+                  <span>Planner courses</span>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="card schedule-summary-card">
             <div className="schedule-summary-header">

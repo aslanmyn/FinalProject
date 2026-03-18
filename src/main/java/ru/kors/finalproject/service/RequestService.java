@@ -19,6 +19,7 @@ public class RequestService {
     private final RequestMessageRepository requestMessageRepository;
     private final FileAssetRepository fileAssetRepository;
     private final UserRepository userRepository;
+    private final WorkflowEngineService workflowEngineService;
     private final NotificationService notificationService;
     private final AuditService auditService;
 
@@ -90,6 +91,7 @@ public class RequestService {
     public StudentRequest updateStatus(Long requestId, StudentRequest.RequestStatus status, User actor) {
         StudentRequest request = studentRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+        workflowEngineService.assertRequestTransition(request.getStatus(), status);
         request.setStatus(status);
         request.setUpdatedAt(Instant.now());
         if (status == StudentRequest.RequestStatus.DONE || status == StudentRequest.RequestStatus.REJECTED) {
@@ -113,6 +115,7 @@ public class RequestService {
     public StudentRequest assign(Long requestId, Long adminUserId, User actor) {
         StudentRequest request = studentRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
+        workflowEngineService.assertRequestTransition(request.getStatus(), StudentRequest.RequestStatus.IN_REVIEW);
         User assignee = userRepository.findById(adminUserId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         request.setAssignedTo(assignee);

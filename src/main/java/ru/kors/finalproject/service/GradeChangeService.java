@@ -19,6 +19,7 @@ public class GradeChangeService {
     private final GradeRepository gradeRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final UserRepository userRepository;
+    private final WorkflowEngineService workflowEngineService;
     private final NotificationService notificationService;
     private final AuditService auditService;
 
@@ -75,10 +76,11 @@ public class GradeChangeService {
     public GradeChangeRequest review(Long requestId, boolean approve, String reviewerComment, User admin) {
         GradeChangeRequest request = gradeChangeRequestRepository.findById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
-        if (request.getStatus() != GradeChangeRequest.RequestStatus.SUBMITTED) {
-            throw new IllegalStateException("Only submitted requests can be reviewed");
-        }
-        request.setStatus(approve ? GradeChangeRequest.RequestStatus.APPROVED : GradeChangeRequest.RequestStatus.REJECTED);
+        GradeChangeRequest.RequestStatus targetStatus = approve
+                ? GradeChangeRequest.RequestStatus.APPROVED
+                : GradeChangeRequest.RequestStatus.REJECTED;
+        workflowEngineService.assertGradeChangeTransition(request.getStatus(), targetStatus);
+        request.setStatus(targetStatus);
         request.setReviewedAt(Instant.now());
         request.setReviewedBy(admin);
         request.setReviewerComment(reviewerComment);
@@ -102,6 +104,7 @@ public class GradeChangeService {
 
     @Transactional
     protected void applyApproved(GradeChangeRequest request, User admin) {
+        workflowEngineService.assertGradeChangeTransition(request.getStatus(), GradeChangeRequest.RequestStatus.APPLIED);
         if (request.getGrade() != null) {
             Grade grade = gradeRepository.findById(request.getGrade().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Grade not found"));

@@ -15,6 +15,7 @@ import java.util.List;
 public class MobilityService {
 
     private final MobilityApplicationRepository mobilityApplicationRepository;
+    private final WorkflowEngineService workflowEngineService;
     private final AuditService auditService;
     private final NotificationService notificationService;
 
@@ -38,7 +39,7 @@ public class MobilityService {
         MobilityApplication app = mobilityApplicationRepository.findById(applicationId)
                 .orElseThrow(() -> new IllegalArgumentException("Mobility application not found"));
 
-        validateStatusTransition(app.getStatus(), newStatus);
+        workflowEngineService.assertMobilityTransition(app.getStatus(), newStatus);
 
         MobilityApplication.MobilityStatus oldStatus = app.getStatus();
         app.setStatus(newStatus);
@@ -57,18 +58,4 @@ public class MobilityService {
         return saved;
     }
 
-    private void validateStatusTransition(MobilityApplication.MobilityStatus current,
-                                           MobilityApplication.MobilityStatus next) {
-        boolean valid = switch (current) {
-            case DRAFT -> next == MobilityApplication.MobilityStatus.SUBMITTED;
-            case SUBMITTED -> next == MobilityApplication.MobilityStatus.IN_REVIEW
-                    || next == MobilityApplication.MobilityStatus.REJECTED;
-            case IN_REVIEW -> next == MobilityApplication.MobilityStatus.APPROVED
-                    || next == MobilityApplication.MobilityStatus.REJECTED;
-            case APPROVED, REJECTED -> false;
-        };
-        if (!valid) {
-            throw new IllegalStateException("Invalid status transition from " + current + " to " + next);
-        }
-    }
 }
