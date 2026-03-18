@@ -2,76 +2,176 @@
 
 ## Current State
 
-- Backend already has full REST API namespace: `/api/v1/**`.
+The migration is complete at the web layer.
+
 - Legacy Thymeleaf controllers and templates have been removed.
-- Backend is now API-first and redirects browser hits for public SPA routes to the frontend app URL.
-- React is the only web UI.
+- React is the only browser UI.
+- Backend is API-first and serves `/api/v1/**` for web and mobile clients.
+- Browser hits for public SPA routes are redirected to the frontend application URL.
+- Protected application UI is now handled by React routes under `/app/**`.
 
-## What Is Already Covered By API
+## Frontend Route Coverage
 
-### Student flows (covered)
+### Public React pages
 
-- Profile, schedule, journal, transcript, attendance
-- Finance, holds, exam schedule
-- Course registration + add/drop
-- Requests + request messages
-- Notifications, materials, files, checklist, mobility, clearance
+- `/`
+- `/login`
+- `/register`
+- `/news`
+- `/professors`
+- `/professors/:id`
 
-API root: `/api/v1/student`
+### Student React pages
 
-### Teacher flows (covered)
+- `/app/student`
+- `/app/student/registration`
+- `/app/student/notifications`
+- `/app/student/schedule`
+- `/app/student/enrollments`
+- `/app/student/journal`
+- `/app/student/transcript`
+- `/app/student/attendance`
+- `/app/student/exams`
+- `/app/student/assistant`
+- `/app/student/financial`
+- `/app/student/files`
+- `/app/student/news`
+- `/app/student/requests`
 
-- Profile, sections, roster
-- Attendance, components, grades, final grades
-- Announcements, materials, student notes
-- Grade change requests
-- Upload to student files
+### Teacher React pages
 
-API root: `/api/v1/teacher`
+- `/app/teacher`
+- `/app/teacher/assistant`
+- `/app/teacher/notifications`
+- `/app/teacher/sections`
+- `/app/teacher/sections/:sectionId`
+- `/app/teacher/attendance`
+- `/app/teacher/gradebook`
+- `/app/teacher/announcements`
+- `/app/teacher/materials`
+- `/app/teacher/notes`
+- `/app/teacher/grade-changes`
 
-### Admin flows (covered)
+### Admin React pages
 
-- Users + permissions
-- Terms, sections, meeting times, windows, enrollment override
-- Exams, holds, finance invoices/payments
-- Mobility, clearance, surveys, requests
-- Grade change moderation, news, checklist templates, audit, stats
+- `/app/admin`
+- `/app/admin/registration`
+- `/app/admin/notifications`
+- `/app/admin/users`
+- `/app/admin/requests`
+- `/app/admin/academic`
+- `/app/admin/finance`
+- `/app/admin/moderation`
 
-API root: `/api/v1/admin`
+### Shared React pages
 
-### Shared flows (covered)
+- `/app/chat`
 
-- Auth: `/api/v1/auth/login`, `/refresh`, `/logout`
-- File links/downloads: `/api/v1/files/**`
+## API Coverage By Role
 
-## Migration Steps Completed
+### Student API coverage
 
-1. Public API layer for unauthenticated pages:
-- `GET /api/v1/public/news`
-- `GET /api/v1/public/professors`
-- `GET /api/v1/public/professors/{id}`
+Covered by React UI:
+- profile and profile photo
+- registration center
+- schedule and enrollment filters
+- journal and transcript
+- attendance and exam schedule
+- finance and holds
+- requests and request messages
+- files and materials
+- news and notifications
+- AI assistant
 
-2. Registration endpoint for SPA signup flow:
-- `POST /api/v1/auth/register`
+API roots:
+- `/api/v1/student`
+- `/api/v1/student/assistant`
 
-3. Teacher grade export API:
-- `GET /api/v1/teacher/sections/{sectionId}/grades/export`
+### Teacher API coverage
 
-4. Admin student status update API:
-- `POST /api/v1/admin/students/{id}/status`
+Covered by React UI:
+- teacher profile and profile photo
+- sections overview and section details
+- roster
+- attendance
+- gradebook and final grades
+- announcements
+- materials
+- student notes
+- grade change requests
+- notifications
+- AI assistant
+- upload to student files
 
-- Added `frontend/` React shell (Vite + TypeScript + Router + JWT login flow).
-- Added public React pages: home, news, professors, professor profile, register.
-- Extended role dashboards/pages for student, teacher, admin routes.
-- Added React pages for student financial/files and admin requests.
-- Added JWT auto-refresh handling in frontend API client (`401` -> refresh -> retry once).
-- Added teacher workflow in React section page to upload files into student files.
-- Added backend CORS config for separate frontend app:
-  - property: `app.cors.allowed-origins`
-  - default origins: `http://localhost:5173,http://localhost:3000`
-- Enabled CORS handling in API security chain.
-- Added missing API routes required for Thymeleaf removal.
-- Removed Thymeleaf controllers, templates, CSRF web advice, and web-session filter.
-- Removed Thymeleaf dependencies from `pom.xml`.
-- Switched backend-generated links from legacy `/portal/**` routes to React `/app/**` routes.
-- Added Docker service for React frontend with Nginx SPA routing and `/api` reverse-proxy.
+API roots:
+- `/api/v1/teacher`
+- `/api/v1/teacher/assistant`
+
+### Admin API coverage
+
+Covered by React UI:
+- dashboard stats
+- registration operations
+- academic setup
+- finance
+- moderation and news
+- users
+- requests
+- notifications
+
+API root:
+- `/api/v1/admin`
+
+### Shared coverage
+
+- auth: `/api/v1/auth/**`
+- public data: `/api/v1/public/**`
+- chat: `/api/v1/chat/**`
+- signed file downloads: `/api/v1/files/**`
+- WebSocket endpoint: `/ws`
+- live notification destination: `/user/queue/notifications`
+
+## Migration Work Completed
+
+1. Removed legacy Thymeleaf web layer from the application.
+2. Kept backend business logic behind REST controllers and services.
+3. Added React app under `frontend/` with role-protected routes.
+4. Added JWT login, refresh, logout, and protected route handling in the frontend.
+5. Added public React pages for home, news, professors, and registration.
+6. Added student workflows for academic and service modules.
+7. Added teacher workflows for course delivery and moderation tasks.
+8. Added admin workflows for academic, finance, support, and registration operations.
+9. Added Gemini-powered student and teacher assistants.
+10. Added notification centers for all roles.
+11. Added live unread badges and WebSocket-driven notification refresh.
+12. Added Docker frontend service with SPA-friendly Nginx routing.
+13. Kept backend CORS and frontend URL configuration externalized through env variables.
+
+## Runtime Notes
+
+### Frontend dev mode
+
+- Vite dev server default: `http://localhost:5173`
+- Backend default: `http://localhost:8080`
+
+### Docker mode
+
+- Frontend default: `http://localhost:3000`
+- Backend default: `http://localhost:8080`
+
+### Env/config that matter for the React split
+
+- `APP_WEB_FRONTEND_URL`
+- `APP_CORS_ALLOWED_ORIGINS`
+- `VITE_API_BASE_URL`
+- `APP_SEED_ENABLED`
+
+## Result
+
+The project is no longer a mixed Thymeleaf app.
+
+It now runs as:
+- Spring Boot backend API
+- React frontend SPA
+- PostgreSQL database
+- WebSocket support for chat and live notification updates
