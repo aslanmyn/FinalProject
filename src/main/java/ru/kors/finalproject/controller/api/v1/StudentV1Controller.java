@@ -3,6 +3,7 @@ package ru.kors.finalproject.controller.api.v1;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +12,7 @@ import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.*;
 import ru.kors.finalproject.web.api.v1.ApiPageResponse;
 import ru.kors.finalproject.web.api.v1.ApiPageableFactory;
+import ru.kors.finalproject.web.api.v1.CurrentUserHelper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -26,8 +28,7 @@ import java.util.Set;
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
 public class StudentV1Controller {
-    private final MobileApiAuthService mobileApiAuthService;
-    private final StudentRepository studentRepository;
+    private final CurrentUserHelper currentUserHelper;
     private final RegistrationRepository registrationRepository;
     private final GradeRepository gradeRepository;
     private final FinalGradeRepository finalGradeRepository;
@@ -56,18 +57,16 @@ public class StudentV1Controller {
     private final FileStorageService fileStorageService;
 
     @GetMapping("/profile")
-    public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> profile(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(toStudentProfileDto(student));
     }
 
     @PostMapping(value = "/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadProfilePhoto(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam("file") MultipartFile file) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         if (file.getContentType() == null || !file.getContentType().toLowerCase().startsWith("image/")) {
             throw new IllegalArgumentException("Only image files are allowed for profile photo");
         }
@@ -91,7 +90,7 @@ public class StudentV1Controller {
                 .build());
 
         student.setProfilePhotoAssetId(savedAsset.getId());
-        studentRepository.save(student);
+        currentUserHelper.saveStudent(student);
 
         if (previousAsset != null) {
             fileStorageService.deleteSilently(previousAsset.getStoragePath());
@@ -103,10 +102,9 @@ public class StudentV1Controller {
 
     @GetMapping("/schedule")
     public ResponseEntity<?> schedule(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         List<Registration> enrollments = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
                 .filter(r -> r.getStatus() != Registration.RegistrationStatus.DROPPED)
                 .toList();
@@ -125,9 +123,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/schedule/options")
-    public ResponseEntity<?> scheduleOptions(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> scheduleOptions(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
                 .filter(r -> r.getStatus() != Registration.RegistrationStatus.DROPPED)
                 .map(r -> r.getSubjectOffering() != null ? r.getSubjectOffering().getSemester() : null)
@@ -152,10 +149,9 @@ public class StudentV1Controller {
 
     @GetMapping("/journal")
     public ResponseEntity<?> journal(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         List<Grade> grades = gradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
         List<FinalGrade> finalGrades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
         Long effectiveSemesterId = semesterId != null
@@ -232,9 +228,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/journal/options")
-    public ResponseEntity<?> journalOptions(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> journalOptions(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = buildJournalSemesterOptions(student.getId());
         Long currentSemesterId = student.getCurrentSemester() != null
                 ? student.getCurrentSemester().getId()
@@ -243,9 +238,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/transcript")
-    public ResponseEntity<?> transcript(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> transcript(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<FinalGrade> grades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
         double gpa = grades.isEmpty() ? 0 : grades.stream().mapToDouble(FinalGrade::getPoints).average().orElse(0.0);
         return ResponseEntity.ok(Map.of(
@@ -263,9 +257,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/attendance")
-    public ResponseEntity<?> attendance(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> attendance(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<Attendance> items = attendanceRepository.findByStudentIdWithDetails(student.getId());
         long present = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
         long late = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.LATE).count();
@@ -285,9 +278,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/financial")
-    public ResponseEntity<?> financial(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> financial(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<Charge> charges = chargeRepository.findByStudentIdOrderByDueDateDesc(student.getId());
         List<Payment> payments = paymentRepository.findByStudentIdOrderByDateDesc(student.getId());
         BigDecimal totalCharges = charges.stream().map(Charge::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -309,9 +301,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/holds")
-    public ResponseEntity<?> holds(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> holds(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<Hold> activeHolds = holdRepository.findByStudentIdAndActiveTrue(student.getId());
         return ResponseEntity.ok(activeHolds.stream().map(h -> Map.of(
                 "id", (Object) h.getId(), "type", h.getType(),
@@ -320,9 +311,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/exam-schedule")
-    public ResponseEntity<?> examSchedule(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> examSchedule(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<Registration> enrollments = registrationRepository.findActiveByStudentIdWithDetails(student.getId());
         List<Long> sectionIds = enrollments.stream().map(r -> r.getSubjectOffering().getId()).toList();
         Long semId = semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
@@ -341,8 +331,7 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/news")
-    public ResponseEntity<?> news(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+    public ResponseEntity<?> news(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(newsRepository.findByOrderByCreatedAtDesc().stream().map(n -> Map.of(
                 "id", (Object) n.getId(),
                 "title", n.getTitle(),
@@ -354,13 +343,12 @@ public class StudentV1Controller {
 
     @GetMapping("/announcements")
     public ResponseEntity<?> announcements(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         var pageable = apiPageableFactory.create(
                 page, size, sort, direction, "publishedAt",
                 Set.of("publishedAt", "createdAt", "title"));
@@ -373,8 +361,7 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/notifications")
-    public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+    public ResponseEntity<?> notifications(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(Map.of(
                 "notifications", notificationService.listForEmail(user.getEmail()).stream()
                         .map(this::toNotificationDto)
@@ -385,26 +372,23 @@ public class StudentV1Controller {
 
     @PostMapping("/notifications/{id}/read")
     public ResponseEntity<?> markNotificationRead(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
         notificationService.markReadForEmail(id, user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @PostMapping("/notifications/read-all")
-    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
+    public ResponseEntity<?> markAllNotificationsRead(@AuthenticationPrincipal User user) {
         notificationService.markAllReadForEmail(user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @GetMapping("/materials/{sectionId}")
     public ResponseEntity<?> courseMaterials(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         if (!courseMaterialService.isStudentEnrolled(student.getId(), sectionId)) {
             throw new IllegalArgumentException("Not enrolled in this section");
         }
@@ -422,9 +406,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/files")
-    public ResponseEntity<?> files(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> files(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(student.getId()).stream()
                 .map(f -> new StudentFileDto(
                         f.getId(),
@@ -438,27 +421,24 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/checklist")
-    public ResponseEntity<?> checklist(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> checklist(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(checklistItemRepository.findByStudentIdOrderByDeadlineAsc(student.getId()).stream()
                 .map(this::toChecklistItemDto)
                 .toList());
     }
 
     @GetMapping("/mobility")
-    public ResponseEntity<?> mobility(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> mobility(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(mobilityApplicationRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(student.getId()).stream()
                 .map(this::toMobilityDto)
                 .toList());
     }
 
     @GetMapping("/clearance")
-    public ResponseEntity<?> clearance(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> clearance(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         ClearanceSheet sheet = clearanceSheetRepository.findByStudentIdWithDetails(student.getId()).orElse(null);
         return ResponseEntity.ok(sheet == null
                 ? new ClearanceDto(null, student.getId(), student.getName(), null, List.of())
@@ -467,10 +447,9 @@ public class StudentV1Controller {
 
     @GetMapping("/enrollments")
     public ResponseEntity<?> enrollments(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
                 .filter(registration -> registration.getSubjectOffering() != null
                         && registration.getSubjectOffering().getSubject() != null)
@@ -490,9 +469,8 @@ public class StudentV1Controller {
     }
 
     @GetMapping("/enrollments/options")
-    public ResponseEntity<?> enrollmentOptions(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> enrollmentOptions(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = buildEnrollmentSemesterOptions(student.getId());
         Long currentSemesterId = student.getCurrentSemester() != null
                 ? student.getCurrentSemester().getId()
@@ -502,9 +480,8 @@ public class StudentV1Controller {
 
     @GetMapping("/course-registration/overview")
     @Transactional(readOnly = true)
-    public ResponseEntity<?> registrationOverview(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> registrationOverview(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         Semester semester = student.getCurrentSemester();
         List<Registration> currentRegistrations = registrationRepository.findActiveByStudentIdWithDetails(student.getId()).stream()
                 .filter(registration -> registration.getSubjectOffering() != null
@@ -562,18 +539,16 @@ public class StudentV1Controller {
 
     @GetMapping("/course-registration/catalog")
     @Transactional(readOnly = true)
-    public ResponseEntity<?> registrationCatalog(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> registrationCatalog(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.getCatalogForCurrentSemester(student).stream()
                 .map(offering -> toCourseCatalogDto(student, offering))
                 .toList());
     }
 
     @GetMapping("/course-registration/available")
-    public ResponseEntity<?> availableCourses(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> availableCourses(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.getAvailableForAdd(student).stream()
                 .map(this::toAvailableCourseDto)
                 .toList());
@@ -581,35 +556,31 @@ public class StudentV1Controller {
 
     @PostMapping("/course-registration/submit")
     public ResponseEntity<?> submitRegistration(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.registerCourse(student, body.sectionId()));
     }
 
     @PostMapping("/add-drop/add")
     public ResponseEntity<?> addCourse(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.addCourse(student, body.sectionId()));
     }
 
     @PostMapping("/add-drop/drop")
     public ResponseEntity<?> dropCourse(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.dropCourse(student, body.sectionId()));
     }
 
     @GetMapping("/fx")
-    public ResponseEntity<?> fx(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+    public ResponseEntity<?> fx(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         Semester semester = student.getCurrentSemester();
         return ResponseEntity.ok(new FxOverviewDto(
                 semester != null && windowPolicyService.isWindowActive(semester.getId(), RegistrationWindow.WindowType.FX),
@@ -630,22 +601,20 @@ public class StudentV1Controller {
 
     @PostMapping("/fx")
     public ResponseEntity<?> createFx(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(toFxDto(fxRegistrationService.submit(student, body.sectionId())));
     }
 
     @GetMapping("/requests")
     public ResponseEntity<?> requests(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         var pageable = apiPageableFactory.create(
                 page, size, sort, direction, "createdAt",
                 Set.of("createdAt", "updatedAt", "category", "status"));
@@ -657,10 +626,9 @@ public class StudentV1Controller {
 
     @PostMapping("/requests")
     public ResponseEntity<?> createRequest(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestBody CreateRequestBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         StudentRequest request = requestService.createRequest(student, body.category(), body.description());
         return ResponseEntity.ok(new RequestDto(request.getId(), request.getCategory(), request.getDescription(),
                 request.getStatus(), request.getCreatedAt(), request.getUpdatedAt()));
@@ -668,10 +636,9 @@ public class StudentV1Controller {
 
     @GetMapping("/requests/{id}/messages")
     public ResponseEntity<?> requestMessages(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         StudentRequest req = studentRequestRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (!req.getStudent().getId().equals(student.getId())) {
@@ -684,22 +651,16 @@ public class StudentV1Controller {
 
     @PostMapping("/requests/{id}/messages")
     public ResponseEntity<?> addRequestMessage(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id,
             @RequestBody AddMessageBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        Student student = getStudent(user);
+        Student student = currentUserHelper.requireStudent(user);
         StudentRequest req = studentRequestRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Request not found"));
         if (!req.getStudent().getId().equals(student.getId())) {
             throw new IllegalArgumentException("Access denied");
         }
         return ResponseEntity.ok(toRequestMessageDto(requestService.addMessage(id, user, body.message())));
-    }
-
-    private Student getStudent(User user) {
-        return studentRepository.findByEmailWithDetails(user.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Student profile not found"));
     }
 
     private AvailableCourseDto toAvailableCourseDto(SubjectOffering offering) {

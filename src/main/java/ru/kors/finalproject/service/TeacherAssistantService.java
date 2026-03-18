@@ -1,15 +1,11 @@
 package ru.kors.finalproject.service;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -18,6 +14,7 @@ import java.util.stream.Collectors;
 public class TeacherAssistantService {
     private static final int MAX_MESSAGE_LENGTH = 2000;
 
+    private final GeminiClientService geminiClientService;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final RegistrationRepository registrationRepository;
     private final AttendanceRepository attendanceRepository;
@@ -27,29 +24,10 @@ public class TeacherAssistantService {
     private final GradeChangeRequestRepository gradeChangeRequestRepository;
     private final AuditService auditService;
 
-    @Value("${app.ai.enabled:false}")
-    private boolean aiEnabled;
-
     @Value("${app.ai.read-only:true}")
     private boolean readOnly;
 
-    @Value("${app.ai.gemini.api-key:}")
-    private String geminiApiKey;
-
-    @Value("${app.ai.gemini.model:gemini-2.5-flash}")
-    private String geminiModel;
-
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("https://generativelanguage.googleapis.com/v1beta")
-            .build();
-
-    public AssistantReply ask(User user, Teacher teacher, String message) {
-        if (!aiEnabled) {
-            throw new IllegalStateException("AI assistant is disabled");
-        }
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            throw new IllegalStateException("Gemini API key is not configured");
-        }
+    public GeminiClientService.GeminiReply ask(User user, Teacher teacher, String message) {
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("Question cannot be empty");
         }
@@ -58,9 +36,9 @@ public class TeacherAssistantService {
         }
 
         String context = buildTeacherContext(teacher);
-        String answer;
+        GeminiClientService.GeminiReply reply;
         try {
-            answer = generateAnswer(context, message.trim());
+            reply = geminiClientService.generate(systemPrompt(), "Teacher context", context, message.trim(), 0.2, 800);
         } catch (RuntimeException ex) {
             throw new IllegalStateException("AI assistant is temporarily unavailable");
         }
@@ -73,50 +51,7 @@ public class TeacherAssistantService {
                 "message=" + truncate(message.trim(), 180)
         );
 
-        return new AssistantReply(answer, geminiModel, Instant.now());
-    }
-
-    private String generateAnswer(String context, String message) {
-        GeminiGenerateRequest request = new GeminiGenerateRequest(
-                new GeminiInstruction(List.of(new GeminiPart(systemPrompt()))),
-                List.of(new GeminiContent("user", List.of(new GeminiPart("""
-                        Teacher context:
-                        %s
-
-                        User question:
-                        %s
-                        """.formatted(context, message))))),
-                new GeminiGenerationConfig(0.2, 800)
-        );
-
-        GeminiGenerateResponse response = restClient.post()
-                .uri("/models/{model}:generateContent", geminiModel)
-                .header("x-goog-api-key", geminiApiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(GeminiGenerateResponse.class);
-
-        if (response == null || response.candidates() == null || response.candidates().isEmpty()) {
-            throw new IllegalStateException("Empty AI response");
-        }
-
-        String text = response.candidates().stream()
-                .map(GeminiCandidate::content)
-                .filter(Objects::nonNull)
-                .flatMap(content -> content.parts() != null ? content.parts().stream() : java.util.stream.Stream.empty())
-                .map(GeminiPart::text)
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .findFirst()
-                .orElse(null);
-
-        if (text == null || text.isBlank()) {
-            throw new IllegalStateException("AI returned no text");
-        }
-        return text;
+        return reply;
     }
 
     private String buildTeacherContext(Teacher teacher) {
@@ -339,13 +274,13 @@ public class TeacherAssistantService {
     private String systemPrompt() {
         return """
                 You are the KBTU Portal teacher assistant.
-                Respond in Russian unless the teacher clearly asks for English.
+                Respond in %s unless the teacher clearly asks for another language.
                 Use only the provided teacher context. Do not invent grades, attendance data, students, or policies.
                 Keep answers practical and operational.
                 Focus on: students at risk, attendance problems, unpublished grades/finals, pending grade change requests, and section workload.
                 If exact data is missing, say so clearly.
                 Never claim you changed any record. This assistant is read-only.
-                """;
+                """.formatted(geminiClientService.getLocale());
     }
 
     private String formatDouble(double value) {
@@ -361,9 +296,6 @@ public class TeacherAssistantService {
             return value;
         }
         return value.substring(0, max - 3) + "...";
-    }
-
-    public record AssistantReply(String answer, String model, Instant generatedAt) {
     }
 
     private static class StudentPerformance {
@@ -432,30 +364,5 @@ public class TeacherAssistantService {
         private int riskScore() {
             return riskScore;
         }
-    }
-
-    private record GeminiGenerateRequest(
-            @JsonProperty("system_instruction") GeminiInstruction systemInstruction,
-            List<GeminiContent> contents,
-            GeminiGenerationConfig generationConfig
-    ) {
-    }
-
-    private record GeminiInstruction(List<GeminiPart> parts) {
-    }
-
-    private record GeminiContent(String role, List<GeminiPart> parts) {
-    }
-
-    private record GeminiPart(String text) {
-    }
-
-    private record GeminiGenerationConfig(Double temperature, Integer maxOutputTokens) {
-    }
-
-    private record GeminiGenerateResponse(List<GeminiCandidate> candidates) {
-    }
-
-    private record GeminiCandidate(GeminiContent content) {
     }
 }

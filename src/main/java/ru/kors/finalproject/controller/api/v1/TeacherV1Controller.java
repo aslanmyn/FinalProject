@@ -5,14 +5,15 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.FileAssetRepository;
 import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
-import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.*;
+import ru.kors.finalproject.web.api.v1.CurrentUserHelper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -28,8 +29,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/teacher")
 @RequiredArgsConstructor
 public class TeacherV1Controller {
-    private final MobileApiAuthService mobileApiAuthService;
-    private final TeacherRepository teacherRepository;
+    private final CurrentUserHelper currentUserHelper;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final RegistrationRepository registrationRepository;
     private final TeacherAcademicService teacherAcademicService;
@@ -42,18 +42,16 @@ public class TeacherV1Controller {
     private final NotificationService notificationService;
 
     @GetMapping("/profile")
-    public ResponseEntity<?> profile(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> profile(@AuthenticationPrincipal User user) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toTeacherProfileDto(teacher));
     }
 
     @PostMapping(value = "/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadProfilePhoto(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam("file") MultipartFile file) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         if (file.getContentType() == null || !file.getContentType().toLowerCase().startsWith("image/")) {
             throw new IllegalArgumentException("Only image files are allowed for profile photo");
         }
@@ -76,7 +74,7 @@ public class TeacherV1Controller {
                 .build());
 
         teacher.setProfilePhotoAssetId(savedAsset.getId());
-        teacherRepository.save(teacher);
+        currentUserHelper.saveTeacher(teacher);
 
         if (previousAsset != null) {
             fileStorageService.deleteSilently(previousAsset.getStoragePath());
@@ -87,17 +85,15 @@ public class TeacherV1Controller {
     }
 
     @GetMapping("/sections")
-    public ResponseEntity<?> sections(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> sections(@AuthenticationPrincipal User user) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(teacherAcademicService.getMySections(teacher).stream()
                 .map(this::toTeacherSectionDto)
                 .toList());
     }
 
     @GetMapping("/notifications")
-    public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+    public ResponseEntity<?> notifications(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(Map.of(
                 "notifications", notificationService.listForEmail(user.getEmail()).stream()
                         .map(this::toNotificationDto)
@@ -108,24 +104,21 @@ public class TeacherV1Controller {
 
     @PostMapping("/notifications/{id}/read")
     public ResponseEntity<?> markNotificationRead(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
         notificationService.markReadForEmail(id, user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @PostMapping("/notifications/read-all")
-    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
+    public ResponseEntity<?> markAllNotificationsRead(@AuthenticationPrincipal User user) {
         notificationService.markAllReadForEmail(user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @GetMapping("/sections/{sectionId}/roster")
-    public ResponseEntity<?> roster(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> roster(@AuthenticationPrincipal User user, @PathVariable Long sectionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(teacherAcademicService.getRoster(teacher, sectionId).stream().map(r -> Map.of(
                 "registrationId", r.getId(),
                 "studentId", r.getStudent().getId(),
@@ -137,19 +130,17 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/attendance")
     public ResponseEntity<?> markAttendance(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody AttendanceBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         teacherAcademicService.markAttendance(teacher, sectionId, LocalDate.parse(body.classDate()), body.marks());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @GetMapping("/sections/{sectionId}/components")
-    public ResponseEntity<?> components(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> components(@AuthenticationPrincipal User user, @PathVariable Long sectionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(teacherAcademicService.componentsForOffering(teacher, sectionId).stream().map(c -> Map.of(
                 "id", (Object) c.getId(),
                 "name", c.getName(),
@@ -163,46 +154,42 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/components")
     public ResponseEntity<?> createComponent(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody CreateComponentBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toComponentDto(teacherAcademicService.createComponent(
                 teacher, sectionId, body.name(), body.type(), body.weightPercent())));
     }
 
     @PostMapping("/sections/{sectionId}/components/{componentId}/publish")
     public ResponseEntity<?> publishComponent(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @PathVariable Long componentId,
             @RequestParam boolean published) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toComponentDto(
                 teacherAcademicService.setComponentPublishState(teacher, sectionId, componentId, published)));
     }
 
     @PostMapping("/sections/{sectionId}/components/{componentId}/lock")
     public ResponseEntity<?> lockComponent(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @PathVariable Long componentId,
             @RequestParam boolean locked) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toComponentDto(
                 teacherAcademicService.lockComponent(teacher, sectionId, componentId, locked)));
     }
 
     @PostMapping("/sections/{sectionId}/grades")
     public ResponseEntity<?> saveGrade(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody SaveGradeBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toGradeDto(teacherAcademicService.saveGrade(
                 teacher, sectionId, body.studentId(), body.componentId(),
                 body.gradeValue(), body.maxGradeValue(), body.comment())));
@@ -210,30 +197,27 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/final-grades")
     public ResponseEntity<?> saveFinalGrade(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody SaveFinalGradeBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toFinalGradeDto(teacherAcademicService.upsertFinalGrade(
                 teacher, sectionId, body.studentId(), body.numericValue(), body.letterValue(), body.points())));
     }
 
     @PostMapping("/sections/{sectionId}/final-grades/{studentId}/publish")
     public ResponseEntity<?> publishFinalGrade(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @PathVariable Long studentId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toFinalGradeDto(
                 teacherAcademicService.publishFinalGrade(teacher, sectionId, studentId)));
     }
 
     @GetMapping("/sections/{sectionId}/announcements")
-    public ResponseEntity<?> announcements(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> announcements(@AuthenticationPrincipal User user, @PathVariable Long sectionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(announcementService.listForSection(teacher, sectionId).stream()
                 .map(this::toAnnouncementDto)
                 .toList());
@@ -241,11 +225,10 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/announcements")
     public ResponseEntity<?> createAnnouncement(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody CreateAnnouncementBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         Instant scheduledAt = null;
         if (body.scheduledAt() != null && !body.scheduledAt().isBlank()) {
             try {
@@ -259,9 +242,8 @@ public class TeacherV1Controller {
     }
 
     @GetMapping("/sections/{sectionId}/materials")
-    public ResponseEntity<?> materials(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> materials(@AuthenticationPrincipal User user, @PathVariable Long sectionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(courseMaterialService.listForSection(teacher, sectionId).stream().map(m -> new MaterialDto(
                 m.getId(), m.getTitle(), m.getDescription(), m.getOriginalFileName(),
                 m.getContentType(), m.getSizeBytes(), m.getVisibility(), m.isPublished(), m.getCreatedAt(),
@@ -271,14 +253,13 @@ public class TeacherV1Controller {
 
     @PostMapping(value = "/sections/{sectionId}/materials", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadMaterial(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestParam String title,
             @RequestParam(required = false) String description,
             @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "ENROLLED_ONLY") CourseMaterial.MaterialVisibility visibility) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         CourseMaterial saved = courseMaterialService.upload(
                 teacher, sectionId, title, description, file, visibility);
         return ResponseEntity.ok(new MaterialDto(saved.getId(), saved.getTitle(), saved.getDescription(),
@@ -289,11 +270,10 @@ public class TeacherV1Controller {
 
     @PostMapping("/materials/{materialId}/visibility")
     public ResponseEntity<?> updateMaterialVisibility(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long materialId,
             @RequestParam boolean published) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         CourseMaterial updated = courseMaterialService.updateVisibility(teacher, materialId, published);
         return ResponseEntity.ok(new MaterialDto(updated.getId(), updated.getTitle(), updated.getDescription(),
                 updated.getOriginalFileName(), updated.getContentType(), updated.getSizeBytes(),
@@ -303,20 +283,18 @@ public class TeacherV1Controller {
 
     @DeleteMapping("/materials/{materialId}")
     public ResponseEntity<?> deleteMaterial(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long materialId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         courseMaterialService.delete(teacher, materialId);
         return ResponseEntity.ok(Map.of("status", "deleted"));
     }
 
     @GetMapping("/sections/{sectionId}/grades/export")
     public ResponseEntity<byte[]> exportGrades(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId) throws IOException {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
 
         SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(sectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
@@ -369,9 +347,8 @@ public class TeacherV1Controller {
     }
 
     @GetMapping("/sections/{sectionId}/student-notes")
-    public ResponseEntity<?> notes(@RequestHeader("Authorization") String authHeader, @PathVariable Long sectionId) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> notes(@AuthenticationPrincipal User user, @PathVariable Long sectionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(teacherAcademicService.notesForSection(teacher, sectionId).stream()
                 .map(this::toTeacherNoteDto)
                 .toList());
@@ -379,19 +356,17 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/student-notes")
     public ResponseEntity<?> upsertNote(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody NoteBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toTeacherNoteDto(teacherAcademicService.upsertStudentNote(
                 teacher, sectionId, body.studentId(), body.note(), body.riskFlag())));
     }
 
     @GetMapping("/grade-change-requests")
-    public ResponseEntity<?> gradeChangeRequests(@RequestHeader("Authorization") String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+    public ResponseEntity<?> gradeChangeRequests(@AuthenticationPrincipal User user) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(gradeChangeService.listForTeacher(teacher).stream()
                 .map(this::toGradeChangeRequestDto)
                 .toList());
@@ -399,23 +374,21 @@ public class TeacherV1Controller {
 
     @PostMapping("/sections/{sectionId}/grade-change-requests")
     public ResponseEntity<?> createGradeChangeRequest(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestBody GradeChangeBody body) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         return ResponseEntity.ok(toGradeChangeRequestDto(gradeChangeService.createForComponentGrade(
                 teacher, sectionId, body.gradeId(), body.newValue(), body.reason())));
     }
 
     @PostMapping(value = "/sections/{sectionId}/student-files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadStudentFile(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long sectionId,
             @RequestParam Long studentId,
             @RequestParam("file") MultipartFile file) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.PROFESSOR);
-        Teacher teacher = getTeacher(user);
+        Teacher teacher = currentUserHelper.requireTeacher(user);
         FileAsset saved = teacherAcademicService.uploadStudentFile(teacher, sectionId, studentId, file);
         return ResponseEntity.ok(new StudentFileDto(
                 saved.getId(),
@@ -426,11 +399,6 @@ public class TeacherV1Controller {
                 saved.getUploadedAt(),
                 fileLinkService.createAssetDownloadUrl(saved.getId())
         ));
-    }
-
-    private Teacher getTeacher(User user) {
-        return teacherRepository.findByEmailWithDetails(user.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Teacher profile not found"));
     }
 
     private TeacherProfileDto toTeacherProfileDto(Teacher teacher) {

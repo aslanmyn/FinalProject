@@ -2,6 +2,8 @@ package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
@@ -22,7 +24,6 @@ import java.util.Set;
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 public class AdminV1Controller {
-    private final MobileApiAuthService mobileApiAuthService;
     private final AdminAcademicService adminAcademicService;
     private final HoldService holdService;
     private final ExamScheduleService examScheduleService;
@@ -51,13 +52,13 @@ public class AdminV1Controller {
     private final ApiPageableFactory apiPageableFactory;
 
     @GetMapping("/users")
+    @PreAuthorize("hasAuthority('PERM_SUPER')")
     public ResponseEntity<?> users(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPER);
         var pageable = apiPageableFactory.create(
                 page, size, sort, direction, "id",
                 Set.of("id", "email", "fullName", "role", "enabled"));
@@ -68,47 +69,47 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/users/{id}/permissions")
+    @PreAuthorize("hasAuthority('PERM_SUPER')")
     public ResponseEntity<?> setPermissions(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody PermissionBody body) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPER);
-        User user = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
-        if (user.getRole() != User.UserRole.ADMIN) {
+        User target = userRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        if (target.getRole() != User.UserRole.ADMIN) {
             throw new IllegalArgumentException("User is not admin");
         }
         if (body.permissions() == null || body.permissions().isEmpty()) {
-            user.setAdminPermissions(EnumSet.noneOf(User.AdminPermission.class));
+            target.setAdminPermissions(EnumSet.noneOf(User.AdminPermission.class));
         } else {
-            user.setAdminPermissions(EnumSet.copyOf(body.permissions()));
+            target.setAdminPermissions(EnumSet.copyOf(body.permissions()));
         }
-        userRepository.save(user);
+        userRepository.save(target);
         return ResponseEntity.ok(new UserDto(
-                user.getId(), user.getEmail(), user.getFullName(), user.getRole(), user.getAdminPermissions(), user.isEnabled()
+                target.getId(), target.getEmail(), target.getFullName(), target.getRole(), target.getAdminPermissions(), target.isEnabled()
         ));
     }
 
     @PostMapping("/terms")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> createTerm(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateTermBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         Semester saved = adminAcademicService.createTerm(
                 body.name(), LocalDate.parse(body.startDate()), LocalDate.parse(body.endDate()), body.current(), admin);
         return ResponseEntity.ok(saved);
     }
 
     @GetMapping("/terms")
-    public ResponseEntity<?> listTerms(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    public ResponseEntity<?> listTerms(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(adminAcademicService.listTerms());
     }
 
     @PostMapping("/sections")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> createSection(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateSectionBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         SubjectOffering saved = adminAcademicService.createSection(
                 body.subjectId(), body.semesterId(), body.teacherId(), body.capacity(), body.lessonType(), admin);
         SubjectOffering detailed = subjectOfferingRepository.findByIdWithDetails(saved.getId()).orElse(saved);
@@ -116,69 +117,69 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/sections")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> listSections(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(adminAcademicService.listSections(semesterId).stream()
                 .map(this::toSectionDto)
                 .toList());
     }
 
     @PostMapping("/sections/{id}/assign-professor")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> assignProfessor(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody AssignProfessorBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         SubjectOffering saved = adminAcademicService.assignProfessor(id, body.teacherId(), admin);
         SubjectOffering detailed = subjectOfferingRepository.findByIdWithDetails(saved.getId()).orElse(saved);
         return ResponseEntity.ok(toSectionDto(detailed));
     }
 
     @PostMapping("/sections/{id}/meeting-times")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> addMeetingTime(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody MeetingTimeBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(toMeetingTimeDto(adminAcademicService.addMeetingTime(
                 id, body.dayOfWeek(), LocalTime.parse(body.startTime()), LocalTime.parse(body.endTime()),
                 body.room(), body.lessonType(), admin)));
     }
 
     @PostMapping("/windows")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> upsertWindow(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody WindowBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(toWindowDto(adminAcademicService.upsertWindow(
                 body.semesterId(), body.type(), LocalDate.parse(body.startDate()),
                 LocalDate.parse(body.endDate()), body.active(), admin)));
     }
 
     @GetMapping("/windows")
-    public ResponseEntity<?> listWindows(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    public ResponseEntity<?> listWindows(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(registrationWindowRepository.findAllWithSemesterOrderByStartDateDesc().stream()
                 .map(this::toWindowDto)
                 .toList());
     }
 
     @PostMapping("/enrollments/override")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> overrideEnrollment(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody EnrollmentOverrideBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(adminAcademicService.adminOverrideEnroll(
                 body.studentId(), body.subjectOfferingId(), body.reason(), admin));
     }
 
     @GetMapping("/exams")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> listExams(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         Long semId = semesterId != null ? semesterId
                 : semesterRepository.findByCurrentTrue().map(Semester::getId).orElse(null);
         if (semId == null) return ResponseEntity.ok(List.of());
@@ -188,10 +189,10 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/exams")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> createExam(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateExamBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         ExamSchedule saved = examScheduleService.createExamSession(
                 body.sectionId(), LocalDate.parse(body.examDate()), LocalTime.parse(body.examTime()),
                 body.room(), body.format(), admin);
@@ -200,11 +201,11 @@ public class AdminV1Controller {
     }
 
     @PutMapping("/exams/{id}")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> updateExam(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody CreateExamBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         ExamSchedule saved = examScheduleService.updateExamSession(
                 id, LocalDate.parse(body.examDate()), LocalTime.parse(body.examTime()),
                 body.room(), body.format(), admin);
@@ -213,34 +214,34 @@ public class AdminV1Controller {
     }
 
     @DeleteMapping("/exams/{id}")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> deleteExam(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         examScheduleService.deleteExamSession(id, admin);
         return ResponseEntity.ok(Map.of("status", "deleted"));
     }
 
     @GetMapping("/fx")
-    public ResponseEntity<?> listFx(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    public ResponseEntity<?> listFx(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(fxRegistrationService.listAll().stream()
                 .map(this::toFxDto)
                 .toList());
     }
 
     @PostMapping("/fx/{id}/status")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> updateFxStatus(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody FxStatusBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(toFxDto(fxRegistrationService.updateStatus(id, body.status(), admin)));
     }
 
     @GetMapping("/holds")
-    public ResponseEntity<?> listHolds(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
+    @PreAuthorize("hasAuthority('PERM_FINANCE')")
+    public ResponseEntity<?> listHolds(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(holdService.listAllActiveHolds().stream().map(h -> new HoldDto(
                 h.getId(), h.getStudent().getId(), h.getStudent().getName(),
                 h.getType(), h.getReason(), h.getCreatedAt()
@@ -248,28 +249,27 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/holds")
+    @PreAuthorize("hasAuthority('PERM_FINANCE')")
     public ResponseEntity<?> createHold(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateHoldBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         Hold saved = holdService.createHold(body.studentId(), body.type(), body.reason(), admin);
         return ResponseEntity.ok(new HoldDto(saved.getId(), saved.getStudent().getId(),
                 saved.getStudent().getName(), saved.getType(), saved.getReason(), saved.getCreatedAt()));
     }
 
     @PostMapping("/holds/{id}/remove")
+    @PreAuthorize("hasAuthority('PERM_FINANCE')")
     public ResponseEntity<?> removeHold(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody RemoveHoldBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         holdService.removeHold(id, body.removalReason(), admin);
         return ResponseEntity.ok(Map.of("status", "removed"));
     }
 
     @GetMapping("/notifications")
-    public ResponseEntity<?> notifications(@RequestHeader("Authorization") String authHeader) {
-        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> notifications(@AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(Map.of(
                 "notifications", notificationService.listForEmail(admin.getEmail()).stream()
                         .map(this::toNotificationDto)
@@ -280,35 +280,33 @@ public class AdminV1Controller {
 
     @PostMapping("/notifications/{id}/read")
     public ResponseEntity<?> markNotificationRead(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id) {
-        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
         notificationService.markReadForEmail(id, admin.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @PostMapping("/notifications/read-all")
-    public ResponseEntity<?> markAllNotificationsRead(@RequestHeader("Authorization") String authHeader) {
-        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> markAllNotificationsRead(@AuthenticationPrincipal User admin) {
         notificationService.markAllReadForEmail(admin.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @PostMapping("/finance/invoices")
+    @PreAuthorize("hasAuthority('PERM_FINANCE')")
     public ResponseEntity<?> createInvoice(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody InvoiceBody body) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         Student student = studentRepository.findById(body.studentId()).orElseThrow(() -> new IllegalArgumentException("Student not found"));
         return ResponseEntity.ok(toInvoiceDto(financialService.createInvoice(
                 student, body.amount(), body.description(), LocalDate.parse(body.dueDate()))));
     }
 
     @PostMapping("/finance/payments")
+    @PreAuthorize("hasAuthority('PERM_FINANCE')")
     public ResponseEntity<?> registerPayment(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody PaymentBody body) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.FINANCE);
         Student student = studentRepository.findById(body.studentId()).orElseThrow(() -> new IllegalArgumentException("Student not found"));
         return ResponseEntity.ok(toPaymentDto(financialService.registerPayment(
                 student, body.chargeId(), body.amount(),
@@ -316,8 +314,8 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/mobility")
-    public ResponseEntity<?> listMobility(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
+    @PreAuthorize("hasAuthority('PERM_MOBILITY')")
+    public ResponseEntity<?> listMobility(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(mobilityService.listAll().stream().map(a -> new MobilityDto(
                 a.getId(), a.getStudent().getId(), a.getStudent().getName(),
                 a.getUniversityName(), a.getStatus(), a.getCreatedAt()
@@ -325,65 +323,65 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/mobility/{id}/status")
+    @PreAuthorize("hasAuthority('PERM_MOBILITY')")
     public ResponseEntity<?> updateMobilityStatus(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody UpdateStatusBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
         MobilityApplication updated = mobilityService.updateStatus(id, body.status(), admin);
         return ResponseEntity.ok(new MobilityDto(updated.getId(), updated.getStudent().getId(),
                 updated.getStudent().getName(), updated.getUniversityName(), updated.getStatus(), updated.getCreatedAt()));
     }
 
     @GetMapping("/clearance")
-    public ResponseEntity<?> listClearance(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
+    @PreAuthorize("hasAuthority('PERM_MOBILITY')")
+    public ResponseEntity<?> listClearance(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(clearanceService.listAll().stream()
                 .map(this::toClearanceDto)
                 .toList());
     }
 
     @PostMapping("/clearance/checkpoints/{id}/review")
+    @PreAuthorize("hasAuthority('PERM_MOBILITY')")
     public ResponseEntity<?> reviewCheckpoint(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody ReviewCheckpointBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.MOBILITY);
         return ResponseEntity.ok(toClearanceCheckpointDto(
                 clearanceService.reviewCheckpoint(id, body.approve(), body.comment(), admin)));
     }
 
     @GetMapping("/surveys")
-    public ResponseEntity<?> listSurveys(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
+    @PreAuthorize("hasAuthority('PERM_CONTENT')")
+    public ResponseEntity<?> listSurveys(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(surveyService.listAll().stream()
                 .map(this::toSurveyDto)
                 .toList());
     }
 
     @PostMapping("/surveys")
+    @PreAuthorize("hasAuthority('PERM_CONTENT')")
     public ResponseEntity<?> createSurvey(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateSurveyBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
         return ResponseEntity.ok(toSurveyDto(surveyService.create(
                 body.title(), LocalDate.parse(body.startDate()), LocalDate.parse(body.endDate()),
                 body.anonymous(), body.semesterId(), body.questions(), admin)));
     }
 
     @PostMapping("/surveys/{id}/close")
+    @PreAuthorize("hasAuthority('PERM_CONTENT')")
     public ResponseEntity<?> closeSurvey(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
         return ResponseEntity.ok(toSurveyDto(surveyService.closeSurvey(id, admin)));
     }
 
     @GetMapping("/surveys/{id}/responses")
+    @PreAuthorize("hasAuthority('PERM_CONTENT')")
     public ResponseEntity<?> exportSurveyResponses(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
         return ResponseEntity.ok(Map.of(
                 "surveyId", id,
                 "count", surveyService.responseCount(id),
@@ -394,13 +392,13 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/requests")
+    @PreAuthorize("hasAuthority('PERM_SUPPORT')")
     public ResponseEntity<?> requests(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
         var pageable = apiPageableFactory.create(
                 page, size, sort, direction, "createdAt",
                 Set.of("createdAt", "updatedAt", "category", "status"));
@@ -411,37 +409,37 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/requests/{id}/assign")
+    @PreAuthorize("hasAuthority('PERM_SUPPORT')")
     public ResponseEntity<?> assignRequest(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody AssignBody body) {
-        User actor = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
-        StudentRequest request = requestService.assign(id, body.userId(), actor);
+        StudentRequest request = requestService.assign(id, body.userId(), admin);
         return ResponseEntity.ok(new RequestDto(request.getId(), request.getCategory(), request.getStatus(),
                 request.getCreatedAt(), request.getUpdatedAt(),
                 request.getAssignedTo() != null ? request.getAssignedTo().getId() : null));
     }
 
     @PostMapping("/requests/{id}/status")
+    @PreAuthorize("hasAuthority('PERM_SUPPORT')")
     public ResponseEntity<?> updateRequestStatus(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody RequestStatusBody body) {
-        User actor = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPPORT);
-        StudentRequest request = requestService.updateStatus(id, body.status(), actor);
+        StudentRequest request = requestService.updateStatus(id, body.status(), admin);
         return ResponseEntity.ok(new RequestDto(request.getId(), request.getCategory(), request.getStatus(),
                 request.getCreatedAt(), request.getUpdatedAt(),
                 request.getAssignedTo() != null ? request.getAssignedTo().getId() : null));
     }
 
     @GetMapping("/grade-change-requests")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> gradeChangeRequests(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         var pageable = apiPageableFactory.create(
                 page, size, sort, direction, "createdAt",
                 Set.of("createdAt", "status", "newValue", "oldValue"));
@@ -454,11 +452,11 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/grade-change-requests/{id}/review")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> reviewGradeChangeRequest(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody ReviewGradeChangeBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         GradeChangeRequest request = gradeChangeService.review(id, body.approve(), body.comment(), admin);
         return ResponseEntity.ok(new GradeChangeDto(
                 request.getId(),
@@ -475,10 +473,9 @@ public class AdminV1Controller {
 
     @PostMapping("/students/{id}/status")
     public ResponseEntity<?> updateStudentStatus(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @PathVariable Long id,
             @RequestBody UpdateStudentStatusBody body) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
         if (body.status() == null) {
             throw new IllegalArgumentException("Student status is required");
         }
@@ -493,10 +490,10 @@ public class AdminV1Controller {
     }
 
     @PostMapping("/news")
+    @PreAuthorize("hasAuthority('PERM_CONTENT')")
     public ResponseEntity<?> createNews(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody NewsBody body) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.CONTENT);
         News news = News.builder()
                 .title(body.title())
                 .content(body.content())
@@ -509,25 +506,25 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/checklist-templates")
-    public ResponseEntity<?> checklistTemplates(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    public ResponseEntity<?> checklistTemplates(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(checklistService.listTemplates());
     }
 
     @PostMapping("/checklist-templates")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> createChecklistTemplate(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody CreateChecklistTemplateBody body) {
-        User admin = mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         return ResponseEntity.ok(checklistService.createTemplate(
                 body.title(), body.linkToSection(), body.triggerEvent(), body.offsetDays(), admin));
     }
 
     @PostMapping("/checklist/generate")
+    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
     public ResponseEntity<?> generateChecklists(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User admin,
             @RequestBody GenerateChecklistBody body) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.REGISTRAR);
         if (body.studentId() != null) {
             checklistService.generateForStudent(body.studentId(), body.trigger(), LocalDate.parse(body.baseDate()));
         } else {
@@ -537,13 +534,13 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/audit")
+    @PreAuthorize("hasAuthority('PERM_SUPER')")
     public ResponseEntity<?> auditLogs(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "desc") String direction) {
-        mobileApiAuthService.requireAdminPermission(authHeader, User.AdminPermission.SUPER);
         var pageable = apiPageableFactory.create(
                 page, Math.min(size, 200), sort, direction, "createdAt",
                 Set.of("createdAt", "action", "actorEmail", "entityType"));
@@ -551,8 +548,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<?> stats(@RequestHeader("Authorization") String authHeader) {
-        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> stats(@AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(Map.of(
                 "adminId", admin.getId(),
                 "students", studentRepository.count(),
@@ -564,8 +560,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/subjects")
-    public ResponseEntity<?> subjects(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> subjects(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(subjectRepository.findAll().stream().map(s -> Map.of(
                 "id", (Object) s.getId(),
                 "code", s.getCode() != null ? s.getCode() : "",
@@ -575,8 +570,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/teachers")
-    public ResponseEntity<?> teachers(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> teachers(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(teacherRepository.findAllByOrderByNameAsc().stream().map(t -> Map.of(
                 "id", (Object) t.getId(),
                 "name", t.getName() != null ? t.getName() : "",
@@ -585,8 +579,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/students")
-    public ResponseEntity<?> students(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> students(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(studentRepository.findAllWithDetails().stream().map(s -> Map.of(
                 "id", (Object) s.getId(),
                 "name", s.getName() != null ? s.getName() : "",

@@ -3,13 +3,13 @@ package ru.kors.finalproject.controller.api.v1;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.Student;
 import ru.kors.finalproject.entity.User;
-import ru.kors.finalproject.repository.StudentRepository;
 import ru.kors.finalproject.service.AcademicAnalyticsService;
-import ru.kors.finalproject.service.MobileApiAuthService;
 import ru.kors.finalproject.service.WorkflowEngineService;
+import ru.kors.finalproject.web.api.v1.CurrentUserHelper;
 
 import java.util.List;
 
@@ -17,42 +17,35 @@ import java.util.List;
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
 public class StudentAnalyticsV1Controller {
-    private final MobileApiAuthService mobileApiAuthService;
-    private final StudentRepository studentRepository;
+    private final CurrentUserHelper currentUserHelper;
     private final AcademicAnalyticsService academicAnalyticsService;
     private final WorkflowEngineService workflowEngineService;
 
     @GetMapping("/analytics/risk")
-    public ResponseEntity<?> risk(@RequestHeader("Authorization") String authHeader) {
-        Student student = currentStudent(authHeader);
+    public ResponseEntity<?> risk(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(academicAnalyticsService.buildStudentRiskDashboard(student));
     }
 
     @GetMapping("/planner")
-    public ResponseEntity<?> planner(@RequestHeader("Authorization") String authHeader) {
-        Student student = currentStudent(authHeader);
+    public ResponseEntity<?> planner(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(academicAnalyticsService.buildStudentPlannerDashboard(student));
     }
 
     @PostMapping("/planner/simulate")
     public ResponseEntity<?> simulate(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @Valid @RequestBody PlannerSimulationBody body
     ) {
-        Student student = currentStudent(authHeader);
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(academicAnalyticsService.simulateStudentPlanner(student, body.toMap()));
     }
 
     @GetMapping("/workflows")
-    public ResponseEntity<?> workflows(@RequestHeader("Authorization") String authHeader) {
-        Student student = currentStudent(authHeader);
+    public ResponseEntity<?> workflows(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(workflowEngineService.buildStudentOverview(student));
-    }
-
-    private Student currentStudent(String authHeader) {
-        User user = mobileApiAuthService.requireRole(authHeader, User.UserRole.STUDENT);
-        return studentRepository.findByEmailWithDetails(user.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("Student profile not found"));
     }
 
     public record PlannerProjectionInput(Long sectionId, Double projectedFinalScore) {

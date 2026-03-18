@@ -36,8 +36,10 @@ export function connectStomp(onConnect?: () => void): Client {
 
   const client = new Client({
     brokerURL: getWsUrl(),
-    connectHeaders: {
-      Authorization: `Bearer ${getAccessToken() || ""}`
+    beforeConnect: (client) => {
+      client.connectHeaders = {
+        Authorization: `Bearer ${getAccessToken() || ""}`
+      };
     },
     reconnectDelay: 3000,
     heartbeatIncoming: 10000,

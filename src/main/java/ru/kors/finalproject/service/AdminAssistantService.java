@@ -148,12 +148,12 @@ public class AdminAssistantService {
     private String systemPrompt() {
         return """
                 You are the KBTU Portal admin assistant.
-                Respond in Russian unless the admin clearly asks for English.
+                Respond in %s unless the admin clearly asks for another language.
                 Use only the provided admin context. Do not invent numbers, policies, sections, students, or deadlines.
                 Focus on operational insight: overloaded sections, request load, workflow backlog, faculty-level risk, and critical students.
                 If the data is insufficient for a precise answer, say so clearly and provide the best grounded summary available.
                 Never claim that you changed any record or approved any workflow. This assistant is read-only.
-                """;
+                """.formatted(geminiClientService.getLocale());
     }
 
     private String truncate(String value, int max) {

@@ -25,6 +25,9 @@ public class GeminiClientService {
     @Value("${app.ai.gemini.model:gemini-2.5-flash}")
     private String geminiModel;
 
+    @Value("${app.ai.locale:ru}")
+    private String locale;
+
     public GeminiReply generate(
             String systemPrompt,
             String contextLabel,
@@ -79,6 +82,10 @@ public class GeminiClientService {
                 .orElseThrow(() -> new IllegalStateException("AI returned no text"));
 
         return new GeminiReply(text, geminiModel, Instant.now());
+    }
+
+    public String getLocale() {
+        return locale;
     }
 
     public record GeminiReply(String answer, String model, Instant generatedAt) {

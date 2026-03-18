@@ -159,6 +159,16 @@ public class DataInitializer implements CommandLineRunner {
             return;
         }
 
+        // SAFETY GUARD: refuse to wipe a database that has real (non-demo) users
+        if (hasExistingNonDemoData()) {
+            System.err.println("=======================================================================");
+            System.err.println("SEED ABORTED: Database contains existing user data that is NOT demo data.");
+            System.err.println("Refusing to TRUNCATE to protect production/staging data.");
+            System.err.println("Set APP_SEED_ENABLED=false or clear the database manually.");
+            System.err.println("=======================================================================");
+            return;
+        }
+
         resetDatabase();
 
         SeedContext context = new SeedContext();
@@ -189,6 +199,19 @@ public class DataInitializer implements CommandLineRunner {
         return facultyRepository.findByName(SITE).isPresent()
                 && teacherRepository.findByEmail(DemoIdentitySupport.teacherEmailFromFullName("Professor Aidos Nurgaliyev")).isPresent()
                 && studentRepository.count() >= STUDENT_COUNT;
+    }
+
+    /**
+     * Returns true if the database has users that are NOT part of the demo dataset.
+     * This prevents the TRUNCATE from destroying real production data.
+     */
+    private boolean hasExistingNonDemoData() {
+        long userCount = userRepository.count();
+        if (userCount == 0) {
+            return false; // empty database — safe to seed
+        }
+        // If there are users but the demo dataset is NOT present, this is real data
+        return !isLargeDemoDatasetPresent();
     }
 
     private void resetDatabase() {

@@ -35,7 +35,7 @@ export default function ChatPage() {
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         myUserId.current = Number(payload.sub);
-      } catch { /* ignore */ }
+      } catch (e) { console.error(e); }
     }
   }, []);
 
@@ -43,7 +43,7 @@ export default function ChatPage() {
     try {
       const data = await fetchChatRooms();
       setRooms(data);
-    } catch { /* ignore */ } finally {
+    } catch (e) { console.error(e); } finally {
       setLoading(false);
     }
   }, []);
@@ -70,7 +70,7 @@ export default function ChatPage() {
       try {
         const incoming: ChatMessageItem = JSON.parse(msg.body);
         setMessages((prev) => [...prev, incoming]);
-      } catch { /* ignore */ }
+      } catch (e) { console.error(e); }
     });
     return () => { unsubRef.current?.(); unsubRef.current = null; };
   }, [activeRoomId, connected]);
@@ -89,7 +89,7 @@ export default function ChatPage() {
       setMessages(data.items.reverse());
       const m = await fetchChatMembers(roomId);
       setMembers(m);
-    } catch { /* ignore */ }
+    } catch (e) { console.error(e); }
   }
 
   function handleSend() {
@@ -350,7 +350,7 @@ function SectionPanel({ onCreated, onBack }: { onCreated: (room: ChatRoom) => vo
           const teacherSections = await fetchTeacherSections();
           setSections(teacherSections.map((s) => ({ id: s.id, name: `${s.subjectCode} — ${s.subjectName}` })));
         }
-      } catch { /* ignore */ } finally { setLoading(false); }
+      } catch (e) { console.error(e); } finally { setLoading(false); }
     }
     load();
   }, [role]);
@@ -392,7 +392,7 @@ function UserPickerPanel({ onCreated, onBack }: { onCreated: (room: ChatRoom) =>
       try {
         const data = await searchChatUsers(q);
         setResults(data);
-      } catch { /* ignore */ } finally { setSearching(false); }
+      } catch (e) { console.error(e); } finally { setSearching(false); }
     }, 300);
   }, [q]);
 
@@ -456,7 +456,7 @@ function GroupCreatePanel({ onCreated, onBack }: { onCreated: (room: ChatRoom) =
       try {
         const data = await searchChatUsers(q);
         setResults(data.filter((u) => !selected.some((s) => s.id === u.id)));
-      } catch { /* ignore */ } finally { setSearching(false); }
+      } catch (e) { console.error(e); } finally { setSearching(false); }
     }, 300);
   }, [q, selected]);
 

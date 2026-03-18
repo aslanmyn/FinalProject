@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.User;
@@ -14,40 +15,35 @@ import ru.kors.finalproject.service.*;
 @RequiredArgsConstructor
 @Validated
 public class AdminAnalyticsV1Controller {
-    private final MobileApiAuthService mobileApiAuthService;
     private final AcademicAnalyticsService academicAnalyticsService;
     private final WorkflowEngineService workflowEngineService;
     private final AdminAssistantService adminAssistantService;
 
     @GetMapping("/analytics")
-    public ResponseEntity<?> analytics(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> analytics(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(academicAnalyticsService.buildAdminAnalyticsDashboard());
     }
 
     @GetMapping("/workflows")
-    public ResponseEntity<?> workflows(@RequestHeader("Authorization") String authHeader) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
+    public ResponseEntity<?> workflows(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(workflowEngineService.buildAdminOverview());
     }
 
     @GetMapping("/workflows/{type}/{id}/timeline")
     public ResponseEntity<?> workflowTimeline(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable WorkflowEngineService.WorkflowType type,
             @PathVariable Long id
     ) {
-        mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
         return ResponseEntity.ok(workflowEngineService.buildTimeline(type, id));
     }
 
     @PostMapping("/assistant/chat")
     public ResponseEntity<?> assistantChat(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @Valid @RequestBody AssistantQuestionBody body
     ) {
-        User admin = mobileApiAuthService.requireRole(authHeader, User.UserRole.ADMIN);
-        return ResponseEntity.ok(adminAssistantService.ask(admin, body.message()));
+        return ResponseEntity.ok(adminAssistantService.ask(user, body.message()));
     }
 
     public record AssistantQuestionBody(@NotBlank String message) {
