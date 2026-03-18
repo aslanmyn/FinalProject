@@ -10,10 +10,6 @@ const SUGGESTIONS = [
   "Summarize the sections that need my attention first."
 ];
 
-function formatRiskLevel(value: string): string {
-  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
 export default function TeacherAssistantPage() {
   const [dashboard, setDashboard] = useState<TeacherRiskDashboard | null>(null);
   const [loading, setLoading] = useState(true);

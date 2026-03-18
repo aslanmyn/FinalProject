@@ -62,7 +62,7 @@ export default function AdminWorkflowsPage() {
     };
   }, []);
 
-  const items = overview?.items ?? [];
+  const items = useMemo(() => overview?.items ?? [], [overview]);
   const visibleItems = useMemo(
     () =>
       items.filter((item) => {

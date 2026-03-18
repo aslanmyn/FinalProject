@@ -59,8 +59,29 @@ export default function TeacherAnnouncementsPage() {
   }
 
   useEffect(() => {
-    void loadAnnouncements(sectionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function refreshAnnouncements() {
+      if (!sectionId) {
+        setItems([]);
+        return;
+      }
+      try {
+        const data = await fetchTeacherAnnouncements(Number(sectionId));
+        if (!cancelled) {
+          setItems(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load announcements");
+        }
+      }
+    }
+
+    void refreshAnnouncements();
+    return () => {
+      cancelled = true;
+    };
   }, [sectionId]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -156,4 +177,3 @@ export default function TeacherAnnouncementsPage() {
     </div>
   );
 }
-

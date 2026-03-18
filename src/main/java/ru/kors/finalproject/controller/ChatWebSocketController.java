@@ -39,6 +39,9 @@ public class ChatWebSocketController {
     }
 
     private User extractUser(Principal principal) {
+        if (principal instanceof User user) {
+            return user;
+        }
         if (principal instanceof UsernamePasswordAuthenticationToken auth) {
             Object p = auth.getPrincipal();
             if (p instanceof User user) {

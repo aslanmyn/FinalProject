@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.security.Principal;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -14,7 +15,7 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements Principal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -67,5 +68,10 @@ public class User {
             return false;
         }
         return adminPermissions.contains(AdminPermission.SUPER) || adminPermissions.contains(permission);
+    }
+
+    @Override
+    public String getName() {
+        return email;
     }
 }

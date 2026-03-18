@@ -62,13 +62,12 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
                     }
                 }
                 UsernamePasswordAuthenticationToken auth =
-                        new UsernamePasswordAuthenticationToken(user.getEmail(), null, authorities);
-                auth.setDetails(user);
+                        new UsernamePasswordAuthenticationToken(user, null, authorities);
                 accessor.setUser(auth);
             } catch (org.springframework.security.access.AccessDeniedException ex) {
                 throw ex;
             } catch (Exception ex) {
-                log.warn("WebSocket CONNECT rejected: token validation failed — {}", ex.getMessage());
+                log.warn("WebSocket CONNECT rejected: token validation failed - {}", ex.getMessage());
                 throw new org.springframework.security.access.AccessDeniedException("Invalid authentication token");
             }
         }
@@ -76,3 +75,4 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         return message;
     }
 }
+

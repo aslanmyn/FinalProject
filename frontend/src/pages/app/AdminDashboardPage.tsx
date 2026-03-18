@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ApiError, fetchAdminAnalytics } from "../../lib/api";
-import type { AdminAnalyticsDashboard } from "../../types/admin";
+import { ApiError, fetchAdminStats } from "../../lib/api";
+import { getUserPermissions } from "../../lib/auth";
+import type { AdminStats } from "../../types/admin";
 
-function formatRiskLevel(value: string): string {
-  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function riskBadgeClass(level: string): string {
-  if (level === "AT_RISK") return "badge badge-danger";
-  if (level === "MEDIUM") return "badge badge-warning";
-  return "badge";
+function hasPermission(permissions: string[], permission: string): boolean {
+  return permissions.includes("SUPER") || permissions.includes(permission);
 }
 
 export default function AdminDashboardPage() {
-  const [dashboard, setDashboard] = useState<AdminAnalyticsDashboard | null>(null);
+  const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const permissions = getUserPermissions();
 
   useEffect(() => {
     let cancelled = false;
@@ -25,13 +21,13 @@ export default function AdminDashboardPage() {
       setLoading(true);
       setError(null);
       try {
-        const payload = await fetchAdminAnalytics();
+        const payload = await fetchAdminStats();
         if (!cancelled) {
-          setDashboard(payload);
+          setStats(payload);
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Failed to load admin dashboard");
+          setError(err instanceof ApiError ? err.message : "Failed to load admin overview");
         }
       } finally {
         if (!cancelled) {
@@ -46,38 +42,90 @@ export default function AdminDashboardPage() {
     };
   }, []);
 
-  const topWorkflow = useMemo(() => dashboard?.workflowSummary[0] ?? null, [dashboard]);
-  const topStudent = useMemo(() => dashboard?.criticalStudents[0] ?? null, [dashboard]);
-  const topSection = useMemo(() => dashboard?.overloadedSections[0] ?? null, [dashboard]);
-  const workflowTotal = useMemo(
-    () => dashboard?.workflowSummary.reduce((sum, item) => sum + item.count, 0) ?? 0,
-    [dashboard]
-  );
-  const overloadPeak = topSection?.utilizationPercent ?? 0;
+  const availableActions = useMemo(() => {
+    const actions: Array<{ to: string; label: string; description: string }> = [
+      {
+        to: "/app/admin/notifications",
+        label: "Notifications",
+        description: "Track unread system alerts and approval updates."
+      }
+    ];
+
+    if (hasPermission(permissions, "REGISTRAR")) {
+      actions.push(
+        {
+          to: "/app/admin/registration",
+          label: "Registration Ops",
+          description: "Manage windows, FX queue, and registration blockers."
+        },
+        {
+          to: "/app/admin/academic",
+          label: "Academic Setup",
+          description: "Terms, sections, meeting times, and faculty scheduling."
+        }
+      );
+    }
+    if (hasPermission(permissions, "FINANCE")) {
+      actions.push({
+        to: "/app/admin/finance",
+        label: "Finance",
+        description: "Invoices, payments, and active financial holds."
+      });
+    }
+    if (hasPermission(permissions, "SUPPORT")) {
+      actions.push({
+        to: "/app/admin/requests",
+        label: "Requests",
+        description: "Review student tickets and operational backlog."
+      });
+    }
+    if (hasPermission(permissions, "CONTENT")) {
+      actions.push({
+        to: "/app/admin/moderation",
+        label: "Moderation & News",
+        description: "Publish news and handle grade change review workflows."
+      });
+    }
+    if (hasPermission(permissions, "SUPER")) {
+      actions.push(
+        {
+          to: "/app/admin/analytics",
+          label: "Analytics",
+          description: "Institution-wide risk, overload, and service pressure."
+        },
+        {
+          to: "/app/admin/workflows",
+          label: "Workflows",
+          description: "Cross-office workflow timeline and queue control."
+        },
+        {
+          to: "/app/admin/assistant",
+          label: "AI Assistant",
+          description: "Ask for executive summaries powered by live portal data."
+        },
+        {
+          to: "/app/admin/users",
+          label: "Users",
+          description: "Manage admin permissions and user access."
+        }
+      );
+    }
+
+    return actions;
+  }, [permissions]);
 
   return (
     <div className="screen app-screen">
       <header className="topbar">
         <div>
           <h2>Admin Overview</h2>
-          <p className="muted">A live executive snapshot of academic risk, workflow pressure, and overloaded sections.</p>
-        </div>
-        <div className="actions">
-          <Link className="link-btn" to="/app/admin/analytics">
-            Full analytics
-          </Link>
-          <Link className="link-btn" to="/app/admin/workflows">
-            Workflow engine
-          </Link>
-          <Link className="link-btn" to="/app/admin/assistant">
-            AI assistant
-          </Link>
+          <p className="muted">Your role-aware control room for the parts of the portal you manage.</p>
         </div>
       </header>
 
       {loading ? (
         <section className="card">
-          <p>Loading admin dashboard...</p>
+          <p>Loading admin overview...</p>
         </section>
       ) : null}
 
@@ -87,186 +135,70 @@ export default function AdminDashboardPage() {
         </section>
       ) : null}
 
-      {!loading && dashboard ? (
+      {!loading && stats ? (
         <>
           <section className="card analytics-hero-card analytics-hero-card-admin">
             <div className="analytics-hero analytics-hero-split">
               <div className="analytics-hero-main">
-                <span className="assistant-eyebrow">Executive snapshot</span>
-                <h3>What needs admin attention first</h3>
+                <span className="assistant-eyebrow">Operations snapshot</span>
+                <h3>Portal health at a glance</h3>
                 <p className="muted">
-                  Keep an eye on operational backlog, critical student risk, and overloaded teaching capacity before they turn into service issues.
+                  These live counts stay available for every admin account, even when advanced analytics are limited to super-admin access.
                 </p>
                 <div className="analytics-pill-group">
-                  <span className="badge badge-warning">{workflowTotal} workflow items</span>
-                  <span className="badge badge-neutral">{dashboard.overloadedSections.length} overloaded sections</span>
-                  <span className="badge badge-neutral">{dashboard.criticalStudents.length} critical students</span>
-                </div>
-                <div className="analytics-meter-list">
-                  <div className="analytics-meter-card">
-                    <div className="analytics-meter-head">
-                      <span>Workflow pressure</span>
-                      <strong>{workflowTotal}</strong>
-                    </div>
-                    <div className="analytics-meter">
-                      <div
-                        className="analytics-meter-fill analytics-meter-fill-danger"
-                        style={{ width: `${Math.max(0, Math.min(100, workflowTotal * 10))}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="analytics-meter-card">
-                    <div className="analytics-meter-head">
-                      <span>Overload peak</span>
-                      <strong>{overloadPeak.toFixed(1)}%</strong>
-                    </div>
-                    <div className="analytics-meter">
-                      <div
-                        className="analytics-meter-fill analytics-meter-fill-warning"
-                        style={{ width: `${Math.max(0, Math.min(100, overloadPeak))}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="analytics-meter-card">
-                    <div className="analytics-meter-head">
-                      <span>Open windows</span>
-                      <strong>{dashboard.metrics.openWindows}</strong>
-                    </div>
-                    <div className="analytics-meter">
-                      <div
-                        className="analytics-meter-fill analytics-meter-fill-accent"
-                        style={{ width: `${Math.max(0, Math.min(100, dashboard.metrics.openWindows * 20))}%` }}
-                      />
-                    </div>
-                  </div>
+                  <span className="badge badge-neutral">{stats.students} students</span>
+                  <span className="badge badge-neutral">{stats.teachers} teachers</span>
+                  <span className="badge badge-warning">{stats.requests} requests</span>
                 </div>
               </div>
-              <div className="analytics-hero-side-grid">
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.students}</strong>
-                    <span>Students</span>
-                  </div>
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.currentSections}</strong>
-                    <span>Current sections</span>
-                  </div>
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.requests}</strong>
-                    <span>Requests</span>
-                  </div>
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.activeHolds}</strong>
-                    <span>Active holds</span>
-                  </div>
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.openWindows}</strong>
-                    <span>Open windows</span>
-                  </div>
-                  <div className="stat-card">
-                    <strong>{dashboard.metrics.teachers}</strong>
-                    <span>Teachers</span>
-                  </div>
+              <div className="stats-grid">
+                <div className="stat-card">
+                  <strong>{stats.students}</strong>
+                  <span>Students</span>
                 </div>
-                <div className="analytics-spotlight-card">
-                  <span className="assistant-summary-label">Priority spotlight</span>
-                  <strong>{topWorkflow ? topWorkflow.workflowType : "No backlog"}</strong>
-                  <p className="muted">
-                    {topWorkflow
-                      ? `${topWorkflow.count} items sit in the busiest workflow queue right now.`
-                      : "Operational queues are clear."}
-                  </p>
+                <div className="stat-card">
+                  <strong>{stats.teachers}</strong>
+                  <span>Teachers</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{stats.sections}</strong>
+                  <span>Sections</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{stats.requests}</strong>
+                  <span>Requests</span>
+                </div>
+                <div className="stat-card">
+                  <strong>{stats.activeHolds}</strong>
+                  <span>Active holds</span>
+                </div>
+                <div className="stat-card">
+                  <strong>#{stats.adminId}</strong>
+                  <span>Admin ID</span>
                 </div>
               </div>
             </div>
-          </section>
-
-          <section className="analytics-split-grid">
-            <section className="card analytics-panel">
-              <div className="section-heading">
-                <div>
-                  <h3>Operational hotspot</h3>
-                  <p className="muted">The queue or section most likely to need intervention next.</p>
-                </div>
-              </div>
-              <div className="analytics-card-grid">
-                <article className="analytics-focus-card">
-                  <div className="analytics-focus-card-head">
-                    <span className="badge badge-warning">Workflow</span>
-                    <span className="badge badge-neutral">{topWorkflow ? topWorkflow.count : 0} items</span>
-                  </div>
-                  <h4>{topWorkflow ? topWorkflow.workflowType : "No backlog"}</h4>
-                  <p className="muted">
-                    {topWorkflow ? "This queue has the highest current operational load." : "All workflow queues are balanced."}
-                  </p>
-                </article>
-                <article className="analytics-focus-card">
-                  <div className="analytics-focus-card-head">
-                    <span className="badge badge-warning">Section</span>
-                    <span className="badge badge-warning">{overloadPeak.toFixed(1)}%</span>
-                  </div>
-                  <h4>{topSection ? topSection.courseCode : "No overloaded sections"}</h4>
-                  <p className="muted">
-                    {topSection
-                      ? `${topSection.courseName} is the most capacity-constrained section right now.`
-                      : "Section capacity is currently under control."}
-                  </p>
-                </article>
-              </div>
-            </section>
-
-            <section className="card analytics-panel">
-              <div className="section-heading">
-                <div>
-                  <h3>Critical student watchlist</h3>
-                  <p className="muted">Students with the strongest current risk signals.</p>
-                </div>
-              </div>
-              <div className="analytics-mini-list">
-                {dashboard.criticalStudents.slice(0, 5).map((student) => (
-                  <div key={student.studentId} className="analytics-watch-row">
-                    <div>
-                      <strong>{student.studentName}</strong>
-                      <p className="muted">{student.primaryReason}</p>
-                    </div>
-                    <span className={riskBadgeClass(student.level)}>
-                      {formatRiskLevel(student.level)} | {student.riskScore.toFixed(1)}
-                    </span>
-                  </div>
-                ))}
-                {dashboard.criticalStudents.length === 0 ? <p className="muted">No critical students right now.</p> : null}
-              </div>
-              {topStudent ? (
-                <div className="analytics-spotlight-card analytics-spotlight-inline">
-                  <span className="assistant-summary-label">Highest risk student</span>
-                  <strong>{topStudent.studentName}</strong>
-                  <p className="muted">{topStudent.primaryReason}</p>
-                </div>
-              ) : null}
-            </section>
           </section>
 
           <section className="card analytics-panel">
             <div className="section-heading">
               <div>
-                <h3>Top workflow backlog</h3>
-                <p className="muted">The biggest queues that currently need operational attention.</p>
+                <h3>Available workspaces</h3>
+                <p className="muted">Only the sections allowed by your admin permissions are shown here.</p>
               </div>
             </div>
-            <div className="analytics-mini-list">
-              {dashboard.workflowSummary.map((item) => (
-                <div key={item.workflowType} className="analytics-load-card">
-                  <div className="analytics-mini-row">
-                    <span>{item.workflowType}</span>
-                    <strong>{item.count}</strong>
+            <div className="analytics-card-grid">
+              {availableActions.map((action) => (
+                <article key={action.to} className="analytics-focus-card">
+                  <div className="analytics-focus-card-head">
+                    <span className="badge badge-neutral">Workspace</span>
                   </div>
-                  <div className="analytics-meter analytics-meter-compact">
-                    <div
-                      className="analytics-meter-fill analytics-meter-fill-danger"
-                      style={{ width: `${Math.max(0, Math.min(100, item.count * 18))}%` }}
-                    />
-                  </div>
-                </div>
+                  <h4>{action.label}</h4>
+                  <p className="muted">{action.description}</p>
+                  <Link className="link-btn" to={action.to}>
+                    Open
+                  </Link>
+                </article>
               ))}
             </div>
           </section>

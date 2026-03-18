@@ -59,7 +59,7 @@ export default function StudentWorkflowsPage() {
     };
   }, []);
 
-  const items = workflowOverview?.items ?? [];
+  const items = useMemo(() => workflowOverview?.items ?? [], [workflowOverview]);
   const visibleItems = useMemo(
     () =>
       items.filter((item) => {

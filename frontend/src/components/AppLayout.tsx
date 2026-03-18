@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { logout } from "../lib/api";
-import { clearAuthSession, getUserRole } from "../lib/auth";
+import { clearAuthSession, getUserPermissions, getUserRole } from "../lib/auth";
 import { bindNotificationLiveSocket, loadNotificationCenterData } from "../lib/notifications";
 import { disconnectStomp } from "../lib/ws";
 import type { UserRole } from "../types/auth";
@@ -9,7 +9,7 @@ import type { UserRole } from "../types/auth";
 type NavItem = { to: string; label: string };
 type NavGroup = { title: string; items: NavItem[] };
 
-function getNav(role: string | null): NavGroup[] {
+function getNav(role: string | null, permissions: string[]): NavGroup[] {
   if (role === "STUDENT") {
     return [
       {
@@ -63,22 +63,44 @@ function getNav(role: string | null): NavGroup[] {
     ];
   }
   if (role === "ADMIN") {
+    const canAccessSuper = permissions.includes("SUPER");
+    const canAccessRegistrar = canAccessSuper || permissions.includes("REGISTRAR");
+    const canAccessFinance = canAccessSuper || permissions.includes("FINANCE");
+    const canAccessSupport = canAccessSuper || permissions.includes("SUPPORT");
+    const canAccessContent = canAccessSuper || permissions.includes("CONTENT");
+    const adminItems: NavItem[] = [
+      { to: "/app/admin", label: "Overview" },
+      { to: "/app/admin/notifications", label: "Notifications" }
+    ];
+
+    if (canAccessSuper) {
+      adminItems.push(
+        { to: "/app/admin/analytics", label: "Analytics" },
+        { to: "/app/admin/workflows", label: "Workflows" },
+        { to: "/app/admin/assistant", label: "AI Assistant" },
+        { to: "/app/admin/users", label: "Users" }
+      );
+    }
+    if (canAccessRegistrar) {
+      adminItems.push(
+        { to: "/app/admin/registration", label: "Registration Ops" },
+        { to: "/app/admin/academic", label: "Academic Setup" }
+      );
+    }
+    if (canAccessFinance) {
+      adminItems.push({ to: "/app/admin/finance", label: "Finance" });
+    }
+    if (canAccessContent) {
+      adminItems.push({ to: "/app/admin/moderation", label: "Moderation & News" });
+    }
+    if (canAccessSupport) {
+      adminItems.push({ to: "/app/admin/requests", label: "Requests" });
+    }
+
     return [
       {
         title: "Administration",
-        items: [
-          { to: "/app/admin", label: "Overview" },
-          { to: "/app/admin/analytics", label: "Analytics" },
-          { to: "/app/admin/workflows", label: "Workflows" },
-          { to: "/app/admin/assistant", label: "AI Assistant" },
-          { to: "/app/admin/registration", label: "Registration Ops" },
-          { to: "/app/admin/notifications", label: "Notifications" },
-          { to: "/app/admin/academic", label: "Academic Setup" },
-          { to: "/app/admin/finance", label: "Finance" },
-          { to: "/app/admin/moderation", label: "Moderation & News" },
-          { to: "/app/admin/users", label: "Users" },
-          { to: "/app/admin/requests", label: "Requests" }
-        ]
+        items: adminItems
       }
     ];
   }
@@ -88,7 +110,8 @@ function getNav(role: string | null): NavGroup[] {
 export default function AppLayout() {
   const navigate = useNavigate();
   const role = getUserRole();
-  const nav = getNav(role);
+  const permissions = getUserPermissions();
+  const nav = getNav(role, permissions);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {

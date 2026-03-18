@@ -62,8 +62,29 @@ export default function TeacherMaterialsPage() {
   }
 
   useEffect(() => {
-    void loadMaterials(sectionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function refreshMaterials() {
+      if (!sectionId) {
+        setItems([]);
+        return;
+      }
+      try {
+        const data = await fetchTeacherMaterials(Number(sectionId));
+        if (!cancelled) {
+          setItems(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load materials");
+        }
+      }
+    }
+
+    void refreshMaterials();
+    return () => {
+      cancelled = true;
+    };
   }, [sectionId]);
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
@@ -219,4 +240,3 @@ export default function TeacherMaterialsPage() {
     </div>
   );
 }
-

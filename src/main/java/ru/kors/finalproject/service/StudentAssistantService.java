@@ -27,6 +27,7 @@ public class StudentAssistantService {
     private final StudentRequestRepository studentRequestRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final AuditService auditService;
+    private final GpaCalculationService gpaCalculationService;
 
     @Value("${app.ai.read-only:true}")
     private boolean readOnly;
@@ -150,9 +151,7 @@ public class StudentAssistantService {
                         .limit(10)
                         .toList();
 
-        double publishedGpa = publishedFinalGrades.isEmpty()
-                ? 0.0
-                : publishedFinalGrades.stream().mapToDouble(FinalGrade::getPoints).average().orElse(0.0);
+        double publishedGpa = gpaCalculationService.calculatePublishedGpa(publishedFinalGrades);
 
         long overallPresent = attendanceRecords.stream().filter(item -> item.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
         long overallLate = attendanceRecords.stream().filter(item -> item.getStatus() == Attendance.AttendanceStatus.LATE).count();

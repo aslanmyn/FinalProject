@@ -73,11 +73,16 @@ public class AdminAcademicService {
 
     @Transactional
     public Subject createSubject(String code, String name, int credits, Long programId, User actor) {
+        Program programRef = null;
+        if (programId != null) {
+            programRef = new Program();
+            programRef.setId(programId);
+        }
         Subject subject = Subject.builder()
                 .code(code)
                 .name(name)
                 .credits(credits)
-                .program(programId != null ? new Program() {{ setId(programId); }} : null)
+                .program(programRef)
                 .build();
         Subject saved = subjectRepository.save(subject);
         auditService.logUserAction(actor, "SUBJECT_CREATED", "Subject", saved.getId(), "code=" + code);

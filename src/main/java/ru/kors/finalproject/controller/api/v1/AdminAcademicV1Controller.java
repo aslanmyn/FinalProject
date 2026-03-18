@@ -35,7 +35,7 @@ public class AdminAcademicV1Controller {
     private final ApiPageableFactory apiPageableFactory;
 
     @PostMapping("/terms")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> createTerm(
             @AuthenticationPrincipal User admin,
             @RequestBody CreateTermBody body) {
@@ -45,13 +45,13 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/terms")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> listTerms(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(adminAcademicService.listTerms());
     }
 
     @PostMapping("/sections")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> createSection(
             @AuthenticationPrincipal User admin,
             @RequestBody CreateSectionBody body) {
@@ -62,7 +62,7 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/sections")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> listSections(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -72,7 +72,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/sections/{id}/assign-professor")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> assignProfessor(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -83,7 +83,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/sections/{id}/meeting-times")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> addMeetingTime(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -94,7 +94,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/windows")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> upsertWindow(
             @AuthenticationPrincipal User admin,
             @RequestBody WindowBody body) {
@@ -104,7 +104,7 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/windows")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> listWindows(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(registrationWindowRepository.findAllWithSemesterOrderByStartDateDesc().stream()
                 .map(this::toWindowDto)
@@ -112,7 +112,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/enrollments/override")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> overrideEnrollment(
             @AuthenticationPrincipal User admin,
             @RequestBody EnrollmentOverrideBody body) {
@@ -121,7 +121,7 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/exams")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> listExams(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -134,7 +134,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/exams")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> createExam(
             @AuthenticationPrincipal User admin,
             @RequestBody CreateExamBody body) {
@@ -146,7 +146,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PutMapping("/exams/{id}")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> updateExam(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -159,7 +159,7 @@ public class AdminAcademicV1Controller {
     }
 
     @DeleteMapping("/exams/{id}")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> deleteExam(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id) {
@@ -168,7 +168,7 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/fx")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> listFx(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(fxRegistrationService.listAll().stream()
                 .map(this::toFxDto)
@@ -176,7 +176,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/fx/{id}/status")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> updateFxStatus(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -185,7 +185,7 @@ public class AdminAcademicV1Controller {
     }
 
     @GetMapping("/grade-change-requests")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> gradeChangeRequests(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
@@ -204,7 +204,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/grade-change-requests/{id}/review")
-    @PreAuthorize("hasAuthority('PERM_REGISTRAR')")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> reviewGradeChangeRequest(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -221,6 +221,7 @@ public class AdminAcademicV1Controller {
     }
 
     @PostMapping("/students/{id}/status")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     public ResponseEntity<?> updateStudentStatus(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,

@@ -58,8 +58,36 @@ export default function TeacherNotesPage() {
   }
 
   useEffect(() => {
-    void loadData(sectionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function refreshNotes() {
+      if (!sectionId) {
+        setRoster([]);
+        setItems([]);
+        setStudentId("");
+        return;
+      }
+      try {
+        const [r, n] = await Promise.all([
+          fetchTeacherRoster(Number(sectionId)),
+          fetchTeacherNotes(Number(sectionId))
+        ]);
+        if (!cancelled) {
+          setRoster(r);
+          setItems(n);
+          setStudentId(r[0]?.studentId ?? "");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load notes");
+        }
+      }
+    }
+
+    void refreshNotes();
+    return () => {
+      cancelled = true;
+    };
   }, [sectionId]);
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -180,4 +208,3 @@ export default function TeacherNotesPage() {
     </div>
   );
 }
-

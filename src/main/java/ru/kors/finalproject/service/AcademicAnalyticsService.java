@@ -30,6 +30,7 @@ public class AcademicAnalyticsService {
     private final StudentRepository studentRepository;
     private final TeacherRepository teacherRepository;
     private final RegistrationWindowRepository registrationWindowRepository;
+    private final GpaCalculationService gpaCalculationService;
 
     @Transactional(readOnly = true)
     public StudentRiskDashboard buildStudentRiskDashboard(Student student) {
@@ -142,9 +143,9 @@ public class AcademicAnalyticsService {
                 })
                 .toList();
 
-        double projectedTermGpa = courses.isEmpty()
-                ? 0.0
-                : courses.stream().mapToDouble(StudentPlannerSimulationCourse::projectedPoints).average().orElse(0.0);
+        double projectedTermGpa = gpaCalculationService.calculateWeightedGpa(courses.stream()
+                .map(course -> new GpaCalculationService.CreditPoints(course.projectedPoints(), course.credits()))
+                .toList());
         double projectedOverallGpa = calculateProjectedOverallGpa(context, sanitized);
 
         return new StudentPlannerSimulation(
@@ -516,7 +517,7 @@ public class AcademicAnalyticsService {
                 metricsByOffering,
                 activeSemesterId,
                 activeSemester != null ? activeSemester.getName() : "No semester",
-                finalGrades.isEmpty() ? 0.0 : finalGrades.stream().mapToDouble(FinalGrade::getPoints).average().orElse(0.0),
+                gpaCalculationService.calculatePublishedGpa(finalGrades),
                 finalGrades.size(),
                 overallAttendanceRate,
                 holds.stream().anyMatch(hold -> hold.getType() == Hold.HoldType.FINANCIAL),
@@ -578,10 +579,15 @@ public class AcademicAnalyticsService {
                         && context.courseMetrics.containsKey(finalGrade.getSubjectOffering().getId()))
                 .collect(Collectors.toMap(finalGrade -> finalGrade.getSubjectOffering().getId(), Function.identity(), (left, right) -> left));
 
-        List<Double> points = historicalFinals.stream()
+        List<GpaCalculationService.CreditPoints> weightedPoints = historicalFinals.stream()
                 .filter(finalGrade -> finalGrade.getSubjectOffering() == null
                         || !context.courseMetrics.containsKey(finalGrade.getSubjectOffering().getId()))
-                .map(FinalGrade::getPoints)
+                .filter(finalGrade -> finalGrade.getSubjectOffering() != null
+                        && finalGrade.getSubjectOffering().getSubject() != null)
+                .map(finalGrade -> new GpaCalculationService.CreditPoints(
+                        finalGrade.getPoints(),
+                        finalGrade.getSubjectOffering().getSubject().getCredits()
+                ))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         for (CourseMetrics metrics : context.courseMetrics.values()) {
@@ -590,14 +596,20 @@ public class AcademicAnalyticsService {
                 continue;
             }
             if (projectedFinal == null && publishedCurrentSemester.containsKey(metrics.sectionId)) {
-                points.add(publishedCurrentSemester.get(metrics.sectionId).getPoints());
+                weightedPoints.add(new GpaCalculationService.CreditPoints(
+                        publishedCurrentSemester.get(metrics.sectionId).getPoints(),
+                        metrics.credits
+                ));
                 continue;
             }
             double projectedTotal = clamp(metrics.attestation1 + metrics.attestation2 + (projectedFinal != null ? projectedFinal : 0.0), 0.0, 100.0);
-            points.add(gradeScale(projectedTotal).points());
+            weightedPoints.add(new GpaCalculationService.CreditPoints(
+                    gradeScale(projectedTotal).points(),
+                    metrics.credits
+            ));
         }
 
-        return points.isEmpty() ? 0.0 : points.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        return gpaCalculationService.calculateWeightedGpa(weightedPoints);
     }
 
     private List<SubjectOffering> selectFocusedTeacherSections(List<SubjectOffering> sections) {

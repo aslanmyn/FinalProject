@@ -85,8 +85,37 @@ export default function TeacherGradebookPage() {
   }
 
   useEffect(() => {
-    void reloadSectionData(sectionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function refreshSectionData() {
+      if (!sectionId) {
+        setRoster([]);
+        setComponents([]);
+        return;
+      }
+      try {
+        const [r, c] = await Promise.all([
+          fetchTeacherRoster(Number(sectionId)),
+          fetchTeacherComponents(Number(sectionId))
+        ]);
+        if (!cancelled) {
+          setRoster(r);
+          setComponents(c);
+          setGradeStudentId(r[0]?.studentId ?? "");
+          setFinalStudentId(r[0]?.studentId ?? "");
+          setGradeComponentId(c[0]?.id ?? "");
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : "Failed to load gradebook data");
+        }
+      }
+    }
+
+    void refreshSectionData();
+    return () => {
+      cancelled = true;
+    };
   }, [sectionId]);
 
   async function handleCreateComponent(event: FormEvent<HTMLFormElement>) {
@@ -378,4 +407,3 @@ export default function TeacherGradebookPage() {
     </div>
   );
 }
-

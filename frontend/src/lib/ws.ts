@@ -1,9 +1,12 @@
 import { Client, IMessage } from "@stomp/stompjs";
 import { getAccessToken } from "./auth";
 
+type Listener = (msg: IMessage) => void;
+
 let stompClient: Client | null = null;
-const subscriptions = new Map<string, { unsubscribe: () => void }>();
-const pendingSubscriptions = new Map<string, (msg: IMessage) => void>();
+const activeSubscriptions = new Map<string, { unsubscribe: () => void }>();
+const destinationListeners = new Map<string, Set<Listener>>();
+const pendingDestinations = new Set<string>();
 let pendingConnectCallbacks: Array<() => void> = [];
 
 function getWsUrl(): string {
@@ -36,8 +39,8 @@ export function connectStomp(onConnect?: () => void): Client {
 
   const client = new Client({
     brokerURL: getWsUrl(),
-    beforeConnect: (client) => {
-      client.connectHeaders = {
+    beforeConnect: (nextClient) => {
+      nextClient.connectHeaders = {
         Authorization: `Bearer ${getAccessToken() || ""}`
       };
     },
@@ -61,41 +64,41 @@ export function connectStomp(onConnect?: () => void): Client {
 }
 
 export function disconnectStomp(): void {
-  subscriptions.forEach((sub) => sub.unsubscribe());
-  subscriptions.clear();
-  pendingSubscriptions.clear();
+  activeSubscriptions.forEach((sub) => sub.unsubscribe());
+  activeSubscriptions.clear();
+  destinationListeners.clear();
+  pendingDestinations.clear();
   pendingConnectCallbacks = [];
   stompClient?.deactivate();
   stompClient = null;
 }
 
-export function subscribeTo(
-  destination: string,
-  callback: (msg: IMessage) => void
-): () => void {
-  const key = destination;
-
-  if (subscriptions.has(key)) {
-    subscriptions.get(key)!.unsubscribe();
-    subscriptions.delete(key);
-  }
+export function subscribeTo(destination: string, callback: Listener): () => void {
+  const listeners = destinationListeners.get(destination) ?? new Set<Listener>();
+  listeners.add(callback);
+  destinationListeners.set(destination, listeners);
 
   if (!stompClient?.connected) {
+    pendingDestinations.add(destination);
     connectStomp();
-    pendingSubscriptions.set(key, callback);
-    return () => {
-      pendingSubscriptions.delete(key);
-      subscriptions.get(key)?.unsubscribe();
-      subscriptions.delete(key);
-    };
+  } else {
+    ensureSubscription(destination);
   }
 
-  const sub = stompClient.subscribe(destination, callback);
-  subscriptions.set(key, sub);
-
   return () => {
-    sub.unsubscribe();
-    subscriptions.delete(key);
+    const currentListeners = destinationListeners.get(destination);
+    if (!currentListeners) {
+      return;
+    }
+    currentListeners.delete(callback);
+    if (currentListeners.size > 0) {
+      return;
+    }
+
+    destinationListeners.delete(destination);
+    pendingDestinations.delete(destination);
+    activeSubscriptions.get(destination)?.unsubscribe();
+    activeSubscriptions.delete(destination);
   };
 }
 
@@ -119,13 +122,24 @@ function flushPendingSubscriptions(): void {
     return;
   }
 
-  pendingSubscriptions.forEach((callback, destination) => {
-    if (subscriptions.has(destination)) {
-      subscriptions.get(destination)!.unsubscribe();
-      subscriptions.delete(destination);
+  for (const destination of destinationListeners.keys()) {
+    ensureSubscription(destination);
+  }
+  pendingDestinations.clear();
+}
+
+function ensureSubscription(destination: string): void {
+  if (!stompClient?.connected || activeSubscriptions.has(destination)) {
+    return;
+  }
+
+  const subscription = stompClient.subscribe(destination, (message) => {
+    const listeners = destinationListeners.get(destination);
+    if (!listeners) {
+      return;
     }
-    const sub = stompClient!.subscribe(destination, callback);
-    subscriptions.set(destination, sub);
+    listeners.forEach((listener) => listener(message));
   });
-  pendingSubscriptions.clear();
+
+  activeSubscriptions.set(destination, subscription);
 }

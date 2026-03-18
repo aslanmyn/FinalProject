@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
+import ru.kors.finalproject.service.GpaCalculationService;
 import ru.kors.finalproject.web.api.v1.CurrentUserHelper;
 
 import java.util.*;
@@ -23,6 +24,7 @@ public class StudentAcademicV1Controller {
     private final AttendanceRepository attendanceRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final SemesterRepository semesterRepository;
+    private final GpaCalculationService gpaCalculationService;
 
     @GetMapping("/schedule")
     public ResponseEntity<?> schedule(
@@ -165,7 +167,7 @@ public class StudentAcademicV1Controller {
     public ResponseEntity<?> transcript(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<FinalGrade> grades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
-        double gpa = grades.isEmpty() ? 0 : grades.stream().mapToDouble(FinalGrade::getPoints).average().orElse(0.0);
+        double gpa = gpaCalculationService.calculatePublishedGpa(grades);
         return ResponseEntity.ok(Map.of(
                 "studentId", student.getId(),
                 "studentName", student.getName(),

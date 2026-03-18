@@ -2,6 +2,7 @@ package ru.kors.finalproject.controller.api.v1;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.CourseMaterialRepository;
@@ -10,7 +11,6 @@ import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.StudentRepository;
 import ru.kors.finalproject.service.FileLinkService;
 import ru.kors.finalproject.service.FileStorageService;
-import ru.kors.finalproject.service.MobileApiAuthService;
 import ru.kors.finalproject.web.api.v1.ApiForbiddenException;
 import ru.kors.finalproject.web.api.v1.ApiUnauthorizedException;
 
@@ -18,8 +18,6 @@ import ru.kors.finalproject.web.api.v1.ApiUnauthorizedException;
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
 public class FileV1Controller {
-
-    private final MobileApiAuthService mobileApiAuthService;
     private final FileAssetRepository fileAssetRepository;
     private final CourseMaterialRepository courseMaterialRepository;
     private final RegistrationRepository registrationRepository;
@@ -29,9 +27,8 @@ public class FileV1Controller {
 
     @GetMapping("/asset/{id}/link")
     public ResponseEntity<?> generateAssetLink(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        User user = mobileApiAuthService.requireUser(authHeader);
         FileAsset asset = fileAssetRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("File asset not found"));
         assertCanAccessAsset(user, asset);
@@ -40,9 +37,8 @@ public class FileV1Controller {
 
     @GetMapping("/material/{id}/link")
     public ResponseEntity<?> generateMaterialLink(
-            @RequestHeader("Authorization") String authHeader,
+            @AuthenticationPrincipal User user,
             @PathVariable Long id) {
-        User user = mobileApiAuthService.requireUser(authHeader);
         CourseMaterial material = courseMaterialRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Course material not found"));
         assertCanAccessMaterial(user, material);
