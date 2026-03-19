@@ -46,6 +46,40 @@ export interface TeacherRosterItem {
   status: string;
 }
 
+export interface TeacherAttendanceSessionItem {
+  id: number;
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  classDate: string;
+  status: "DRAFT" | "OPEN" | "CLOSED";
+  checkInMode: "ONE_CLICK" | "CODE";
+  allowTeacherOverride: boolean;
+  locked: boolean;
+  attendanceCloseAt: string | null;
+  openedAt: string | null;
+  closedAt: string | null;
+  checkInCode: string | null;
+}
+
+export interface TeacherAttendanceRecordItem {
+  studentId: number;
+  studentName: string;
+  studentEmail: string;
+  attendanceId: number | null;
+  status: "PRESENT" | "LATE" | "ABSENT" | null;
+  reason: string | null;
+  markedBy: "STUDENT" | "TEACHER" | "SYSTEM" | null;
+  teacherConfirmed: boolean;
+  markedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface TeacherActiveAttendancePayload {
+  session: TeacherAttendanceSessionItem | null;
+  records: TeacherAttendanceRecordItem[];
+}
+
 export interface TeacherComponentItem {
   id: number;
   name: string;

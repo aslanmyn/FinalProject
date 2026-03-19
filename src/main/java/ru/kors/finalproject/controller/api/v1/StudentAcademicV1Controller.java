@@ -6,6 +6,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
+import ru.kors.finalproject.service.AttendanceFlowService;
 import ru.kors.finalproject.service.GpaCalculationService;
 import ru.kors.finalproject.web.api.v1.CurrentUserHelper;
 
@@ -25,6 +26,7 @@ public class StudentAcademicV1Controller {
     private final ExamScheduleRepository examScheduleRepository;
     private final SemesterRepository semesterRepository;
     private final GpaCalculationService gpaCalculationService;
+    private final AttendanceFlowService attendanceFlowService;
 
     @GetMapping("/schedule")
     public ResponseEntity<?> schedule(
@@ -186,6 +188,8 @@ public class StudentAcademicV1Controller {
     public ResponseEntity<?> attendance(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<Attendance> items = attendanceRepository.findByStudentIdWithDetails(student.getId());
+        List<AttendanceFlowService.StudentActiveAttendanceSessionView> activeSessions =
+                attendanceFlowService.getActiveSessionsForStudent(student);
         long present = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.PRESENT).count();
         long late = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.LATE).count();
         long absent = items.stream().filter(a -> a.getStatus() == Attendance.AttendanceStatus.ABSENT).count();
@@ -197,9 +201,34 @@ public class StudentAcademicV1Controller {
                         "status", a.getStatus(),
                         "reason", a.getReason() != null ? a.getReason() : ""
                 )).toList(),
+                "activeSessions", activeSessions.stream().map(this::toStudentActiveAttendanceDto).toList(),
                 "summary", Map.of("present", present, "late", late, "absent", absent,
                         "total", items.size(),
                         "percentage", items.isEmpty() ? 0.0 : ((present + late) * 100.0 / items.size()))
+        ));
+    }
+
+    @GetMapping("/attendance/active")
+    public ResponseEntity<?> activeAttendance(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(attendanceFlowService.getActiveSessionsForStudent(student).stream()
+                .map(this::toStudentActiveAttendanceDto)
+                .toList());
+    }
+
+    @PostMapping("/attendance-sessions/{sessionId}/check-in")
+    public ResponseEntity<?> checkInAttendance(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sessionId,
+            @RequestBody(required = false) StudentAttendanceCheckInBody body) {
+        Student student = currentUserHelper.requireStudent(user);
+        Attendance attendance = attendanceFlowService.checkIn(student, sessionId, body != null ? body.code() : null);
+        return ResponseEntity.ok(Map.of(
+                "sessionId", sessionId,
+                "status", attendance.getStatus(),
+                "markedBy", attendance.getMarkedBy(),
+                "teacherConfirmed", attendance.isTeacherConfirmed(),
+                "updatedAt", attendance.getUpdatedAt()
         ));
     }
 
@@ -332,6 +361,21 @@ public class StudentAcademicV1Controller {
     public record TranscriptItemDto(Long id, String courseCode, String courseName, int credits,
                                     double numericValue, String letterValue, double points,
                                     FinalGrade.FinalGradeStatus status) {}
+    public record StudentAttendanceActiveSessionDto(
+            Long sessionId,
+            Long sectionId,
+            String subjectCode,
+            String subjectName,
+            String teacherName,
+            String classDate,
+            String attendanceCloseAt,
+            AttendanceSession.CheckInMode checkInMode,
+            Attendance.AttendanceStatus currentStatus,
+            Attendance.MarkedBy markedBy,
+            boolean teacherConfirmed,
+            Registration.RegistrationStatus registrationStatus
+    ) {}
+    public record StudentAttendanceCheckInBody(String code) {}
 
     private static class JournalCourseRowAccumulator {
         private final Long sectionId;
@@ -373,5 +417,24 @@ public class StudentAcademicV1Controller {
                     finalExam, finalExamMax, totalScore, letterValue
             );
         }
+    }
+
+    private StudentAttendanceActiveSessionDto toStudentActiveAttendanceDto(
+            AttendanceFlowService.StudentActiveAttendanceSessionView session
+    ) {
+        return new StudentAttendanceActiveSessionDto(
+                session.sessionId(),
+                session.sectionId(),
+                session.subjectCode(),
+                session.subjectName(),
+                session.teacherName(),
+                session.classDate() != null ? session.classDate().toString() : null,
+                session.attendanceCloseAt() != null ? session.attendanceCloseAt().toString() : null,
+                session.checkInMode(),
+                session.currentStatus(),
+                session.markedBy(),
+                session.teacherConfirmed(),
+                session.registrationStatus()
+        );
     }
 }

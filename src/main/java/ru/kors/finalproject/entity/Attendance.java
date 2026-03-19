@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.Instant;
 
 @Entity
 @Table(name = "attendances", uniqueConstraints = @UniqueConstraint(columnNames = {"student_id", "subject_offering_id", "date"}))
@@ -37,6 +38,17 @@ public class Attendance {
     @Enumerated(EnumType.STRING)
     private AttendanceStatus status;
     private String reason;
+    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    private MarkedBy markedBy = MarkedBy.TEACHER;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean teacherConfirmed = true;
+    private Instant markedAt;
+    private Instant updatedAt;
 
     public enum AttendanceStatus { PRESENT, LATE, ABSENT }
+
+    public enum MarkedBy { STUDENT, TEACHER, SYSTEM }
 }

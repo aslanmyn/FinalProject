@@ -53,9 +53,11 @@ import type {
 import type {
   TeacherAnnouncementItem,
   TeacherAssistantReply,
+  TeacherActiveAttendancePayload,
   TeacherComponentItem,
   TeacherGradeChangeRequestItem,
   TeacherMaterialItem,
+  TeacherAttendanceRecordItem,
   TeacherNotificationCenterData,
   TeacherNoteItem,
   TeacherRiskDashboard,
@@ -252,6 +254,23 @@ export async function fetchStudentAttendance(): Promise<StudentAttendanceData> {
   return request<StudentAttendanceData>("/api/v1/student/attendance");
 }
 
+export async function fetchStudentActiveAttendance(): Promise<StudentAttendanceData["activeSessions"]> {
+  return request<StudentAttendanceData["activeSessions"]>("/api/v1/student/attendance/active");
+}
+
+export async function checkInStudentAttendance(sessionId: number, code?: string): Promise<{
+  sessionId: number;
+  status: string;
+  markedBy: string;
+  teacherConfirmed: boolean;
+  updatedAt: string | null;
+}> {
+  return request(`/api/v1/student/attendance-sessions/${sessionId}/check-in`, {
+    method: "POST",
+    body: code ? { code } : {}
+  });
+}
+
 export async function fetchStudentRegistrationOverview(): Promise<StudentRegistrationOverview> {
   return request<StudentRegistrationOverview>("/api/v1/student/course-registration/overview");
 }
@@ -435,6 +454,56 @@ export async function markTeacherAttendance(
   await request(`/api/v1/teacher/sections/${sectionId}/attendance`, {
     method: "POST",
     body: { classDate, marks }
+  });
+}
+
+export async function fetchTeacherActiveAttendance(
+  sectionId: number,
+  classDate?: string
+): Promise<TeacherActiveAttendancePayload> {
+  const query = classDate ? `?classDate=${encodeURIComponent(classDate)}` : "";
+  return request<TeacherActiveAttendancePayload>(`/api/v1/teacher/sections/${sectionId}/attendance/active${query}`);
+}
+
+export async function openTeacherAttendanceSession(
+  sectionId: number,
+  payload: {
+    classDate: string;
+    closeAt?: string;
+    checkInMode: "ONE_CLICK" | "CODE";
+    checkInCode?: string;
+    allowTeacherOverride: boolean;
+  }
+): Promise<TeacherActiveAttendancePayload> {
+  return request<TeacherActiveAttendancePayload>(`/api/v1/teacher/sections/${sectionId}/attendance/open`, {
+    method: "POST",
+    body: payload
+  });
+}
+
+export async function closeTeacherAttendanceSession(
+  sessionId: number
+): Promise<TeacherActiveAttendancePayload> {
+  return request<TeacherActiveAttendancePayload>(`/api/v1/teacher/attendance-sessions/${sessionId}/close`, {
+    method: "POST"
+  });
+}
+
+export async function fetchTeacherAttendanceRecords(
+  sessionId: number
+): Promise<TeacherAttendanceRecordItem[]> {
+  return request<TeacherAttendanceRecordItem[]>(`/api/v1/teacher/attendance-sessions/${sessionId}/records`);
+}
+
+export async function overrideTeacherAttendance(
+  sessionId: number,
+  studentId: number,
+  status: "PRESENT" | "LATE" | "ABSENT",
+  reason = ""
+): Promise<TeacherAttendanceRecordItem> {
+  return request<TeacherAttendanceRecordItem>(`/api/v1/teacher/attendance-sessions/${sessionId}/students/${studentId}`, {
+    method: "PUT",
+    body: { status, reason }
   });
 }
 

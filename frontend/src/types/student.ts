@@ -221,6 +221,21 @@ export interface StudentAttendanceRecordItem {
   reason: string;
 }
 
+export interface StudentAttendanceActiveSessionItem {
+  sessionId: number;
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  teacherName: string | null;
+  classDate: string | null;
+  attendanceCloseAt: string | null;
+  checkInMode: "ONE_CLICK" | "CODE";
+  currentStatus: string | null;
+  markedBy: string | null;
+  teacherConfirmed: boolean;
+  registrationStatus: string;
+}
+
 export interface StudentAttendanceSummary {
   present: number;
   late: number;
@@ -231,6 +246,7 @@ export interface StudentAttendanceSummary {
 
 export interface StudentAttendanceData {
   records: StudentAttendanceRecordItem[];
+  activeSessions: StudentAttendanceActiveSessionItem[];
   summary: StudentAttendanceSummary;
 }
 

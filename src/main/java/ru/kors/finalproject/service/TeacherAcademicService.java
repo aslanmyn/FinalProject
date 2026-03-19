@@ -50,6 +50,11 @@ public class TeacherAcademicService {
                         .subjectOffering(offering)
                         .classDate(classDate)
                         .createdBy(teacher)
+                        .status(AttendanceSession.SessionStatus.CLOSED)
+                        .checkInMode(AttendanceSession.CheckInMode.ONE_CLICK)
+                        .allowTeacherOverride(true)
+                        .openedAt(Instant.now())
+                        .closedAt(Instant.now())
                         .locked(false)
                         .createdAt(Instant.now())
                         .build()));
@@ -85,6 +90,10 @@ public class TeacherAcademicService {
             attendance.setStatus(mark.status());
             attendance.setReason(mark.reason());
             attendance.setSession(session);
+            attendance.setMarkedBy(Attendance.MarkedBy.TEACHER);
+            attendance.setTeacherConfirmed(true);
+            attendance.setMarkedAt(attendance.getMarkedAt() != null ? attendance.getMarkedAt() : Instant.now());
+            attendance.setUpdatedAt(Instant.now());
             attendanceRepository.save(attendance);
 
             notificationService.notifyStudent(

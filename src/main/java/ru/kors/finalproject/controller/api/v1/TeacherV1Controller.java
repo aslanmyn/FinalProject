@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.LinkedHashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ public class TeacherV1Controller {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final RegistrationRepository registrationRepository;
     private final TeacherAcademicService teacherAcademicService;
+    private final AttendanceFlowService attendanceFlowService;
     private final AnnouncementService announcementService;
     private final GradeChangeService gradeChangeService;
     private final CourseMaterialService courseMaterialService;
@@ -136,6 +138,99 @@ public class TeacherV1Controller {
         Teacher teacher = currentUserHelper.requireTeacher(user);
         teacherAcademicService.markAttendance(teacher, sectionId, LocalDate.parse(body.classDate()), body.marks());
         return ResponseEntity.ok(Map.of("status", "ok"));
+    }
+
+    @GetMapping("/sections/{sectionId}/attendance/active")
+    public ResponseEntity<?> activeAttendanceSession(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sectionId,
+            @RequestParam(required = false) String classDate) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
+        LocalDate effectiveDate = classDate != null && !classDate.isBlank()
+                ? LocalDate.parse(classDate)
+                : LocalDate.now();
+        AttendanceSession session = attendanceFlowService.getSectionSession(teacher, sectionId, effectiveDate);
+        if (session == null) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("session", null);
+            payload.put("records", List.of());
+            return ResponseEntity.ok(payload);
+        }
+        return ResponseEntity.ok(Map.of(
+                "session", toAttendanceSessionDto(session),
+                "records", attendanceFlowService.getSessionRosterView(teacher, session.getId()).stream()
+                        .map(this::toTeacherAttendanceRecordDto)
+                        .toList()
+        ));
+    }
+
+    @PostMapping("/sections/{sectionId}/attendance/open")
+    public ResponseEntity<?> openAttendanceSession(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sectionId,
+            @RequestBody OpenAttendanceBody body) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
+        AttendanceSession session = attendanceFlowService.openSession(
+                teacher,
+                sectionId,
+                LocalDate.parse(body.classDate()),
+                attendanceFlowService.parseCloseAt(body.closeAt()),
+                body.checkInMode() != null ? body.checkInMode() : AttendanceSession.CheckInMode.ONE_CLICK,
+                body.checkInCode(),
+                body.allowTeacherOverride()
+        );
+        return ResponseEntity.ok(Map.of(
+                "session", toAttendanceSessionDto(session),
+                "records", attendanceFlowService.getSessionRosterView(teacher, session.getId()).stream()
+                        .map(this::toTeacherAttendanceRecordDto)
+                        .toList()
+        ));
+    }
+
+    @PostMapping("/attendance-sessions/{sessionId}/close")
+    public ResponseEntity<?> closeAttendanceSession(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sessionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
+        AttendanceSession session = attendanceFlowService.closeSession(teacher, sessionId);
+        return ResponseEntity.ok(Map.of(
+                "session", toAttendanceSessionDto(session),
+                "records", attendanceFlowService.getSessionRosterView(teacher, session.getId()).stream()
+                        .map(this::toTeacherAttendanceRecordDto)
+                        .toList()
+        ));
+    }
+
+    @GetMapping("/attendance-sessions/{sessionId}/records")
+    public ResponseEntity<?> attendanceSessionRecords(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sessionId) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
+        return ResponseEntity.ok(attendanceFlowService.getSessionRosterView(teacher, sessionId).stream()
+                .map(this::toTeacherAttendanceRecordDto)
+                .toList());
+    }
+
+    @PutMapping("/attendance-sessions/{sessionId}/students/{studentId}")
+    public ResponseEntity<?> overrideAttendance(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long sessionId,
+            @PathVariable Long studentId,
+            @RequestBody TeacherAttendanceOverrideBody body) {
+        Teacher teacher = currentUserHelper.requireTeacher(user);
+        attendanceFlowService.overrideAttendance(
+                teacher,
+                sessionId,
+                studentId,
+                body.status(),
+                body.reason()
+        );
+        return ResponseEntity.ok(toTeacherAttendanceRecordDto(
+                attendanceFlowService.getSessionRosterView(teacher, sessionId).stream()
+                        .filter(item -> item.studentId().equals(studentId))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalArgumentException("Attendance record not found"))
+        ));
     }
 
     @GetMapping("/sections/{sectionId}/components")
@@ -579,7 +674,75 @@ public class TeacherV1Controller {
         );
     }
 
+    private AttendanceSessionDto toAttendanceSessionDto(AttendanceSession session) {
+        return new AttendanceSessionDto(
+                session.getId(),
+                session.getSubjectOffering().getId(),
+                session.getSubjectOffering().getSubject().getCode(),
+                session.getSubjectOffering().getSubject().getName(),
+                session.getClassDate(),
+                session.getStatus(),
+                session.getCheckInMode(),
+                session.isAllowTeacherOverride(),
+                session.isLocked(),
+                session.getAttendanceCloseAt(),
+                session.getOpenedAt(),
+                session.getClosedAt(),
+                session.getCheckInMode() == AttendanceSession.CheckInMode.CODE ? session.getCheckInCode() : null
+        );
+    }
+
+    private TeacherAttendanceRecordDto toTeacherAttendanceRecordDto(AttendanceFlowService.TeacherAttendanceRecordView record) {
+        return new TeacherAttendanceRecordDto(
+                record.studentId(),
+                record.studentName(),
+                record.studentEmail(),
+                record.attendanceId(),
+                record.status(),
+                record.reason(),
+                record.markedBy(),
+                record.teacherConfirmed(),
+                record.markedAt(),
+                record.updatedAt()
+        );
+    }
+
     public record AttendanceBody(String classDate, List<TeacherAcademicService.AttendanceMarkInput> marks) {}
+    public record OpenAttendanceBody(
+            String classDate,
+            String closeAt,
+            AttendanceSession.CheckInMode checkInMode,
+            String checkInCode,
+            boolean allowTeacherOverride
+    ) {}
+    public record TeacherAttendanceOverrideBody(Attendance.AttendanceStatus status, String reason) {}
+    public record AttendanceSessionDto(
+            Long id,
+            Long sectionId,
+            String subjectCode,
+            String subjectName,
+            LocalDate classDate,
+            AttendanceSession.SessionStatus status,
+            AttendanceSession.CheckInMode checkInMode,
+            boolean allowTeacherOverride,
+            boolean locked,
+            Instant attendanceCloseAt,
+            Instant openedAt,
+            Instant closedAt,
+            String checkInCode
+    ) {}
+    public record TeacherAttendanceRecordDto(
+            Long studentId,
+            String studentName,
+            String studentEmail,
+            Long attendanceId,
+            Attendance.AttendanceStatus status,
+            String reason,
+            Attendance.MarkedBy markedBy,
+            boolean teacherConfirmed,
+            Instant markedAt,
+            Instant updatedAt
+    ) {}
     public record TeacherProfileDto(Long id, String name, String email, String department,
                                     String position, String officeHours, String officeRoom,
                                     Teacher.TeacherRole teacherRole, String faculty,

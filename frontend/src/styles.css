@@ -3016,3 +3016,124 @@ button:disabled {
     flex-direction: column;
   }
 }
+
+/* Attendance self check-in */
+.attendance-live-card,
+.attendance-session-summary-card {
+  display: grid;
+  gap: 18px;
+}
+
+.attendance-live-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.attendance-live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.attendance-live-empty {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  background: var(--bg-subtle);
+}
+
+.attendance-session-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.attendance-session-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.attendance-session-meta {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.attendance-code-field {
+  display: grid;
+  gap: 6px;
+}
+
+.attendance-open-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.attendance-checkbox-field {
+  align-self: stretch;
+}
+
+.attendance-checkbox-field input {
+  width: 16px;
+  height: 16px;
+  margin-top: 6px;
+}
+
+.attendance-session-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.attendance-summary-chip {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  display: grid;
+  gap: 6px;
+}
+
+.attendance-summary-chip span {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.attendance-summary-chip strong {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.attendance-table td {
+  vertical-align: top;
+}
+
+.attendance-override-grid {
+  min-width: 240px;
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 980px) {
+  .attendance-live-header,
+  .attendance-session-top {
+    flex-direction: column;
+  }
+
+  .attendance-override-grid {
+    min-width: 0;
+  }
+}

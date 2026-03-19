@@ -1,6 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { ApiError, fetchStudentAttendance } from "../../lib/api";
-import type { StudentAttendanceData, StudentAttendanceRecordItem } from "../../types/student";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ApiError,
+  checkInStudentAttendance,
+  fetchStudentAttendance,
+} from "../../lib/api";
+import { connectStomp, subscribeTo } from "../../lib/ws";
+import type {
+  StudentAttendanceActiveSessionItem,
+  StudentAttendanceData,
+  StudentAttendanceRecordItem,
+} from "../../types/student";
 
 function buildSummary(records: StudentAttendanceRecordItem[]) {
   const present = records.filter((item) => item.status === "PRESENT").length;
@@ -12,37 +21,57 @@ function buildSummary(records: StudentAttendanceRecordItem[]) {
   return { present, late, absent, total, percentage };
 }
 
+function formatDeadline(value: string | null) {
+  if (!value) return "No deadline";
+  const date = new Date(value);
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getAttendanceActionLabel(session: StudentAttendanceActiveSessionItem) {
+  if (session.currentStatus) {
+    return session.teacherConfirmed ? "Marked" : "Submitted";
+  }
+  return "Mark attendance";
+}
+
 export default function StudentAttendancePage() {
   const [data, setData] = useState<StudentAttendanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [selectedCourseCode, setSelectedCourseCode] = useState("ALL");
+  const [checkInCodes, setCheckInCodes] = useState<Record<number, string>>({});
+  const [submittingSessionId, setSubmittingSessionId] = useState<number | null>(null);
+
+  const loadAttendance = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const payload = await fetchStudentAttendance();
+      setData(payload);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to load attendance");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const payload = await fetchStudentAttendance();
-        if (!cancelled) {
-          setData(payload);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Failed to load attendance");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadAttendance();
+  }, [loadAttendance]);
+
+  useEffect(() => {
+    connectStomp();
+    const unsubscribe = subscribeTo("/user/queue/attendance", () => {
+      void loadAttendance();
+    });
+    return unsubscribe;
+  }, [loadAttendance]);
 
   const courseOptions = useMemo(() => {
     if (!data) return [];
@@ -65,6 +94,23 @@ export default function StudentAttendancePage() {
 
   const filteredSummary = useMemo(() => buildSummary(filteredRecords), [filteredRecords]);
 
+  async function handleCheckIn(session: StudentAttendanceActiveSessionItem) {
+    setSubmittingSessionId(session.sessionId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const code = checkInCodes[session.sessionId]?.trim();
+      await checkInStudentAttendance(session.sessionId, code || undefined);
+      setSuccess(`${session.subjectCode} attendance marked successfully.`);
+      setCheckInCodes((current) => ({ ...current, [session.sessionId]: "" }));
+      await loadAttendance();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to mark attendance");
+    } finally {
+      setSubmittingSessionId(null);
+    }
+  }
+
   return (
     <div className="screen app-screen">
       <header className="topbar">
@@ -72,8 +118,80 @@ export default function StudentAttendancePage() {
       </header>
       {loading ? <p>Loading...</p> : null}
       {error ? <p className="error">{error}</p> : null}
+      {success ? <p className="success">{success}</p> : null}
       {!loading && !error && data ? (
         <>
+          <section className="card attendance-live-card">
+            <div className="attendance-live-header">
+              <div>
+                <h3>Live Check-In</h3>
+                <p className="muted">When a professor opens attendance, it appears here in real time.</p>
+              </div>
+              <span className="badge badge-neutral">{data.activeSessions.length} active</span>
+            </div>
+
+            {data.activeSessions.length === 0 ? (
+              <div className="attendance-live-empty muted">No active attendance sessions right now.</div>
+            ) : (
+              <div className="attendance-live-grid">
+                {data.activeSessions.map((session) => {
+                  const isMarked = Boolean(session.currentStatus);
+                  return (
+                    <article key={session.sessionId} className="attendance-session-card">
+                      <div className="attendance-session-top">
+                        <div>
+                          <strong>
+                            {session.subjectCode} {session.subjectName}
+                          </strong>
+                          <p className="muted">{session.teacherName || "Professor"}</p>
+                        </div>
+                        <span className={`badge ${session.checkInMode === "CODE" ? "badge-warning" : "badge-neutral"}`}>
+                          {session.checkInMode === "CODE" ? "Code required" : "One click"}
+                        </span>
+                      </div>
+
+                      <div className="attendance-session-meta">
+                        <span>Class date: {session.classDate || "-"}</span>
+                        <span>Closes: {formatDeadline(session.attendanceCloseAt)}</span>
+                        <span>
+                          Status: {session.currentStatus || "Waiting for check-in"}
+                          {session.currentStatus && session.teacherConfirmed ? " · confirmed" : ""}
+                        </span>
+                      </div>
+
+                      {session.checkInMode === "CODE" ? (
+                        <label className="attendance-code-field">
+                          <span>Check-in code</span>
+                          <input
+                            value={checkInCodes[session.sessionId] ?? ""}
+                            onChange={(event) =>
+                              setCheckInCodes((current) => ({
+                                ...current,
+                                [session.sessionId]: event.target.value,
+                              }))
+                            }
+                            placeholder="Enter code"
+                            disabled={isMarked || submittingSessionId === session.sessionId}
+                          />
+                        </label>
+                      ) : null}
+
+                      <div className="actions">
+                        <button
+                          type="button"
+                          disabled={isMarked || submittingSessionId === session.sessionId}
+                          onClick={() => void handleCheckIn(session)}
+                        >
+                          {submittingSessionId === session.sessionId ? "Submitting..." : getAttendanceActionLabel(session)}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
           <section className="card schedule-filter-card">
             <div className="schedule-filter-bar">
               <label className="schedule-filter-group">
@@ -95,9 +213,7 @@ export default function StudentAttendancePage() {
               <div className="schedule-filter-summary">
                 <span className="schedule-filter-summary-label">Showing</span>
                 <strong>
-                  {selectedCourseCode === "ALL"
-                    ? "All subjects"
-                    : `${selectedCourseCode} attendance`}
+                  {selectedCourseCode === "ALL" ? "All subjects" : `${selectedCourseCode} attendance`}
                 </strong>
               </div>
             </div>

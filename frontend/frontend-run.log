@@ -1,0 +1,25 @@
+
+> kbtu-portal-frontend@0.0.1 dev
+> vite --host 0.0.0.0
+
+Re-optimizing dependencies because vite config has changed
+Port 5173 is in use, trying another one...
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m476[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5174[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://26.211.214.37:[1m5174[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.29.48.1:[1m5174[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.101.8:[1m5174[22m/[39m
+[2m22:07:51[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/auth/login[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m22:11:38[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/public/news[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)
+[2m22:11:38[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/v1/public/news[39m
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1134:18)
+    at afterConnectMultiple (node:net:1715:7)

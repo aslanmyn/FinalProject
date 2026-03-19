@@ -10388,3 +10388,4 @@ Unconditional classes:
 2026-03-19T21:18:49.525+05:00 DEBUG 29524 --- [nio-8080-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Using 'application/json', given [*/*] and supported [application/json, application/*+json, application/yaml]
 2026-03-19T21:18:49.526+05:00 DEBUG 29524 --- [nio-8080-exec-4] o.s.w.s.m.m.a.HttpEntityMethodProcessor  : Writing [{records=[{subjectName=Object-Oriented Programming and Design, status=PRESENT, subjectCode=CSCI2106, (truncated)...]
 2026-03-19T21:18:49.527+05:00 DEBUG 29524 --- [nio-8080-exec-4] o.s.web.servlet.DispatcherServlet        : Completed 200 OK
+^C
