@@ -2,6 +2,7 @@ package ru.kors.finalproject.config;
 
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -101,6 +102,7 @@ import java.util.Set;
 @ConditionalOnProperty(value = "app.seed.enabled", havingValue = "true")
 public class DataInitializer implements CommandLineRunner {
 
+    private static final String SEED_CONFIRM_TOKEN = "DEMO_ONLY_RESET";
     private static final String ADMIN_PASSWORD = "admin123";
     private static final String PROFESSOR_PASSWORD = "prof123";
     private static final String STUDENT_PASSWORD = "student123";
@@ -150,10 +152,20 @@ public class DataInitializer implements CommandLineRunner {
     private final ChecklistTemplateRepository checklistTemplateRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final NotificationRepository notificationRepository;
+    @Value("${app.seed.confirm-token:}")
+    private String seedConfirmToken;
 
     @Override
     @Transactional
     public void run(String... args) {
+        if (!SEED_CONFIRM_TOKEN.equals(seedConfirmToken)) {
+            System.err.println("=======================================================================");
+            System.err.println("SEED ABORTED: missing confirm token.");
+            System.err.println("To run demo seed, set APP_SEED_ENABLED=true and APP_SEED_CONFIRM_TOKEN=" + SEED_CONFIRM_TOKEN);
+            System.err.println("=======================================================================");
+            return;
+        }
+
         if (isLargeDemoDatasetPresent()) {
             writeCredentialsFile(buildKnownCredentials());
             return;
