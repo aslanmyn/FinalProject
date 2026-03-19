@@ -160,52 +160,51 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="panel-layout">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <h2>KBTU Portal</h2>
-          <p className="muted">Role: {role || "UNKNOWN"}</p>
+    <div className="app-shell">
+      <header className="topbar-global">
+        <div className="topbar-left">
+          <span className="topbar-brand">KBTU</span>
+          <span className="topbar-separator" />
+          <span className="topbar-context">Portal</span>
         </div>
-
-        <nav className="sidebar-nav">
-          {nav.map((group) => (
-            <div key={group.title} className="sidebar-group">
-              <div className="sidebar-group-title">{group.title}</div>
-              {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
-                >
-                  <span>{item.label}</span>
-                  {item.to.endsWith("/notifications") && unreadNotifications > 0 ? (
-                    <span className="sidebar-badge">
-                      {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                    </span>
-                  ) : null}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        <div className="sidebar-actions">
-          <NavLink className="sidebar-link" to="/">
-            Public Home
-          </NavLink>
-          <NavLink className="sidebar-link" to="/professors">
-            Professors
-          </NavLink>
-          <NavLink className="sidebar-link" to="/news">
-            Public News
-          </NavLink>
-          <button onClick={handleLogout}>Logout</button>
+        <div className="topbar-right">
+          <NavLink className="topbar-pub-link" to="/">Home</NavLink>
+          <NavLink className="topbar-pub-link" to="/professors">Professors</NavLink>
+          <NavLink className="topbar-pub-link" to="/news">News</NavLink>
+          <span className="topbar-role-badge">{role}</span>
+          <button className="topbar-logout" onClick={handleLogout}>Sign out</button>
         </div>
-      </aside>
+      </header>
 
-      <main className="panel-content">
-        <Outlet />
-      </main>
+      <div className="panel-layout">
+        <aside className="sidebar">
+          <nav className="sidebar-nav">
+            {nav.map((group) => (
+              <div key={group.title} className="sidebar-group">
+                <div className="sidebar-group-title">{group.title}</div>
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
+                  >
+                    <span>{item.label}</span>
+                    {item.to.endsWith("/notifications") && unreadNotifications > 0 ? (
+                      <span className="sidebar-badge">
+                        {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                      </span>
+                    ) : null}
+                  </NavLink>
+                ))}
+              </div>
+            ))}
+          </nav>
+        </aside>
+
+        <main className="panel-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

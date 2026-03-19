@@ -45,6 +45,9 @@ storage/
 *.err.log
 *-dev.log
 frontend/*-dev.log
+backend-*.log
+frontend-run.log
+frontend/frontend-*.log
 
 # Local seeded account list
 seed-users.local.txt
