@@ -33,6 +33,11 @@ export default function StudentFinancialPage() {
     };
   }, []);
 
+  const charges = Array.isArray(data?.charges) ? data.charges : [];
+  const payments = Array.isArray(data?.payments) ? data.payments : [];
+  const balance = data?.balance ?? 0;
+  const hasFinancialHold = Boolean(data?.hasFinancialHold);
+
   return (
     <div className="screen app-screen">
       <header className="topbar">
@@ -47,24 +52,24 @@ export default function StudentFinancialPage() {
           <section className="card">
             <div className="kv-grid">
               <div>
-                <strong>Balance:</strong> {data.balance}
+                <strong>Balance:</strong> {balance}
               </div>
               <div>
-                <strong>Financial Hold:</strong> {data.hasFinancialHold ? "Yes" : "No"}
+                <strong>Financial Hold:</strong> {hasFinancialHold ? "Yes" : "No"}
               </div>
               <div>
-                <strong>Charges:</strong> {data.charges.length}
+                <strong>Charges:</strong> {charges.length}
               </div>
               <div>
-                <strong>Payments:</strong> {data.payments.length}
+                <strong>Payments:</strong> {payments.length}
               </div>
             </div>
           </section>
 
           <section className="card">
             <h3>Charges</h3>
-            {data.charges.length === 0 ? <p className="muted">No charges.</p> : null}
-            {data.charges.length > 0 ? (
+            {charges.length === 0 ? <p className="muted">No charges.</p> : null}
+            {charges.length > 0 ? (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
@@ -77,7 +82,7 @@ export default function StudentFinancialPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.charges.map((item) => (
+                    {charges.map((item) => (
                       <tr key={item.id}>
                         <td>{item.id}</td>
                         <td>{item.amount}</td>
@@ -94,8 +99,8 @@ export default function StudentFinancialPage() {
 
           <section className="card">
             <h3>Payments</h3>
-            {data.payments.length === 0 ? <p className="muted">No payments.</p> : null}
-            {data.payments.length > 0 ? (
+            {payments.length === 0 ? <p className="muted">No payments.</p> : null}
+            {payments.length > 0 ? (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
@@ -106,7 +111,7 @@ export default function StudentFinancialPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {data.payments.map((item) => (
+                    {payments.map((item) => (
                       <tr key={item.id}>
                         <td>{item.id}</td>
                         <td>{item.amount}</td>

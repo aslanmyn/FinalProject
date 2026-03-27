@@ -25,6 +25,7 @@ public class StudentEnrollmentV1Controller {
     private final AddDropService addDropService;
     private final FxRegistrationService fxRegistrationService;
     private final WindowPolicyService windowPolicyService;
+    private final FinancialService financialService;
 
     @GetMapping("/enrollments")
     public ResponseEntity<?> enrollments(
@@ -187,16 +188,27 @@ public class StudentEnrollmentV1Controller {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(toFxDto(fxRegistrationService.submit(student, body.sectionId())));
     }
-
     @GetMapping("/financial")
     public ResponseEntity<?> financial(@AuthenticationPrincipal User user) {
-        // Delegates to hold/charge data — kept here since it's related to enrollment constraints
         Student student = currentUserHelper.requireStudent(user);
-        List<Hold> activeHolds = holdRepository.findByStudentIdAndActiveTrue(student.getId());
-        return ResponseEntity.ok(activeHolds.stream().map(h -> Map.of(
-                "id", (Object) h.getId(), "type", h.getType(),
-                "reason", h.getReason(), "createdAt", h.getCreatedAt().toString()
-        )).toList());
+        List<Charge> charges = financialService.getCharges(student);
+        List<Payment> payments = financialService.getPayments(student);
+        return ResponseEntity.ok(new StudentFinancialDto(
+                charges.stream().map(charge -> new StudentChargeDto(
+                        charge.getId(),
+                        charge.getAmount(),
+                        charge.getDescription(),
+                        charge.getDueDate(),
+                        charge.getStatus()
+                )).toList(),
+                payments.stream().map(payment -> new StudentPaymentDto(
+                        payment.getId(),
+                        payment.getAmount(),
+                        payment.getDate()
+                )).toList(),
+                financialService.getBalance(student),
+                financialService.hasRegistrationLock(student)
+        ));
     }
 
     @GetMapping("/holds")
@@ -408,5 +420,10 @@ public class StudentEnrollmentV1Controller {
                                     FxRegistration.FxStatus status, Instant createdAt) {}
     public record FxOverviewDto(boolean windowOpen, List<FxEligibleCourseDto> eligibleCourses,
                                 List<FxRegistrationDto> registrations) {}
+    public record StudentChargeDto(Long id, java.math.BigDecimal amount, String description,
+                                   java.time.LocalDate dueDate, Charge.ChargeStatus status) {}
+    public record StudentPaymentDto(Long id, java.math.BigDecimal amount, java.time.LocalDate date) {}
+    public record StudentFinancialDto(List<StudentChargeDto> charges, List<StudentPaymentDto> payments,
+                                      java.math.BigDecimal balance, boolean hasFinancialHold) {}
     public record CourseActionBody(Long sectionId) {}
 }
