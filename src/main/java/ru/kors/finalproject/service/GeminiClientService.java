@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 public class GeminiClientService {
@@ -78,8 +79,12 @@ public class GeminiClientService {
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException("AI returned no text"));
+                .collect(Collectors.joining("\n\n"))
+                .trim();
+
+        if (text.isBlank()) {
+            throw new IllegalStateException("AI returned no text");
+        }
 
         return new GeminiReply(text, geminiModel, Instant.now());
     }

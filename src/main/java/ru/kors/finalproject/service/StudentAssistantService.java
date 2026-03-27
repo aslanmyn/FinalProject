@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -28,6 +29,7 @@ public class StudentAssistantService {
     private final ExamScheduleRepository examScheduleRepository;
     private final AuditService auditService;
     private final GpaCalculationService gpaCalculationService;
+    private final AcademicAnalyticsService academicAnalyticsService;
 
     @Value("${app.ai.read-only:true}")
     private boolean readOnly;
@@ -40,12 +42,18 @@ public class StudentAssistantService {
             throw new IllegalArgumentException("Question is too long");
         }
 
-        String context = buildStudentContext(student);
+        String normalizedMessage = message.trim();
         GeminiClientService.GeminiReply reply;
-        try {
-            reply = geminiClientService.generate(systemPrompt(), "Student context", context, message.trim(), 0.2, 700);
-        } catch (RuntimeException ex) {
-            throw new IllegalStateException("AI assistant is temporarily unavailable");
+        GeminiClientService.GeminiReply deterministicReply = tryAnswerDeterministically(student, normalizedMessage);
+        if (deterministicReply != null) {
+            reply = deterministicReply;
+        } else {
+            String context = buildStudentContext(student);
+            try {
+                reply = geminiClientService.generate(systemPrompt(), "Student context", context, normalizedMessage, 0.2, 900);
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("AI assistant is temporarily unavailable");
+            }
         }
 
         auditService.logStudentAction(
@@ -53,7 +61,7 @@ public class StudentAssistantService {
                 "AI_ASSISTANT_QUERY",
                 "StudentAssistant",
                 student.getId(),
-                "message=" + truncate(message.trim(), 180)
+                "message=" + truncate(normalizedMessage, 180)
         );
 
         return reply;
@@ -85,6 +93,7 @@ public class StudentAssistantService {
         List<Attendance> attendanceRecords = attendanceRepository.findByStudentIdWithDetails(student.getId());
         List<Hold> activeHolds = holdRepository.findByStudentIdAndActiveTrue(student.getId());
         List<StudentRequest> requests = studentRequestRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(student.getId());
+        AcademicAnalyticsService.StudentPlannerDashboard plannerDashboard = academicAnalyticsService.buildStudentPlannerDashboard(student);
 
         Map<Long, CourseInsight> courseInsights = new LinkedHashMap<>();
         for (Registration registration : semesterRegistrations) {
@@ -168,6 +177,9 @@ public class StudentAssistantService {
         context.append("Published GPA: ").append(formatDouble(publishedGpa)).append("\n");
         context.append("Credits earned: ").append(student.getCreditsEarned()).append("\n");
         context.append("Active semester: ").append(activeSemester != null ? activeSemester.getName() : "N/A").append("\n");
+        context.append("Maximum projected GPA if all remaining finals are 40/40: ")
+                .append(formatDouble(plannerDashboard.maxProjectionGpa())).append("\n");
+        context.append("Planner courses available: ").append(plannerDashboard.courses().size()).append("\n");
         context.append("Assistant mode: ").append(readOnly ? "READ_ONLY" : "READ_WRITE").append("\n\n");
 
         context.append("Overall attendance summary:\n");
@@ -260,9 +272,58 @@ public class StudentAssistantService {
                 Formula: needed final score = target total - attestation1 - attestation2.
                 If needed final score is above 40, say the target is not reachable.
                 If needed final score is 0 or below, say the target is already secured.
-                For GPA questions, rely on the published GPA in the context. If exact future GPA cannot be computed from the provided data, say that and give advice based on current courses.
+                For GPA questions, use both the published GPA and any planner values in the context. If the context includes a maximum projected GPA, you may answer directly with it.
                 Never claim you changed data. This assistant is read-only.
                 """.formatted(geminiClientService.getLocale());
+    }
+
+    private GeminiClientService.GeminiReply tryAnswerDeterministically(Student student, String message) {
+        String normalized = message.toLowerCase(Locale.ROOT);
+        boolean asksAboutGpa = normalized.contains("gpa") || normalized.contains("гпа");
+        boolean asksAboutMaximum = normalized.contains("максим")
+                || normalized.contains("maximum")
+                || normalized.contains("highest")
+                || normalized.contains("best possible")
+                || normalized.contains("идеаль")
+                || normalized.contains("макс");
+        boolean asksAboutPerfectScores = normalized.contains("максимальные баллы")
+                || normalized.contains("maximum scores")
+                || normalized.contains("perfect scores")
+                || normalized.contains("только максимальные")
+                || normalized.contains("40/40")
+                || normalized.contains("100/100");
+
+        if (!asksAboutGpa || (!asksAboutMaximum && !asksAboutPerfectScores)) {
+            return null;
+        }
+
+        AcademicAnalyticsService.StudentPlannerDashboard planner = academicAnalyticsService.buildStudentPlannerDashboard(student);
+        if (planner.courses().isEmpty()) {
+            String answer = """
+                    У вас сейчас нет активных курсов в planner, поэтому максимальный прогнозируемый GPA совпадает с уже опубликованным GPA: %s.
+                    """.formatted(formatDouble(planner.currentPublishedGpa()));
+            return new GeminiClientService.GeminiReply(answer.trim(), "deterministic-planner", java.time.Instant.now());
+        }
+
+        long coursesWithoutPublishedFinal = planner.courses().stream()
+                .filter(course -> course.publishedFinal() == null)
+                .count();
+
+        String answer = """
+                Если по всем оставшимся предметам набрать максимальный финал 40/40, ваш максимальный прогнозируемый GPA будет %s.
+
+                Сейчас опубликованный GPA: %s.
+                Курсов в текущем planner: %d.
+                Курсов без опубликованного финала: %d.
+
+                Это расчет по текущим аттестациям и предположению, что все оставшиеся финалы будут максимальными.
+                """.formatted(
+                formatDouble(planner.maxProjectionGpa()),
+                formatDouble(planner.currentPublishedGpa()),
+                planner.courses().size(),
+                coursesWithoutPublishedFinal
+        );
+        return new GeminiClientService.GeminiReply(answer.trim(), "deterministic-planner", java.time.Instant.now());
     }
 
     private String normalizeComponent(Grade grade) {

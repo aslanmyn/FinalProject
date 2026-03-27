@@ -1,4 +1,4 @@
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../lib/api";
 
 type AssistantReply = {
@@ -46,6 +46,7 @@ export default function AssistantConsole({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const [conversation, setConversation] = useState<ConversationItem[]>([
     {
       id: "welcome",
@@ -56,6 +57,10 @@ export default function AssistantConsole({
   ]);
 
   const canSend = useMemo(() => draft.trim().length > 0 && !sending, [draft, sending]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [conversation, sending]);
 
   async function handleSend(customMessage?: string) {
     const message = (customMessage ?? draft).trim();
@@ -159,6 +164,7 @@ export default function AssistantConsole({
               </div>
             </article>
           ) : null}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="assistant-composer">
