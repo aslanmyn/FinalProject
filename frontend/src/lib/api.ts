@@ -952,6 +952,174 @@ export function buildFileDownloadUrl(path: string): string {
   return buildApiUrl(path);
 }
 
+// ─── Dorm API ───────────────────────────────────────────
+
+import type { DormBuilding, DormRoom, DormApplication } from "../types/dorm";
+
+export async function fetchDormBuildings(): Promise<DormBuilding[]> {
+  return request<DormBuilding[]>("/api/v1/student/dorm/buildings");
+}
+
+export async function fetchDormRooms(roomType?: string): Promise<DormRoom[]> {
+  const suffix = roomType ? `?roomType=${roomType}` : "";
+  return request<DormRoom[]>(`/api/v1/student/dorm/rooms${suffix}`);
+}
+
+export async function fetchDormApplications(): Promise<DormApplication[]> {
+  return request<DormApplication[]>("/api/v1/student/dorm/applications");
+}
+
+export async function fetchDormApplication(id: number): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}`);
+}
+
+export async function createDormApplication(): Promise<DormApplication> {
+  return request<DormApplication>("/api/v1/student/dorm/applications", { method: "POST" });
+}
+
+export async function updateDormStep1(
+  id: number,
+  body: { emergencyContactName: string; emergencyContactPhone: string; specialNeeds: string }
+): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}/step1`, {
+    method: "PUT",
+    body
+  });
+}
+
+export async function updateDormStep2(
+  id: number,
+  body: { roomTypePreference: string; dormRoomId: number | null }
+): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}/step2`, {
+    method: "PUT",
+    body
+  });
+}
+
+export async function updateDormStep3(
+  id: number,
+  body: { sleepSchedule: string; studyEnvironment: string; preferredRoommateUid: string }
+): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}/step3`, {
+    method: "PUT",
+    body
+  });
+}
+
+export async function submitDormApplication(id: number, termsAccepted: boolean): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}/submit`, {
+    method: "POST",
+    body: { termsAccepted }
+  });
+}
+
+export async function cancelDormApplication(id: number): Promise<DormApplication> {
+  return request<DormApplication>(`/api/v1/student/dorm/applications/${id}/cancel`, { method: "POST" });
+}
+
+// ─── Food API ───────────────────────────────────────────
+
+import type { FoodCategory, FoodItem, FoodOrder } from "../types/food";
+
+export async function fetchFoodCategories(): Promise<FoodCategory[]> {
+  return request<FoodCategory[]>("/api/v1/student/food/categories");
+}
+
+export async function fetchFoodItems(categoryId?: number): Promise<FoodItem[]> {
+  const suffix = categoryId ? `?categoryId=${categoryId}` : "";
+  return request<FoodItem[]>(`/api/v1/student/food/items${suffix}`);
+}
+
+export async function fetchPopularFoodItems(): Promise<FoodItem[]> {
+  return request<FoodItem[]>("/api/v1/student/food/items/popular");
+}
+
+export async function fetchFoodOrders(): Promise<FoodOrder[]> {
+  return request<FoodOrder[]>("/api/v1/student/food/orders");
+}
+
+export async function createFoodOrder(
+  items: Record<number, number>,
+  note?: string,
+  pickupTime?: string
+): Promise<FoodOrder> {
+  return request<FoodOrder>("/api/v1/student/food/orders", {
+    method: "POST",
+    body: { items, note, pickupTime }
+  });
+}
+
+export async function cancelFoodOrder(id: number): Promise<FoodOrder> {
+  return request<FoodOrder>(`/api/v1/student/food/orders/${id}/cancel`, { method: "POST" });
+}
+
+// ─── Campus Map API ─────────────────────────────────────
+
+import type { CampusBuilding, CampusRoom, NavigationResult } from "../types/campus";
+
+export async function fetchCampusBuildings(type?: string): Promise<CampusBuilding[]> {
+  const suffix = type ? `?type=${type}` : "";
+  return request<CampusBuilding[]>(`/api/v1/student/campus-map/buildings${suffix}`);
+}
+
+export async function fetchCampusBuilding(id: number): Promise<CampusBuilding> {
+  return request<CampusBuilding>(`/api/v1/student/campus-map/buildings/${id}`);
+}
+
+export async function searchCampusBuildings(q: string): Promise<CampusBuilding[]> {
+  return request<CampusBuilding[]>(`/api/v1/student/campus-map/buildings/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function fetchCampusRoomsByBuilding(buildingId: number): Promise<CampusRoom[]> {
+  return request<CampusRoom[]>(`/api/v1/student/campus-map/buildings/${buildingId}/rooms`);
+}
+
+export async function searchCampusRooms(q: string): Promise<CampusRoom[]> {
+  return request<CampusRoom[]>(`/api/v1/student/campus-map/rooms/search?q=${encodeURIComponent(q)}`);
+}
+
+export async function navigateCampus(fromRoomId: number, toRoomId: number): Promise<NavigationResult> {
+  return request<NavigationResult>(
+    `/api/v1/student/campus-map/navigate?fromRoomId=${fromRoomId}&toRoomId=${toRoomId}`
+  );
+}
+
+// ─── Laundry API ────────────────────────────────────────
+
+import type { LaundryRoom as LaundryRoomType, LaundryMachine, LaundryRoomAvailability, LaundryBooking } from "../types/laundry";
+
+export async function fetchLaundryRooms(): Promise<LaundryRoomType[]> {
+  return request<LaundryRoomType[]>("/api/v1/student/laundry/rooms");
+}
+
+export async function fetchLaundryRoomAvailability(roomId: number): Promise<LaundryRoomAvailability> {
+  return request<LaundryRoomAvailability>(`/api/v1/student/laundry/rooms/${roomId}/availability`);
+}
+
+export async function fetchLaundryMachines(roomId: number): Promise<LaundryMachine[]> {
+  return request<LaundryMachine[]>(`/api/v1/student/laundry/rooms/${roomId}/machines`);
+}
+
+export async function fetchLaundryBookings(): Promise<LaundryBooking[]> {
+  return request<LaundryBooking[]>("/api/v1/student/laundry/bookings");
+}
+
+export async function createLaundryBooking(
+  machineId: number,
+  startTime: string,
+  durationMinutes: number
+): Promise<LaundryBooking> {
+  return request<LaundryBooking>("/api/v1/student/laundry/bookings", {
+    method: "POST",
+    body: { machineId, startTime, durationMinutes }
+  });
+}
+
+export async function cancelLaundryBooking(id: number): Promise<LaundryBooking> {
+  return request<LaundryBooking>(`/api/v1/student/laundry/bookings/${id}/cancel`, { method: "POST" });
+}
+
 // ─── Chat API ────────────────────────────────────────────
 
 import type { ChatRoom, ChatMessagePage, ChatMember, ChatUserResult } from "../types/chat";

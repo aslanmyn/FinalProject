@@ -30,7 +30,7 @@ public class CampusNavigationEdge {
     @Column(nullable = false)
     private double distanceMeters;
 
-    @Column(nullable = false)
+    @Column(name = "is_accessible", nullable = false)
     @Builder.Default
     private boolean accessible = true;
 }
