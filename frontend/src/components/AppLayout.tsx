@@ -38,6 +38,15 @@ function getNav(role: string | null, permissions: string[]): NavGroup[] {
           { to: "/app/student/files", label: "Files" },
           { to: "/app/student/news", label: "News" }
         ]
+      },
+      {
+        title: "Campus Life",
+        items: [
+          { to: "/app/student/dorm", label: "Dorm" },
+          { to: "/app/student/food", label: "Canteen" },
+          { to: "/app/student/campus-map", label: "Campus Map" },
+          { to: "/app/student/laundry", label: "Laundry" }
+        ]
       }
     ];
   }

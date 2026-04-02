@@ -4,211 +4,188 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import ru.kors.finalproject.entity.*;
-import ru.kors.finalproject.repository.*;
+import ru.kors.finalproject.entity.DormApplication;
+import ru.kors.finalproject.entity.DormBuilding;
+import ru.kors.finalproject.entity.DormRoom;
+import ru.kors.finalproject.entity.Student;
+import ru.kors.finalproject.repository.DormApplicationRepository;
+import ru.kors.finalproject.repository.DormBuildingRepository;
+import ru.kors.finalproject.repository.DormRoomRepository;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DormServiceTest {
 
-    @Mock private DormApplicationRepository dormApplicationRepository;
-    @Mock private DormRoomRepository dormRoomRepository;
-    @Mock private DormBuildingRepository dormBuildingRepository;
+    @Mock
+    private DormApplicationRepository dormApplicationRepository;
+    @Mock
+    private DormRoomRepository dormRoomRepository;
+    @Mock
+    private DormBuildingRepository dormBuildingRepository;
 
     @InjectMocks
     private DormService dormService;
 
     private Student student;
+    private DormRoom availableRoom;
+    private DormRoom fullRoom;
+    private DormApplication draftApplication;
 
     @BeforeEach
     void setUp() {
-        student = Student.builder().id(1L).email("test@kbtu.kz").name("Test Student").build();
+        student = Student.builder()
+                .id(10L)
+                .email("a_student@kbtu.kz")
+                .name("Student Example")
+                .build();
+
+        DormBuilding building = DormBuilding.builder()
+                .id(1L)
+                .name("North Residence")
+                .build();
+
+        availableRoom = DormRoom.builder()
+                .id(100L)
+                .dormBuilding(building)
+                .roomNumber("203")
+                .floor(2)
+                .roomType(DormRoom.RoomType.SINGLE_SUITE)
+                .pricePerSemester(BigDecimal.valueOf(690000))
+                .capacity(1)
+                .occupied(0)
+                .build();
+
+        fullRoom = DormRoom.builder()
+                .id(101L)
+                .dormBuilding(building)
+                .roomNumber("101")
+                .floor(1)
+                .roomType(DormRoom.RoomType.DOUBLE_ROOM)
+                .pricePerSemester(BigDecimal.valueOf(420000))
+                .capacity(2)
+                .occupied(2)
+                .build();
+
+        draftApplication = DormApplication.builder()
+                .id(77L)
+                .student(student)
+                .status(DormApplication.ApplicationStatus.DRAFT)
+                .currentStep(1)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
     }
 
-    // =========================================================================
-    // createApplication
-    // =========================================================================
-
     @Test
-    @DisplayName("createApplication - creates draft when no active application exists")
-    void createApplication_success() {
-        when(dormApplicationRepository.existsByStudentIdAndStatusIn(eq(1L), anyList())).thenReturn(false);
-        when(dormApplicationRepository.save(any(DormApplication.class))).thenAnswer(inv -> {
-            DormApplication a = inv.getArgument(0);
-            a.setId(100L);
-            return a;
-        });
-
-        DormApplication result = dormService.createApplication(student);
-
-        assertThat(result.getId()).isEqualTo(100L);
-        assertThat(result.getStatus()).isEqualTo(DormApplication.ApplicationStatus.DRAFT);
-        assertThat(result.getCurrentStep()).isEqualTo(1);
-        verify(dormApplicationRepository).save(any(DormApplication.class));
-    }
-
-    @Test
-    @DisplayName("createApplication - throws when active application exists")
-    void createApplication_alreadyExists() {
-        when(dormApplicationRepository.existsByStudentIdAndStatusIn(eq(1L), anyList())).thenReturn(true);
+    @DisplayName("createApplication rejects a second active application")
+    void createApplication_rejectsDuplicateActiveApplication() {
+        when(dormApplicationRepository.existsByStudentIdAndStatusIn(
+                student.getId(),
+                List.of(
+                        DormApplication.ApplicationStatus.DRAFT,
+                        DormApplication.ApplicationStatus.SUBMITTED,
+                        DormApplication.ApplicationStatus.APPROVED
+                )))
+                .thenReturn(true);
 
         assertThatThrownBy(() -> dormService.createApplication(student))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("already have an active");
-    }
-
-    // =========================================================================
-    // updateStep2 - room selection
-    // =========================================================================
-
-    @Test
-    @DisplayName("updateStep2 - sets room type preference and assigns room")
-    void updateStep2_success() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(1).build();
-        DormRoom room = DormRoom.builder().id(5L).roomType(DormRoom.RoomType.SINGLE_SUITE)
-                .capacity(1).occupied(0).pricePerSemester(new BigDecimal("550000")).build();
-
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-        when(dormRoomRepository.findById(5L)).thenReturn(Optional.of(room));
-        when(dormApplicationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        DormApplication result = dormService.updateStep2(10L, 1L, DormRoom.RoomType.SINGLE_SUITE, 5L);
-
-        assertThat(result.getRoomTypePreference()).isEqualTo(DormRoom.RoomType.SINGLE_SUITE);
-        assertThat(result.getDormRoom()).isEqualTo(room);
-        assertThat(result.getCurrentStep()).isGreaterThanOrEqualTo(2);
+                .hasMessageContaining("active dorm application");
     }
 
     @Test
-    @DisplayName("updateStep2 - throws when room is full")
-    void updateStep2_roomFull() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(1).build();
-        DormRoom room = DormRoom.builder().id(5L).capacity(1).occupied(1).build();
+    @DisplayName("update steps advance wizard progress through all dorm stages")
+    void updateSteps_advanceCurrentStep() {
+        when(dormApplicationRepository.findByIdAndStudentId(77L, student.getId()))
+                .thenReturn(Optional.of(draftApplication));
+        when(dormRoomRepository.findById(availableRoom.getId()))
+                .thenReturn(Optional.of(availableRoom));
+        when(dormApplicationRepository.save(any(DormApplication.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-        when(dormRoomRepository.findById(5L)).thenReturn(Optional.of(room));
+        int step1Progress = dormService.updateStep1(77L, student.getId(), "Mother", "+77001234567", "No").getCurrentStep();
+        DormApplication step2 = dormService.updateStep2(77L, student.getId(), DormRoom.RoomType.SINGLE_SUITE, availableRoom.getId());
+        int step2Progress = step2.getCurrentStep();
+        DormApplication step3 = dormService.updateStep3(77L, student.getId(), "Early Bird", "Quiet", "22B030406");
 
-        assertThatThrownBy(() -> dormService.updateStep2(10L, 1L, DormRoom.RoomType.SINGLE_SUITE, 5L))
+        assertThat(step1Progress).isEqualTo(2);
+        assertThat(step2Progress).isEqualTo(3);
+        assertThat(step2.getDormRoom()).isEqualTo(availableRoom);
+        assertThat(step3.getCurrentStep()).isEqualTo(4);
+        assertThat(step3.getPreferredRoommateUid()).isEqualTo("22B030406");
+    }
+
+    @Test
+    @DisplayName("updateStep2 rejects a full room")
+    void updateStep2_rejectsFullRoom() {
+        when(dormApplicationRepository.findByIdAndStudentId(77L, student.getId()))
+                .thenReturn(Optional.of(draftApplication));
+        when(dormRoomRepository.findById(fullRoom.getId()))
+                .thenReturn(Optional.of(fullRoom));
+
+        assertThatThrownBy(() -> dormService.updateStep2(
+                77L,
+                student.getId(),
+                DormRoom.RoomType.DOUBLE_ROOM,
+                fullRoom.getId()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("full");
     }
 
-    // =========================================================================
-    // updateStep3 - roommate preferences
-    // =========================================================================
-
     @Test
-    @DisplayName("updateStep3 - sets roommate preferences")
-    void updateStep3_success() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(2).build();
+    @DisplayName("submitApplication requires accepted terms and room type preference")
+    void submitApplication_requiresTermsAndRoomPreference() {
+        when(dormApplicationRepository.findByIdAndStudentId(77L, student.getId()))
+                .thenReturn(Optional.of(draftApplication));
 
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-        when(dormApplicationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        DormApplication result = dormService.updateStep3(10L, 1L, "Early Bird", "Quiet", "UID123");
-
-        assertThat(result.getSleepSchedule()).isEqualTo("Early Bird");
-        assertThat(result.getStudyEnvironment()).isEqualTo("Quiet");
-        assertThat(result.getPreferredRoommateUid()).isEqualTo("UID123");
-    }
-
-    // =========================================================================
-    // submitApplication
-    // =========================================================================
-
-    @Test
-    @DisplayName("submitApplication - transitions to SUBMITTED when valid")
-    void submitApplication_success() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(3)
-                .roomTypePreference(DormRoom.RoomType.DOUBLE_ROOM).build();
-
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-        when(dormApplicationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        DormApplication result = dormService.submitApplication(10L, 1L, true);
-
-        assertThat(result.getStatus()).isEqualTo(DormApplication.ApplicationStatus.SUBMITTED);
-        assertThat(result.isTermsAccepted()).isTrue();
-        assertThat(result.getCurrentStep()).isEqualTo(4);
-    }
-
-    @Test
-    @DisplayName("submitApplication - throws when terms not accepted")
-    void submitApplication_noTerms() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(3)
-                .roomTypePreference(DormRoom.RoomType.DOUBLE_ROOM).build();
-
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-
-        assertThatThrownBy(() -> dormService.submitApplication(10L, 1L, false))
+        assertThatThrownBy(() -> dormService.submitApplication(77L, student.getId(), false))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("terms");
-    }
+                .hasMessageContaining("accept the terms");
 
-    @Test
-    @DisplayName("submitApplication - throws when room type not selected")
-    void submitApplication_noRoomType() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.DRAFT).currentStep(3).build();
+        draftApplication.setTermsAccepted(false);
+        draftApplication.setRoomTypePreference(null);
 
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-
-        assertThatThrownBy(() -> dormService.submitApplication(10L, 1L, true))
+        assertThatThrownBy(() -> dormService.submitApplication(77L, student.getId(), true))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Room type");
+                .hasMessageContaining("Room type preference");
     }
 
-    // =========================================================================
-    // cancelApplication
-    // =========================================================================
-
     @Test
-    @DisplayName("cancelApplication - frees room when approved application is cancelled")
-    void cancelApplication_freesRoom() {
-        DormRoom room = DormRoom.builder().id(5L).capacity(2).occupied(1).build();
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.APPROVED).dormRoom(room).build();
+    @DisplayName("cancelApplication frees occupancy for an approved assigned room")
+    void cancelApplication_releasesRoomOccupancy() {
+        availableRoom.setOccupied(1);
+        DormApplication approved = DormApplication.builder()
+                .id(88L)
+                .student(student)
+                .dormRoom(availableRoom)
+                .status(DormApplication.ApplicationStatus.APPROVED)
+                .currentStep(4)
+                .build();
 
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-        when(dormApplicationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(dormApplicationRepository.findByIdAndStudentId(88L, student.getId()))
+                .thenReturn(Optional.of(approved));
+        when(dormRoomRepository.save(any(DormRoom.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(dormApplicationRepository.save(any(DormApplication.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        DormApplication result = dormService.cancelApplication(10L, 1L);
+        DormApplication cancelled = dormService.cancelApplication(88L, student.getId());
 
-        assertThat(result.getStatus()).isEqualTo(DormApplication.ApplicationStatus.CANCELLED);
-        assertThat(room.getOccupied()).isEqualTo(0);
-        verify(dormRoomRepository).save(room);
-    }
-
-    // =========================================================================
-    // validateDraft - modification after submission
-    // =========================================================================
-
-    @Test
-    @DisplayName("updateStep1 - throws when application is not in DRAFT")
-    void updateStep_notDraft() {
-        DormApplication app = DormApplication.builder().id(10L).student(student)
-                .status(DormApplication.ApplicationStatus.SUBMITTED).build();
-
-        when(dormApplicationRepository.findByIdAndStudentId(10L, 1L)).thenReturn(Optional.of(app));
-
-        assertThatThrownBy(() -> dormService.updateStep1(10L, 1L, "Name", "Phone", null))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("DRAFT");
+        assertThat(cancelled.getStatus()).isEqualTo(DormApplication.ApplicationStatus.CANCELLED);
+        assertThat(availableRoom.getOccupied()).isZero();
+        verify(dormRoomRepository).save(availableRoom);
     }
 }

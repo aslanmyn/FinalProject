@@ -70,7 +70,7 @@ public class DormService {
         app.setEmergencyContactName(emergencyContactName);
         app.setEmergencyContactPhone(emergencyContactPhone);
         app.setSpecialNeeds(specialNeeds);
-        app.setCurrentStep(Math.max(app.getCurrentStep(), 1));
+        app.setCurrentStep(Math.max(app.getCurrentStep(), 2));
         app.setUpdatedAt(Instant.now());
         return dormApplicationRepository.save(app);
     }
@@ -89,7 +89,7 @@ public class DormService {
             }
             app.setDormRoom(room);
         }
-        app.setCurrentStep(Math.max(app.getCurrentStep(), 2));
+        app.setCurrentStep(Math.max(app.getCurrentStep(), 3));
         app.setUpdatedAt(Instant.now());
         return dormApplicationRepository.save(app);
     }
@@ -102,7 +102,7 @@ public class DormService {
         app.setSleepSchedule(sleepSchedule);
         app.setStudyEnvironment(studyEnvironment);
         app.setPreferredRoommateUid(preferredRoommateUid);
-        app.setCurrentStep(Math.max(app.getCurrentStep(), 3));
+        app.setCurrentStep(Math.max(app.getCurrentStep(), 4));
         app.setUpdatedAt(Instant.now());
         return dormApplicationRepository.save(app);
     }

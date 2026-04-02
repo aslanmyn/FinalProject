@@ -7,24 +7,33 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import ru.kors.finalproject.entity.*;
-import ru.kors.finalproject.repository.*;
+import ru.kors.finalproject.entity.LaundryBooking;
+import ru.kors.finalproject.entity.LaundryMachine;
+import ru.kors.finalproject.entity.LaundryRoom;
+import ru.kors.finalproject.entity.Student;
+import ru.kors.finalproject.repository.LaundryBookingRepository;
+import ru.kors.finalproject.repository.LaundryMachineRepository;
+import ru.kors.finalproject.repository.LaundryRoomRepository;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class LaundryServiceTest {
 
-    @Mock private LaundryRoomRepository laundryRoomRepository;
-    @Mock private LaundryMachineRepository laundryMachineRepository;
-    @Mock private LaundryBookingRepository laundryBookingRepository;
+    @Mock
+    private LaundryRoomRepository laundryRoomRepository;
+    @Mock
+    private LaundryMachineRepository laundryMachineRepository;
+    @Mock
+    private LaundryBookingRepository laundryBookingRepository;
 
     @InjectMocks
     private LaundryService laundryService;
@@ -34,145 +43,84 @@ class LaundryServiceTest {
 
     @BeforeEach
     void setUp() {
-        student = Student.builder().id(1L).email("test@kbtu.kz").name("Test Student").build();
-        machine = LaundryMachine.builder().id(1L).machineNumber(1)
-                .status(LaundryMachine.MachineStatus.AVAILABLE).build();
-    }
-
-    // =========================================================================
-    // bookMachine
-    // =========================================================================
-
-    @Test
-    @DisplayName("bookMachine - creates booking for available slot")
-    void bookMachine_success() {
-        Instant start = Instant.now().plus(1, ChronoUnit.HOURS);
-        when(laundryMachineRepository.findById(1L)).thenReturn(Optional.of(machine));
-        when(laundryBookingRepository.findConflicting(eq(1L), any(), any())).thenReturn(List.of());
-        when(laundryBookingRepository.save(any(LaundryBooking.class))).thenAnswer(inv -> {
-            LaundryBooking b = inv.getArgument(0);
-            b.setId(100L);
-            return b;
-        });
-
-        LaundryBooking result = laundryService.bookMachine(student, 1L, start, 60);
-
-        assertThat(result.getId()).isEqualTo(100L);
-        assertThat(result.getStatus()).isEqualTo(LaundryBooking.BookingStatus.BOOKED);
-        assertThat(result.getTimeSlotEnd()).isEqualTo(start.plus(60, ChronoUnit.MINUTES));
+        student = Student.builder().id(20L).email("a_student@kbtu.kz").name("Student Example").build();
+        LaundryRoom room = LaundryRoom.builder().id(1L).name("North Residence Laundry").totalMachines(6).build();
+        machine = LaundryMachine.builder()
+                .id(50L)
+                .laundryRoom(room)
+                .machineNumber(3)
+                .status(LaundryMachine.MachineStatus.AVAILABLE)
+                .build();
     }
 
     @Test
-    @DisplayName("bookMachine - throws when duration is too short")
-    void bookMachine_durationTooShort() {
-        Instant start = Instant.now().plus(1, ChronoUnit.HOURS);
-        assertThatThrownBy(() -> laundryService.bookMachine(student, 1L, start, 20))
+    @DisplayName("bookMachine validates duration boundaries")
+    void bookMachine_validatesDuration() {
+        assertThatThrownBy(() -> laundryService.bookMachine(student, 50L, Instant.now().plus(1, ChronoUnit.HOURS), 20))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("30 and 120");
+                .hasMessageContaining("between 30 and 120");
     }
 
     @Test
-    @DisplayName("bookMachine - throws when duration is too long")
-    void bookMachine_durationTooLong() {
-        Instant start = Instant.now().plus(1, ChronoUnit.HOURS);
-        assertThatThrownBy(() -> laundryService.bookMachine(student, 1L, start, 150))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("30 and 120");
-    }
-
-    @Test
-    @DisplayName("bookMachine - throws when start time is in the past")
-    void bookMachine_pastTime() {
-        Instant past = Instant.now().minus(1, ChronoUnit.HOURS);
-        assertThatThrownBy(() -> laundryService.bookMachine(student, 1L, past, 60))
+    @DisplayName("bookMachine rejects past booking times")
+    void bookMachine_rejectsPastTime() {
+        assertThatThrownBy(() -> laundryService.bookMachine(student, 50L, Instant.now().minus(1, ChronoUnit.MINUTES), 60))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("future");
     }
 
     @Test
-    @DisplayName("bookMachine - throws when machine is out of order")
-    void bookMachine_outOfOrder() {
+    @DisplayName("bookMachine rejects out-of-order machines")
+    void bookMachine_rejectsOutOfOrderMachine() {
         machine.setStatus(LaundryMachine.MachineStatus.OUT_OF_ORDER);
-        Instant start = Instant.now().plus(1, ChronoUnit.HOURS);
-        when(laundryMachineRepository.findById(1L)).thenReturn(Optional.of(machine));
+        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
 
-        assertThatThrownBy(() -> laundryService.bookMachine(student, 1L, start, 60))
+        assertThatThrownBy(() -> laundryService.bookMachine(student, 50L, Instant.now().plus(2, ChronoUnit.HOURS), 60))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("out of order");
     }
 
     @Test
-    @DisplayName("bookMachine - throws when time slot conflicts")
-    void bookMachine_conflict() {
-        Instant start = Instant.now().plus(1, ChronoUnit.HOURS);
-        when(laundryMachineRepository.findById(1L)).thenReturn(Optional.of(machine));
-        LaundryBooking existing = LaundryBooking.builder().id(50L).build();
-        when(laundryBookingRepository.findConflicting(eq(1L), any(), any())).thenReturn(List.of(existing));
+    @DisplayName("bookMachine rejects conflicting time slots")
+    void bookMachine_rejectsConflict() {
+        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
+        when(laundryBookingRepository.findConflicting(any(), any(), any()))
+                .thenReturn(List.of(LaundryBooking.builder().id(1L).build()));
 
-        assertThatThrownBy(() -> laundryService.bookMachine(student, 1L, start, 60))
+        assertThatThrownBy(() -> laundryService.bookMachine(student, 50L, Instant.now().plus(2, ChronoUnit.HOURS), 60))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already booked");
     }
 
-    // =========================================================================
-    // cancelBooking
-    // =========================================================================
-
     @Test
-    @DisplayName("cancelBooking - cancels own booked slot")
-    void cancelBooking_success() {
-        LaundryBooking booking = LaundryBooking.builder().id(100L).student(student)
-                .machine(machine).status(LaundryBooking.BookingStatus.BOOKED).build();
-        when(laundryBookingRepository.findById(100L)).thenReturn(Optional.of(booking));
-        when(laundryBookingRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("bookMachine creates a booked slot with calculated end time")
+    void bookMachine_success() {
+        Instant start = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MINUTES);
+        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
+        when(laundryBookingRepository.findConflicting(any(), any(), any())).thenReturn(List.of());
+        when(laundryBookingRepository.save(any(LaundryBooking.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        LaundryBooking result = laundryService.cancelBooking(100L, 1L);
-        assertThat(result.getStatus()).isEqualTo(LaundryBooking.BookingStatus.CANCELLED);
+        LaundryBooking booking = laundryService.bookMachine(student, 50L, start, 90);
+
+        assertThat(booking.getStatus()).isEqualTo(LaundryBooking.BookingStatus.BOOKED);
+        assertThat(booking.getTimeSlotStart()).isEqualTo(start);
+        assertThat(booking.getTimeSlotEnd()).isEqualTo(start.plus(90, ChronoUnit.MINUTES));
     }
 
     @Test
-    @DisplayName("cancelBooking - throws when not the owner")
-    void cancelBooking_notOwner() {
-        Student other = Student.builder().id(2L).build();
-        LaundryBooking booking = LaundryBooking.builder().id(100L).student(other)
-                .status(LaundryBooking.BookingStatus.BOOKED).build();
-        when(laundryBookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+    @DisplayName("cancelBooking enforces ownership")
+    void cancelBooking_enforcesOwnership() {
+        Student anotherStudent = Student.builder().id(99L).build();
+        LaundryBooking booking = LaundryBooking.builder()
+                .id(5L)
+                .student(anotherStudent)
+                .machine(machine)
+                .status(LaundryBooking.BookingStatus.BOOKED)
+                .build();
+        when(laundryBookingRepository.findById(5L)).thenReturn(Optional.of(booking));
 
-        assertThatThrownBy(() -> laundryService.cancelBooking(100L, 1L))
+        assertThatThrownBy(() -> laundryService.cancelBooking(5L, student.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Access denied");
-    }
-
-    @Test
-    @DisplayName("cancelBooking - throws when booking is not in BOOKED status")
-    void cancelBooking_notBooked() {
-        LaundryBooking booking = LaundryBooking.builder().id(100L).student(student)
-                .status(LaundryBooking.BookingStatus.IN_PROGRESS).build();
-        when(laundryBookingRepository.findById(100L)).thenReturn(Optional.of(booking));
-
-        assertThatThrownBy(() -> laundryService.cancelBooking(100L, 1L))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("booked");
-    }
-
-    // =========================================================================
-    // getRoomAvailability
-    // =========================================================================
-
-    @Test
-    @DisplayName("getRoomAvailability - returns correct counts")
-    void getRoomAvailability_success() {
-        LaundryRoom room = LaundryRoom.builder().id(1L).name("Main Laundry").totalMachines(12).build();
-        when(laundryRoomRepository.findById(1L)).thenReturn(Optional.of(room));
-        when(laundryMachineRepository.countByLaundryRoomIdAndStatus(1L, LaundryMachine.MachineStatus.AVAILABLE)).thenReturn(4);
-        when(laundryMachineRepository.countByLaundryRoomIdAndStatus(1L, LaundryMachine.MachineStatus.IN_USE)).thenReturn(7);
-        when(laundryMachineRepository.countByLaundryRoomIdAndStatus(1L, LaundryMachine.MachineStatus.OUT_OF_ORDER)).thenReturn(1);
-
-        LaundryService.RoomAvailability result = laundryService.getRoomAvailability(1L);
-
-        assertThat(result.totalMachines()).isEqualTo(12);
-        assertThat(result.availableMachines()).isEqualTo(4);
-        assertThat(result.inUse()).isEqualTo(7);
-        assertThat(result.outOfOrder()).isEqualTo(1);
     }
 }

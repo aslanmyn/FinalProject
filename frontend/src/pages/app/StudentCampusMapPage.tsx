@@ -1,18 +1,18 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   fetchCampusBuildings,
   fetchCampusRoomsByBuilding,
-  searchCampusRooms,
-  navigateCampus
+  navigateCampus,
+  searchCampusRooms
 } from "../../lib/api";
 import type { CampusBuilding, CampusRoom, NavigationResult } from "../../types/campus";
 
 const BUILDING_TYPES = [
-  { value: "", label: "All Buildings" },
+  { value: "", label: "All buildings" },
   { value: "ACADEMIC", label: "Academic" },
-  { value: "LIBRARY", label: "Libraries" },
-  { value: "LECTURE_HALL", label: "Lecture Halls" },
+  { value: "LIBRARY", label: "Library" },
+  { value: "LECTURE_HALL", label: "Lecture halls" },
   { value: "LAB", label: "Labs" },
   { value: "ADMIN", label: "Admin" },
   { value: "DORM", label: "Dorms" },
@@ -20,6 +20,13 @@ const BUILDING_TYPES = [
   { value: "SPORT", label: "Sport" },
   { value: "OTHER", label: "Other" }
 ];
+
+function getRoomLabel(room: CampusRoom): string {
+  const parts = [`${room.roomNumber}`];
+  if (room.name) parts.push(room.name);
+  if (room.buildingName) parts.push(room.buildingName);
+  return parts.join(" - ");
+}
 
 export default function StudentCampusMapPage() {
   const [buildings, setBuildings] = useState<CampusBuilding[]>([]);
@@ -29,15 +36,15 @@ export default function StudentCampusMapPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<CampusRoom[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roomLoading, setRoomLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Navigation
   const [fromRoomId, setFromRoomId] = useState<number | null>(null);
   const [toRoomId, setToRoomId] = useState<number | null>(null);
   const [navResult, setNavResult] = useState<NavigationResult | null>(null);
   const [navigating, setNavigating] = useState(false);
 
-  async function loadBuildings(type?: string) {
+  const loadBuildings = useCallback(async (type?: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -48,38 +55,48 @@ export default function StudentCampusMapPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadBuildings();
-  }, []);
+  }, [loadBuildings]);
 
   async function handleFilterChange(type: string) {
     setBuildingFilter(type);
     setSelectedBuilding(null);
     setRooms([]);
+    setSearchResults(null);
+    setNavResult(null);
     await loadBuildings(type || undefined);
   }
 
   async function handleSelectBuilding(building: CampusBuilding) {
     setSelectedBuilding(building);
     setSearchResults(null);
+    setNavResult(null);
+    setRoomLoading(true);
+    setError(null);
     try {
-      const rms = await fetchCampusRoomsByBuilding(building.id);
-      setRooms(rms);
+      setRooms(await fetchCampusRoomsByBuilding(building.id));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load rooms");
+    } finally {
+      setRoomLoading(false);
     }
   }
 
   async function handleSearch() {
-    if (!searchQuery.trim()) return;
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setSearchResults(null);
+      return;
+    }
     setLoading(true);
     setError(null);
+    setSelectedBuilding(null);
     try {
-      const results = await searchCampusRooms(searchQuery);
-      setSearchResults(results);
-      setSelectedBuilding(null);
+      setSearchResults(await searchCampusRooms(trimmed));
+      setNavResult(null);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Search failed");
     } finally {
@@ -92,8 +109,7 @@ export default function StudentCampusMapPage() {
     setNavigating(true);
     setError(null);
     try {
-      const result = await navigateCampus(fromRoomId, toRoomId);
-      setNavResult(result);
+      setNavResult(await navigateCampus(fromRoomId, toRoomId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Navigation failed");
     } finally {
@@ -101,171 +117,243 @@ export default function StudentCampusMapPage() {
     }
   }
 
-  // Collect all known rooms for navigation dropdowns
-  const allKnownRooms = searchResults || rooms;
+  const visibleRooms = searchResults ?? rooms;
+  const navigationRooms = useMemo(() => {
+    const map = new Map<number, CampusRoom>();
+    [...rooms, ...(searchResults ?? [])].forEach((room) => map.set(room.id, room));
+    return Array.from(map.values());
+  }, [rooms, searchResults]);
 
   return (
     <div className="screen app-screen">
-      <header className="topbar">
-        <h2>KBTU Campus Map</h2>
-      </header>
-
-      {error ? <div className="banner banner-danger">{error}</div> : null}
-
-      {/* Search bar */}
-      <section className="card">
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          <input
-            type="text"
-            className="input"
-            placeholder="Find Room (e.g., Room 402)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") void handleSearch(); }}
-            style={{ flex: 1 }}
-          />
-          <button className="btn btn-primary" onClick={handleSearch}>Search</button>
+      <section className="card service-hero">
+        <div className="service-hero-copy">
+          <span className="auth-kicker">Campus Life</span>
+          <h2>KBTU Campus Map</h2>
+          <p className="muted">
+            Browse buildings, inspect rooms, and build a route between locations using the current campus graph.
+          </p>
+        </div>
+        <div className="service-hero-metrics">
+          <div className="service-metric-card">
+            <span>Buildings</span>
+            <strong>{buildings.length}</strong>
+          </div>
+          <div className="service-metric-card">
+            <span>Visible rooms</span>
+            <strong>{visibleRooms.length}</strong>
+          </div>
+          <div className="service-metric-card">
+            <span>Route ready</span>
+            <strong>{navResult && navResult.totalDistanceMeters >= 0 ? "Yes" : "No"}</strong>
+          </div>
         </div>
       </section>
 
-      {/* Building type filter */}
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-        {BUILDING_TYPES.map((bt) => (
-          <button
-            key={bt.value}
-            className={`btn btn-sm ${buildingFilter === bt.value ? "btn-primary" : ""}`}
-            onClick={() => handleFilterChange(bt.value)}
-          >
-            {bt.label}
-          </button>
-        ))}
-      </div>
+      {error ? <div className="banner banner-danger">{error}</div> : null}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-        {/* Buildings list */}
+      <section className="card">
+        <div className="service-toolbar">
+          <input
+            type="text"
+            className="input"
+            placeholder="Search rooms, for example 402 or Physics Lab"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                void handleSearch();
+              }
+            }}
+          />
+          <button className="btn btn-primary" onClick={() => void handleSearch()}>
+            Search
+          </button>
+        </div>
+        <div className="service-pill-row" style={{ marginTop: 12 }}>
+          {BUILDING_TYPES.map((item) => (
+            <button
+              key={item.value}
+              className={`btn btn-sm ${buildingFilter === item.value ? "btn-primary" : ""}`}
+              onClick={() => void handleFilterChange(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="service-split">
         <section className="card">
-          <h3>Buildings</h3>
-          {loading ? <p>Loading...</p> : null}
-          {!loading && buildings.length === 0 ? <p className="muted">No buildings found.</p> : null}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            {buildings.map((b) => (
-              <div
-                key={b.id}
-                onClick={() => handleSelectBuilding(b)}
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: 8,
-                  border: `1px solid ${selectedBuilding?.id === b.id ? "var(--accent)" : "var(--border)"}`,
-                  background: selectedBuilding?.id === b.id ? "var(--accent-subtle)" : "var(--card)",
-                  cursor: "pointer"
-                }}
+          <div className="service-section-header">
+            <div>
+              <h3>Buildings</h3>
+              <p className="muted">Select a building to inspect its rooms.</p>
+            </div>
+          </div>
+
+          {loading ? <p>Loading buildings...</p> : null}
+          {!loading && buildings.length === 0 ? (
+            <div className="service-empty">No buildings available yet.</div>
+          ) : null}
+
+          <div className="service-list">
+            {buildings.map((building) => (
+              <button
+                key={building.id}
+                type="button"
+                className={`service-list-item${selectedBuilding?.id === building.id ? " is-active" : ""}`}
+                onClick={() => void handleSelectBuilding(building)}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <strong>{b.name}</strong>
-                  {b.buildingType ? (
-                    <span className="badge badge-info" style={{ fontSize: "0.7rem" }}>{b.buildingType}</span>
-                  ) : null}
+                <div className="service-list-item-top">
+                  <strong>{building.name}</strong>
+                  {building.buildingType ? <span className="badge badge-info">{building.buildingType}</span> : null}
                 </div>
-                {b.code ? <span className="muted" style={{ fontSize: "0.8rem" }}>Code: {b.code}</span> : null}
-                {b.description ? <p className="muted" style={{ fontSize: "0.8rem", margin: "0.25rem 0 0" }}>{b.description}</p> : null}
-                <span className="muted" style={{ fontSize: "0.8rem" }}>{b.floorCount} floor{b.floorCount > 1 ? "s" : ""}</span>
-              </div>
+                <span className="muted">
+                  {building.code ? `Code ${building.code} - ` : ""}
+                  {building.floorCount} floor{building.floorCount === 1 ? "" : "s"}
+                </span>
+                {building.description ? <p className="muted">{building.description}</p> : null}
+              </button>
             ))}
           </div>
         </section>
 
-        {/* Rooms / Search results */}
         <section className="card">
-          <h3>
-            {searchResults ? "Search Results" : selectedBuilding ? `Rooms — ${selectedBuilding.name}` : "Rooms"}
-          </h3>
+          <div className="service-section-header">
+            <div>
+              <h3>{searchResults ? "Search results" : selectedBuilding ? selectedBuilding.name : "Rooms"}</h3>
+              <p className="muted">
+                {searchResults
+                  ? "Use results to quickly set start and destination points."
+                  : selectedBuilding
+                    ? "Choose a room as the start or destination for navigation."
+                    : "Search for a room or choose a building first."}
+              </p>
+            </div>
+          </div>
 
-          {/* Search results */}
-          {searchResults ? (
-            searchResults.length === 0 ? <p className="muted">No rooms found.</p> : (
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr><th>Room</th><th>Building</th><th>Floor</th><th>Type</th><th>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {searchResults.map((r) => (
-                      <tr key={r.id}>
-                        <td><strong>{r.roomNumber}</strong>{r.name ? ` — ${r.name}` : ""}</td>
-                        <td>{r.buildingName}</td>
-                        <td>{r.floor}</td>
-                        <td>{r.roomType || "—"}</td>
-                        <td>
-                          <button className="btn btn-sm" onClick={() => setToRoomId(r.id)}>Navigate here</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+          {roomLoading ? <p>Loading rooms...</p> : null}
+          {!roomLoading && visibleRooms.length === 0 ? (
+            <div className="service-empty">
+              {searchResults ? "No matching rooms found." : "No rooms to show yet."}
+            </div>
           ) : null}
 
-          {/* Building rooms */}
-          {!searchResults && selectedBuilding ? (
-            rooms.length === 0 ? <p className="muted">No rooms in this building.</p> : (
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr><th>Room</th><th>Floor</th><th>Type</th><th>Name</th><th>Capacity</th><th>Actions</th></tr>
-                  </thead>
-                  <tbody>
-                    {rooms.map((r) => (
-                      <tr key={r.id}>
-                        <td><strong>{r.roomNumber}</strong></td>
-                        <td>{r.floor}</td>
-                        <td>{r.roomType || "—"}</td>
-                        <td>{r.name || "—"}</td>
-                        <td>{r.capacity ?? "—"}</td>
-                        <td>
-                          <button className="btn btn-sm" onClick={() => setToRoomId(r.id)}>Navigate here</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          ) : null}
-
-          {!searchResults && !selectedBuilding ? (
-            <p className="muted">Select a building or search for a room.</p>
+          {visibleRooms.length > 0 ? (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Building</th>
+                    <th>Floor</th>
+                    <th>Type</th>
+                    <th>Capacity</th>
+                    <th>Route</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRooms.map((room) => (
+                    <tr key={room.id}>
+                      <td>
+                        <strong>{room.roomNumber}</strong>
+                        {room.name ? <div className="muted">{room.name}</div> : null}
+                      </td>
+                      <td>{room.buildingName || "Unknown"}</td>
+                      <td>{room.floor}</td>
+                      <td>{room.roomType || "-"}</td>
+                      <td>{room.capacity ?? "-"}</td>
+                      <td>
+                        <div className="inline-actions">
+                          <button className="btn btn-sm" onClick={() => setFromRoomId(room.id)}>
+                            Set start
+                          </button>
+                          <button className="btn btn-sm btn-primary" onClick={() => setToRoomId(room.id)}>
+                            Set destination
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : null}
         </section>
       </div>
 
-      {/* Navigation */}
-      <section className="card" style={{ marginTop: "1rem" }}>
-        <h3>Navigate Between Rooms</h3>
-        <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div className="form-group" style={{ flex: 1, minWidth: 150 }}>
-            <label>From Room ID</label>
-            <input type="number" className="input" value={fromRoomId ?? ""} onChange={(e) => setFromRoomId(e.target.value ? Number(e.target.value) : null)} placeholder="Room ID" />
+      <section className="card">
+        <div className="service-section-header">
+          <div>
+            <h3>Route builder</h3>
+            <p className="muted">Choose any two known rooms and calculate the shortest accessible path.</p>
           </div>
-          <div className="form-group" style={{ flex: 1, minWidth: 150 }}>
-            <label>To Room ID</label>
-            <input type="number" className="input" value={toRoomId ?? ""} onChange={(e) => setToRoomId(e.target.value ? Number(e.target.value) : null)} placeholder="Room ID" />
+        </div>
+
+        <div className="service-form-grid">
+          <div className="form-group">
+            <label>From</label>
+            <select
+              className="input"
+              value={fromRoomId ?? ""}
+              onChange={(e) => setFromRoomId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Select a room</option>
+              {navigationRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {getRoomLabel(room)}
+                </option>
+              ))}
+            </select>
           </div>
-          <button className="btn btn-primary" onClick={handleNavigate} disabled={navigating || !fromRoomId || !toRoomId} style={{ marginBottom: "0.5rem" }}>
-            {navigating ? "Calculating..." : "Get Directions"}
-          </button>
+          <div className="form-group">
+            <label>Destination</label>
+            <select
+              className="input"
+              value={toRoomId ?? ""}
+              onChange={(e) => setToRoomId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Select a room</option>
+              {navigationRooms.map((room) => (
+                <option key={room.id} value={room.id}>
+                  {getRoomLabel(room)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group service-form-action">
+            <label>&nbsp;</label>
+            <button className="btn btn-primary" onClick={() => void handleNavigate()} disabled={navigating || !fromRoomId || !toRoomId}>
+              {navigating ? "Calculating..." : "Get directions"}
+            </button>
+          </div>
         </div>
 
         {navResult ? (
-          <div style={{ marginTop: "1rem" }}>
-            {navResult.totalDistanceMeters < 0 ? (
-              <div className="banner banner-danger">No route found between these rooms.</div>
-            ) : (
+          navResult.totalDistanceMeters < 0 ? (
+            <div className="banner banner-danger" style={{ marginTop: 12 }}>
+              No route found between the selected rooms.
+            </div>
+          ) : (
+            <div className="service-route-box">
               <div className="banner banner-success">
-                Route found! Total distance: <strong>{navResult.totalDistanceMeters.toFixed(0)}m</strong> ({navResult.edges.length} segments)
+                Total distance: <strong>{navResult.totalDistanceMeters.toFixed(0)} m</strong> across {navResult.edges.length} segment
+                {navResult.edges.length === 1 ? "" : "s"}.
               </div>
-            )}
-          </div>
+              <div className="service-route-list">
+                {navResult.edges.map((edge, index) => (
+                  <div key={edge.id} className="service-route-item">
+                    <strong>Segment {index + 1}</strong>
+                    <span>{edge.distanceMeters.toFixed(0)} m</span>
+                    <span className={`badge ${edge.accessible ? "badge-success" : "badge-warning"}`}>
+                      {edge.accessible ? "Accessible" : "Limited access"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
         ) : null}
       </section>
     </div>

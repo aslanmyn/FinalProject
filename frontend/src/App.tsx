@@ -22,6 +22,10 @@ import StudentFinancialPage from "./pages/app/StudentFinancialPage";
 import StudentFilesPage from "./pages/app/StudentFilesPage";
 import StudentNewsPage from "./pages/app/StudentNewsPage";
 import StudentRequestsPage from "./pages/app/StudentRequestsPage";
+import StudentDormPage from "./pages/app/StudentDormPage";
+import StudentFoodPage from "./pages/app/StudentFoodPage";
+import StudentCampusMapPage from "./pages/app/StudentCampusMapPage";
+import StudentLaundryPage from "./pages/app/StudentLaundryPage";
 import TeacherDashboardPage from "./pages/app/TeacherDashboardPage";
 import TeacherNotificationsPage from "./pages/app/TeacherNotificationsPage";
 import TeacherAssistantPage from "./pages/app/TeacherAssistantPage";
@@ -204,6 +208,38 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentNewsPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/dorm"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentDormPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/food"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentFoodPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/campus-map"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentCampusMapPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/laundry"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentLaundryPage />
             </RoleProtectedRoute>
           }
         />
