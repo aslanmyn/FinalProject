@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +25,8 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
+@Tag(name = "Admin Operations", description = "Admin support, finance, content, requests, checklist, surveys, mobility, notifications, and platform utilities.")
+@SecurityRequirement(name = "Bearer")
 public class AdminV1Controller {
     private final HoldService holdService;
     private final MobilityService mobilityService;

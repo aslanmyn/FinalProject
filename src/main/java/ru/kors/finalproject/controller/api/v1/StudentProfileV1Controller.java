@@ -1,5 +1,8 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +20,8 @@ import java.time.Instant;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
+@Tag(name = "Student Profile", description = "Student profile data and profile photo upload.")
+@SecurityRequirement(name = "Bearer")
 public class StudentProfileV1Controller {
 
     private final CurrentUserHelper currentUserHelper;
@@ -25,12 +30,14 @@ public class StudentProfileV1Controller {
     private final FileLinkService fileLinkService;
 
     @GetMapping("/profile")
+    @Operation(summary = "Get student profile", description = "Returns the current student's profile card data.")
     public ResponseEntity<?> profile(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(toDto(student));
     }
 
     @PostMapping(value = "/profile-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload student profile photo", description = "Uploads a new student avatar image and replaces the previous one.")
     public ResponseEntity<?> uploadProfilePhoto(
             @AuthenticationPrincipal User user,
             @RequestParam("file") MultipartFile file) {

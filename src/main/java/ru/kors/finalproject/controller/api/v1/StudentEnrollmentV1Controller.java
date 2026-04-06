@@ -1,5 +1,9 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +20,8 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
+@Tag(name = "Student Enrollment & Finance", description = "Enrollments, course registration, add/drop, FX, holds, and student financial data.")
+@SecurityRequirement(name = "Bearer")
 public class StudentEnrollmentV1Controller {
 
     private final CurrentUserHelper currentUserHelper;
@@ -28,6 +34,7 @@ public class StudentEnrollmentV1Controller {
     private final FinancialService financialService;
 
     @GetMapping("/enrollments")
+    @Operation(summary = "Get enrollments", description = "Returns the student's registrations, optionally filtered by semester.")
     public ResponseEntity<?> enrollments(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -51,6 +58,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @GetMapping("/enrollments/options")
+    @Operation(summary = "Get enrollment filter options", description = "Returns available semesters for the enrollment page.")
     public ResponseEntity<?> enrollmentOptions(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = buildEnrollmentSemesterOptions(student.getId());
@@ -62,6 +70,7 @@ public class StudentEnrollmentV1Controller {
 
     @GetMapping("/course-registration/overview")
     @Transactional(readOnly = true)
+    @Operation(summary = "Get registration overview", description = "Returns current semester registration context: windows, holds, current registrations, credit summary, and FX counters.")
     public ResponseEntity<?> registrationOverview(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         Semester semester = student.getCurrentSemester();
@@ -121,6 +130,7 @@ public class StudentEnrollmentV1Controller {
 
     @GetMapping("/course-registration/catalog")
     @Transactional(readOnly = true)
+    @Operation(summary = "Get course catalog", description = "Returns section catalog with registration/add-drop/drop eligibility and blocking reasons.")
     public ResponseEntity<?> registrationCatalog(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.getCatalogForCurrentSemester(student).stream()
@@ -129,6 +139,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @GetMapping("/course-registration/available")
+    @Operation(summary = "Get available sections", description = "Returns sections that are available for add/drop style actions.")
     public ResponseEntity<?> availableCourses(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(addDropService.getAvailableForAdd(student).stream()
@@ -137,6 +148,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @PostMapping("/course-registration/submit")
+    @Operation(summary = "Submit registration", description = "Registers the student into a section during the registration window.")
     public ResponseEntity<?> submitRegistration(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
@@ -145,6 +157,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @PostMapping("/add-drop/add")
+    @Operation(summary = "Add course", description = "Adds the student to a section during the add/drop window.")
     public ResponseEntity<?> addCourse(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
@@ -153,6 +166,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @PostMapping("/add-drop/drop")
+    @Operation(summary = "Drop course", description = "Drops a section during the add/drop window if allowed by policy.")
     public ResponseEntity<?> dropCourse(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
@@ -161,6 +175,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @GetMapping("/fx")
+    @Operation(summary = "Get FX overview", description = "Returns FX window state, eligible courses, and student's existing FX requests.")
     public ResponseEntity<?> fx(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         Semester semester = student.getCurrentSemester();
@@ -182,6 +197,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @PostMapping("/fx")
+    @Operation(summary = "Create FX request", description = "Creates a new FX registration request for the selected section.")
     public ResponseEntity<?> createFx(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body) {
@@ -189,6 +205,7 @@ public class StudentEnrollmentV1Controller {
         return ResponseEntity.ok(toFxDto(fxRegistrationService.submit(student, body.sectionId())));
     }
     @GetMapping("/financial")
+    @Operation(summary = "Get student financial overview", description = "Returns charges, payments, balance, and whether a financial hold blocks registration.")
     public ResponseEntity<?> financial(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<Charge> charges = financialService.getCharges(student);
@@ -212,6 +229,7 @@ public class StudentEnrollmentV1Controller {
     }
 
     @GetMapping("/holds")
+    @Operation(summary = "Get active holds", description = "Returns active holds that apply to the student.")
     public ResponseEntity<?> holds(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<Hold> activeHolds = holdRepository.findByStudentIdAndActiveTrue(student.getId());
@@ -425,5 +443,5 @@ public class StudentEnrollmentV1Controller {
     public record StudentPaymentDto(Long id, java.math.BigDecimal amount, java.time.LocalDate date) {}
     public record StudentFinancialDto(List<StudentChargeDto> charges, List<StudentPaymentDto> payments,
                                       java.math.BigDecimal balance, boolean hasFinancialHold) {}
-    public record CourseActionBody(Long sectionId) {}
+    public record CourseActionBody(@Schema(example = "8") Long sectionId) {}
 }

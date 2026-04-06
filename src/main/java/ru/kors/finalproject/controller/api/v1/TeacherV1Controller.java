@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +31,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/teacher")
 @RequiredArgsConstructor
+@Tag(name = "Teacher Teaching", description = "Teacher profile, sections, attendance control, gradebook, notes, materials, and section-level operations.")
+@SecurityRequirement(name = "Bearer")
 public class TeacherV1Controller {
     private final CurrentUserHelper currentUserHelper;
     private final SubjectOfferingRepository subjectOfferingRepository;

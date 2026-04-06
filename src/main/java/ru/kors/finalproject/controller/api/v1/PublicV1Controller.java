@@ -1,5 +1,6 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/public")
 @RequiredArgsConstructor
+@Tag(name = "Public", description = "Public website data such as home content, professors, and public news.")
 public class PublicV1Controller {
 
     private final NewsRepository newsRepository;

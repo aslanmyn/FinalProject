@@ -1,5 +1,8 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +19,8 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
+@Tag(name = "Student Academic", description = "Schedule, journal, transcript, attendance, exams, and academic session actions for the current student.")
+@SecurityRequirement(name = "Bearer")
 public class StudentAcademicV1Controller {
 
     private final CurrentUserHelper currentUserHelper;
@@ -29,6 +34,7 @@ public class StudentAcademicV1Controller {
     private final AttendanceFlowService attendanceFlowService;
 
     @GetMapping("/schedule")
+    @Operation(summary = "Get student schedule", description = "Returns weekly timetable items for the selected semester or the student's current semester.")
     public ResponseEntity<?> schedule(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -51,6 +57,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/schedule/options")
+    @Operation(summary = "Get schedule filter options", description = "Returns available semesters for the student's schedule page.")
     public ResponseEntity<?> scheduleOptions(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = registrationRepository.findByStudentIdWithDetails(student.getId()).stream()
@@ -76,6 +83,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/journal")
+    @Operation(summary = "Get student journal", description = "Returns attestation, final, and total score rows for the selected semester.")
     public ResponseEntity<?> journal(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -156,6 +164,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/journal/options")
+    @Operation(summary = "Get journal filter options", description = "Returns available semesters for the student journal page.")
     public ResponseEntity<?> journalOptions(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<SemesterOptionDto> semesters = buildJournalSemesterOptions(student.getId());
@@ -166,6 +175,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/transcript")
+    @Operation(summary = "Get transcript", description = "Returns published final grades and calculated GPA for the current student.")
     public ResponseEntity<?> transcript(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<FinalGrade> grades = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId());
@@ -185,6 +195,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/attendance")
+    @Operation(summary = "Get attendance dashboard", description = "Returns attendance history, active check-in sessions, and summary statistics.")
     public ResponseEntity<?> attendance(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<Attendance> items = attendanceRepository.findByStudentIdWithDetails(student.getId());
@@ -209,6 +220,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/attendance/active")
+    @Operation(summary = "Get active attendance sessions", description = "Returns active self check-in attendance sessions available to the student right now.")
     public ResponseEntity<?> activeAttendance(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(attendanceFlowService.getActiveSessionsForStudent(student).stream()
@@ -217,6 +229,7 @@ public class StudentAcademicV1Controller {
     }
 
     @PostMapping("/attendance-sessions/{sessionId}/check-in")
+    @Operation(summary = "Check in to attendance session", description = "Marks the student as present in an open attendance session. Code is required only for CODE mode.")
     public ResponseEntity<?> checkInAttendance(
             @AuthenticationPrincipal User user,
             @PathVariable Long sessionId,
@@ -233,6 +246,7 @@ public class StudentAcademicV1Controller {
     }
 
     @GetMapping("/exam-schedule")
+    @Operation(summary = "Get exam schedule", description = "Returns current semester exams for the student's active registrations.")
     public ResponseEntity<?> examSchedule(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         List<Registration> enrollments = registrationRepository.findActiveByStudentIdWithDetails(student.getId());

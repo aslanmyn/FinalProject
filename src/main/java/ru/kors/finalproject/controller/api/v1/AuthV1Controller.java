@@ -1,5 +1,8 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +33,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Login, refresh, logout, and self-service registration.")
 public class AuthV1Controller {
     private final UserRepository userRepository;
     private final JwtService jwtService;
@@ -43,6 +47,7 @@ public class AuthV1Controller {
     private final SemesterRepository semesterRepository;
 
     @PostMapping("/login")
+    @Operation(summary = "Login", description = "Authenticates a user and returns access and refresh tokens.")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new ApiUnauthorizedException("Invalid credentials"));
@@ -55,6 +60,7 @@ public class AuthV1Controller {
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "Refresh token", description = "Rotates the refresh token and issues a new access token.")
     public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest request) {
         var rotated = refreshTokenService.rotate(request.refreshToken());
         String accessToken = jwtService.generateAccessToken(rotated.user());
@@ -62,6 +68,7 @@ public class AuthV1Controller {
     }
 
     @PostMapping("/logout")
+    @Operation(summary = "Logout", description = "Revokes the provided refresh token.")
     public ResponseEntity<?> logout(@Valid @RequestBody RefreshRequest request) {
         refreshTokenService.revoke(request.refreshToken());
         return ResponseEntity.ok(Map.of("status", "ok"));
@@ -69,6 +76,7 @@ public class AuthV1Controller {
 
     @PostMapping("/register")
     @Transactional
+    @Operation(summary = "Register", description = "Self-registers a new user. Role is detected from email format.")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         String email = request.email().trim().toLowerCase();
         String fullName = request.fullName().trim();
@@ -121,28 +129,35 @@ public class AuthV1Controller {
     }
 
     public record LoginRequest(
+            @Schema(example = "a_mustafayev@kbtu.kz")
             @jakarta.validation.constraints.NotBlank(message = "Email is required")
             @jakarta.validation.constraints.Email
             String email,
+            @Schema(example = "student123")
             @jakarta.validation.constraints.NotBlank(message = "Password is required")
             @jakarta.validation.constraints.Size(min = 6)
             String password) {
     }
 
     public record RefreshRequest(
+            @Schema(example = "eyJhbGciOiJIUzI1NiJ9...")
             @jakarta.validation.constraints.NotBlank(message = "Refresh token is required")
             String refreshToken) {
     }
 
     public record RegisterRequest(
+            @Schema(example = "a_testov@kbtu.kz")
             @jakarta.validation.constraints.NotBlank(message = "Email is required")
             @jakarta.validation.constraints.Email
             String email,
+            @Schema(example = "student123")
             @jakarta.validation.constraints.NotBlank(message = "Password is required")
             @jakarta.validation.constraints.Size(min = 6, message = "Password must be at least 6 characters")
             String password,
+            @Schema(example = "student123")
             @jakarta.validation.constraints.NotBlank(message = "Confirm password is required")
             String confirmPassword,
+            @Schema(example = "Aslan Testov")
             @jakarta.validation.constraints.NotBlank(message = "Full name is required")
             String fullName) {
     }

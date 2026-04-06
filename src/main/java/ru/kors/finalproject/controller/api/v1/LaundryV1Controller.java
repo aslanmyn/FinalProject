@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -14,6 +16,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/student/laundry")
 @RequiredArgsConstructor
+@Tag(name = "Student Laundry", description = "Laundry rooms, machine availability, and booking management for students.")
+@SecurityRequirement(name = "Bearer")
 public class LaundryV1Controller {
 
     private final LaundryService laundryService;

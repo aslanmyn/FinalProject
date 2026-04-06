@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +14,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
+@Tag(name = "Chat", description = "Chat rooms, direct messages, group rooms, and room membership operations.")
+@SecurityRequirement(name = "Bearer")
 public class ChatV1Controller {
 
     private final ChatService chatService;

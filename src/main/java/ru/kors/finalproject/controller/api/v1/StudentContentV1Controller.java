@@ -1,5 +1,8 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +22,8 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
+@Tag(name = "Student Content", description = "News, announcements, notifications, materials, and personal files for students.")
+@SecurityRequirement(name = "Bearer")
 public class StudentContentV1Controller {
 
     private final CurrentUserHelper currentUserHelper;
@@ -31,6 +36,7 @@ public class StudentContentV1Controller {
     private final ApiPageableFactory apiPageableFactory;
 
     @GetMapping("/news")
+    @Operation(summary = "Get public news feed", description = "Returns news entries visible to students.")
     public ResponseEntity<?> news(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(newsRepository.findByOrderByCreatedAtDesc().stream().map(n -> Map.of(
                 "id", (Object) n.getId(),
@@ -42,6 +48,7 @@ public class StudentContentV1Controller {
     }
 
     @GetMapping("/announcements")
+    @Operation(summary = "Get section announcements", description = "Returns course announcements for the current student.")
     public ResponseEntity<?> announcements(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
@@ -61,6 +68,7 @@ public class StudentContentV1Controller {
     }
 
     @GetMapping("/notifications")
+    @Operation(summary = "Get notifications", description = "Returns student notifications and unread count.")
     public ResponseEntity<?> notifications(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(Map.of(
                 "notifications", notificationService.listForEmail(user.getEmail()).stream()
@@ -71,6 +79,7 @@ public class StudentContentV1Controller {
     }
 
     @PostMapping("/notifications/{id}/read")
+    @Operation(summary = "Mark notification as read", description = "Marks a single notification as read for the current student.")
     public ResponseEntity<?> markNotificationRead(
             @AuthenticationPrincipal User user,
             @PathVariable Long id) {
@@ -79,12 +88,14 @@ public class StudentContentV1Controller {
     }
 
     @PostMapping("/notifications/read-all")
+    @Operation(summary = "Mark all notifications as read", description = "Marks all notifications as read for the current student.")
     public ResponseEntity<?> markAllNotificationsRead(@AuthenticationPrincipal User user) {
         notificationService.markAllReadForEmail(user.getEmail());
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
 
     @GetMapping("/materials/{sectionId}")
+    @Operation(summary = "Get section materials", description = "Returns published course materials for a section where the student is enrolled.")
     public ResponseEntity<?> courseMaterials(
             @AuthenticationPrincipal User user,
             @PathVariable Long sectionId) {
@@ -101,6 +112,7 @@ public class StudentContentV1Controller {
     }
 
     @GetMapping("/files")
+    @Operation(summary = "Get student files", description = "Returns files owned by the current student with signed download links.")
     public ResponseEntity<?> files(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(fileAssetRepository.findByOwnerStudentIdOrderByUploadedAtDesc(student.getId()).stream()

@@ -1,5 +1,8 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +22,8 @@ import java.util.Set;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
+@Tag(name = "Student Services", description = "Checklist, mobility, clearance, and request ticket workflows for students.")
+@SecurityRequirement(name = "Bearer")
 public class StudentServicesV1Controller {
 
     private final CurrentUserHelper currentUserHelper;
@@ -30,6 +35,7 @@ public class StudentServicesV1Controller {
     private final ApiPageableFactory apiPageableFactory;
 
     @GetMapping("/checklist")
+    @Operation(summary = "Get checklist", description = "Returns checklist items assigned to the current student.")
     public ResponseEntity<?> checklist(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(checklistItemRepository.findByStudentIdOrderByDeadlineAsc(student.getId()).stream()
@@ -40,6 +46,7 @@ public class StudentServicesV1Controller {
     }
 
     @GetMapping("/mobility")
+    @Operation(summary = "Get mobility applications", description = "Returns mobility applications created by the current student.")
     public ResponseEntity<?> mobility(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(mobilityApplicationRepository
@@ -55,6 +62,7 @@ public class StudentServicesV1Controller {
     }
 
     @GetMapping("/clearance")
+    @Operation(summary = "Get clearance sheet", description = "Returns the student's clearance sheet with checkpoint statuses.")
     public ResponseEntity<?> clearance(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         ClearanceSheet sheet = clearanceSheetRepository.findByStudentIdWithDetails(student.getId()).orElse(null);
@@ -64,6 +72,7 @@ public class StudentServicesV1Controller {
     }
 
     @GetMapping("/requests")
+    @Operation(summary = "Get requests", description = "Returns the student's support and academic request tickets.")
     public ResponseEntity<?> requests(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
@@ -81,6 +90,7 @@ public class StudentServicesV1Controller {
     }
 
     @PostMapping("/requests")
+    @Operation(summary = "Create request", description = "Creates a new student request ticket.")
     public ResponseEntity<?> createRequest(
             @AuthenticationPrincipal User user,
             @RequestBody CreateRequestBody body) {
@@ -91,6 +101,7 @@ public class StudentServicesV1Controller {
     }
 
     @GetMapping("/requests/{id}/messages")
+    @Operation(summary = "Get request messages", description = "Returns the discussion thread for a request owned by the current student.")
     public ResponseEntity<?> requestMessages(
             @AuthenticationPrincipal User user,
             @PathVariable Long id) {
@@ -112,6 +123,7 @@ public class StudentServicesV1Controller {
     }
 
     @PostMapping("/requests/{id}/messages")
+    @Operation(summary = "Add request message", description = "Adds a new message to a request owned by the current student.")
     public ResponseEntity<?> addRequestMessage(
             @AuthenticationPrincipal User user,
             @PathVariable Long id,

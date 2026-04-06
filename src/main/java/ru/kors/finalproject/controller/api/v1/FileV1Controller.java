@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +19,8 @@ import ru.kors.finalproject.web.api.v1.ApiUnauthorizedException;
 @RestController
 @RequestMapping("/api/v1/files")
 @RequiredArgsConstructor
+@Tag(name = "Files", description = "Signed file access and upload-related endpoints.")
+@SecurityRequirement(name = "Bearer")
 public class FileV1Controller {
     private final FileAssetRepository fileAssetRepository;
     private final CourseMaterialRepository courseMaterialRepository;

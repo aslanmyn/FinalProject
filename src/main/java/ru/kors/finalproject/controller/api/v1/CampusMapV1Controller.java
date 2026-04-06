@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/student/campus-map")
 @RequiredArgsConstructor
+@Tag(name = "Student Campus Map", description = "Campus buildings, rooms, and navigation routes for students.")
+@SecurityRequirement(name = "Bearer")
 public class CampusMapV1Controller {
 
     private final CampusMapService campusMapService;

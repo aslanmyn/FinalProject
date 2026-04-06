@@ -1,5 +1,7 @@
 package ru.kors.finalproject.controller.api.v1;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +18,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/student/food")
 @RequiredArgsConstructor
+@Tag(name = "Student Food", description = "Canteen categories, menu items, and student food ordering.")
+@SecurityRequirement(name = "Bearer")
 public class FoodV1Controller {
 
     private final FoodOrderService foodOrderService;
