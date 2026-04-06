@@ -1,30 +1,157 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ApiError,
   addAdminMeetingTime,
   assignAdminProfessor,
   createAdminExam,
   createAdminSection,
+  createAdminStudent,
   createAdminTerm,
   deleteAdminExam,
   fetchAdminExams,
+  fetchAdminFaculties,
+  fetchAdminPrograms,
   fetchAdminSections,
+  fetchAdminStudentDetail,
+  fetchAdminStudents,
   fetchAdminSubjects,
   fetchAdminTeachers,
   fetchAdminTerms,
+  updateAdminStudent,
   upsertAdminWindow
 } from "../../lib/api";
 import type {
   AdminExamItem,
+  AdminFacultyItem,
+  AdminProgramItem,
   AdminSectionItem,
+  AdminSimpleStudentItem,
   AdminSimpleSubjectItem,
   AdminSimpleTeacherItem,
+  AdminStudentDetail,
+  AdminStudentUpsertPayload,
   AdminTermItem
 } from "../../types/admin";
 
 const lessonTypes = ["LECTURE", "PRACTICE", "LAB"] as const;
 const windowTypes = ["REGISTRATION", "ADD_DROP", "FX", "GRADE_PUBLISH"] as const;
 const weekDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
+const studentStatuses = ["ACTIVE", "ON_LEAVE", "GRADUATED"] as const;
+
+type StudentStatus = (typeof studentStatuses)[number];
+
+type StudentFormState = {
+  email: string;
+  password: string;
+  fullName: string;
+  facultyId: number | "";
+  programId: number | "";
+  currentSemesterId: number | "";
+  course: number;
+  groupName: string;
+  status: StudentStatus;
+  creditsEarned: number;
+  passportNumber: string;
+  address: string;
+  phone: string;
+  emergencyContact: string;
+  enabled: boolean;
+};
+
+function createEmptyStudentForm(): StudentFormState {
+  return {
+    email: "",
+    password: "student123",
+    fullName: "",
+    facultyId: "",
+    programId: "",
+    currentSemesterId: "",
+    course: 1,
+    groupName: "TBD",
+    status: "ACTIVE",
+    creditsEarned: 0,
+    passportNumber: "",
+    address: "",
+    phone: "",
+    emergencyContact: "",
+    enabled: true
+  };
+}
+
+function buildStudentFormDefaults(
+  faculties: AdminFacultyItem[],
+  programs: AdminProgramItem[],
+  terms: AdminTermItem[]
+): StudentFormState {
+  const defaults = createEmptyStudentForm();
+  const facultyId = faculties[0]?.id ?? "";
+  const programId = facultyId ? programs.find((program) => program.facultyId === facultyId)?.id ?? "" : "";
+  return {
+    ...defaults,
+    facultyId,
+    programId,
+    currentSemesterId: terms[0]?.id ?? ""
+  };
+}
+
+function mapStudentDetailToForm(detail: AdminStudentDetail): StudentFormState {
+  return {
+    email: detail.email,
+    password: "",
+    fullName: detail.fullName,
+    facultyId: detail.facultyId ?? "",
+    programId: detail.programId ?? "",
+    currentSemesterId: detail.currentSemesterId ?? "",
+    course: detail.course,
+    groupName: detail.groupName ?? "",
+    status: (studentStatuses.includes(detail.status as StudentStatus) ? detail.status : "ACTIVE") as StudentStatus,
+    creditsEarned: detail.creditsEarned,
+    passportNumber: detail.passportNumber ?? "",
+    address: detail.address ?? "",
+    phone: detail.phone ?? "",
+    emergencyContact: detail.emergencyContact ?? "",
+    enabled: detail.enabled
+  };
+}
+
+function toStudentPayload(form: StudentFormState): AdminStudentUpsertPayload {
+  if (!form.facultyId || !form.programId || !form.currentSemesterId) {
+    throw new Error("Faculty, program, and semester are required");
+  }
+
+  return {
+    email: form.email.trim(),
+    password: form.password,
+    fullName: form.fullName.trim(),
+    facultyId: Number(form.facultyId),
+    programId: Number(form.programId),
+    currentSemesterId: Number(form.currentSemesterId),
+    course: Number(form.course),
+    groupName: form.groupName.trim(),
+    status: form.status,
+    creditsEarned: Number(form.creditsEarned),
+    passportNumber: form.passportNumber.trim(),
+    address: form.address.trim(),
+    phone: form.phone.trim(),
+    emergencyContact: form.emergencyContact.trim(),
+    enabled: form.enabled
+  };
+}
+
+function syncProgramForFaculty(
+  nextFacultyId: number | "",
+  currentProgramId: number | "",
+  programs: AdminProgramItem[]
+): number | "" {
+  if (!nextFacultyId) {
+    return "";
+  }
+  const filteredPrograms = programs.filter((program) => program.facultyId === nextFacultyId);
+  if (filteredPrograms.some((program) => program.id === currentProgramId)) {
+    return currentProgramId;
+  }
+  return filteredPrograms[0]?.id ?? "";
+}
 
 export default function AdminAcademicPage() {
   const [terms, setTerms] = useState<AdminTermItem[]>([]);
@@ -32,6 +159,9 @@ export default function AdminAcademicPage() {
   const [teachers, setTeachers] = useState<AdminSimpleTeacherItem[]>([]);
   const [sections, setSections] = useState<AdminSectionItem[]>([]);
   const [exams, setExams] = useState<AdminExamItem[]>([]);
+  const [students, setStudents] = useState<AdminSimpleStudentItem[]>([]);
+  const [faculties, setFaculties] = useState<AdminFacultyItem[]>([]);
+  const [programs, setPrograms] = useState<AdminProgramItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -69,31 +199,56 @@ export default function AdminAcademicPage() {
   const [examRoom, setExamRoom] = useState("Main Hall");
   const [examFormat, setExamFormat] = useState("WRITTEN");
 
+  const [createStudentForm, setCreateStudentForm] = useState<StudentFormState>(createEmptyStudentForm());
+  const [editStudentForm, setEditStudentForm] = useState<StudentFormState>(createEmptyStudentForm());
+  const [selectedStudentId, setSelectedStudentId] = useState<number | "">("");
+  const [selectedStudentMeta, setSelectedStudentMeta] = useState<AdminStudentDetail | null>(null);
+  const [loadingStudentDetails, setLoadingStudentDetails] = useState(false);
+
+  const createPrograms = useMemo(
+    () => programs.filter((program) => !createStudentForm.facultyId || program.facultyId === createStudentForm.facultyId),
+    [programs, createStudentForm.facultyId]
+  );
+  const editPrograms = useMemo(
+    () => programs.filter((program) => !editStudentForm.facultyId || program.facultyId === editStudentForm.facultyId),
+    [programs, editStudentForm.facultyId]
+  );
+
   async function loadData() {
     setLoading(true);
     setError(null);
     try {
-      const [termsData, subjectsData, teachersData, sectionsData, examsData] = await Promise.all([
+      const [termsData, subjectsData, teachersData, sectionsData, examsData, studentsData, facultiesData, programsData] = await Promise.all([
         fetchAdminTerms(),
         fetchAdminSubjects(),
         fetchAdminTeachers(),
         fetchAdminSections(),
-        fetchAdminExams()
+        fetchAdminExams(),
+        fetchAdminStudents(),
+        fetchAdminFaculties(),
+        fetchAdminPrograms()
       ]);
       setTerms(termsData);
       setSubjects(subjectsData);
       setTeachers(teachersData);
       setSections(sectionsData);
       setExams(examsData);
+      setStudents(studentsData);
+      setFaculties(facultiesData);
+      setPrograms(programsData);
 
-      setSectionSubjectId(subjectsData[0]?.id ?? "");
-      setSectionSemesterId(termsData[0]?.id ?? "");
-      setSectionTeacherId(teachersData[0]?.id ?? "");
-      setAssignSectionId(sectionsData[0]?.id ?? "");
-      setAssignTeacherId(teachersData[0]?.id ?? "");
-      setMeetingSectionId(sectionsData[0]?.id ?? "");
-      setWindowSemesterId(termsData[0]?.id ?? "");
-      setExamSectionId(sectionsData[0]?.id ?? "");
+      setSectionSubjectId((current) => current || subjectsData[0]?.id || "");
+      setSectionSemesterId((current) => current || termsData[0]?.id || "");
+      setSectionTeacherId((current) => current || teachersData[0]?.id || "");
+      setAssignSectionId((current) => current || sectionsData[0]?.id || "");
+      setAssignTeacherId((current) => current || teachersData[0]?.id || "");
+      setMeetingSectionId((current) => current || sectionsData[0]?.id || "");
+      setWindowSemesterId((current) => current || termsData[0]?.id || "");
+      setExamSectionId((current) => current || sectionsData[0]?.id || "");
+      setSelectedStudentId((current) => current || studentsData[0]?.id || "");
+      setCreateStudentForm((current) =>
+        current.facultyId || current.currentSemesterId ? current : buildStudentFormDefaults(facultiesData, programsData, termsData)
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load academic data");
     } finally {
@@ -104,6 +259,66 @@ export default function AdminAcademicPage() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedStudentId) {
+      setSelectedStudentMeta(null);
+      setEditStudentForm(createEmptyStudentForm());
+      return;
+    }
+
+    let active = true;
+    setLoadingStudentDetails(true);
+    setError(null);
+
+    void fetchAdminStudentDetail(Number(selectedStudentId))
+      .then((detail) => {
+        if (!active) return;
+        setSelectedStudentMeta(detail);
+        setEditStudentForm(mapStudentDetailToForm(detail));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof ApiError ? err.message : "Failed to load student details");
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingStudentDetails(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedStudentId]);
+
+  function updateCreateStudentField<K extends keyof StudentFormState>(key: K, value: StudentFormState[K]) {
+    setCreateStudentForm((prev) => {
+      if (key === "facultyId") {
+        const nextFacultyId = value as StudentFormState["facultyId"];
+        return {
+          ...prev,
+          facultyId: nextFacultyId,
+          programId: syncProgramForFaculty(nextFacultyId, prev.programId, programs)
+        };
+      }
+      return { ...prev, [key]: value };
+    });
+  }
+
+  function updateEditStudentField<K extends keyof StudentFormState>(key: K, value: StudentFormState[K]) {
+    setEditStudentForm((prev) => {
+      if (key === "facultyId") {
+        const nextFacultyId = value as StudentFormState["facultyId"];
+        return {
+          ...prev,
+          facultyId: nextFacultyId,
+          programId: syncProgramForFaculty(nextFacultyId, prev.programId, programs)
+        };
+      }
+      return { ...prev, [key]: value };
+    });
+  }
 
   async function handleCreateTerm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -216,6 +431,38 @@ export default function AdminAcademicPage() {
     }
   }
 
+  async function handleCreateStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await createAdminStudent(toStudentPayload(createStudentForm));
+      setSuccess(`Student created: ${created.fullName}`);
+      await loadData();
+      setSelectedStudentId(created.studentId);
+      setCreateStudentForm(buildStudentFormDefaults(faculties, programs, terms));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to create student");
+    }
+  }
+
+  async function handleUpdateStudent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedStudentId) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await updateAdminStudent(Number(selectedStudentId), toStudentPayload(editStudentForm));
+      setSuccess(`Student updated: ${updated.fullName}`);
+      await loadData();
+      const refreshed = await fetchAdminStudentDetail(Number(selectedStudentId));
+      setSelectedStudentMeta(refreshed);
+      setEditStudentForm(mapStudentDetailToForm(refreshed));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to update student");
+    }
+  }
+
   return (
     <div className="screen app-screen">
       <header className="topbar">
@@ -228,6 +475,348 @@ export default function AdminAcademicPage() {
 
       {!loading ? (
         <>
+          <section className="card">
+            <h3>Student Management</h3>
+            <p className="muted">
+              Create a new student with full academic data or update an existing profile without leaving the admin panel.
+            </p>
+          </section>
+
+          <section className="card">
+            <h3>Create Student</h3>
+            <form className="form" onSubmit={handleCreateStudent}>
+              <div className="inline-form">
+                <label>
+                  Email
+                  <input
+                    value={createStudentForm.email}
+                    onChange={(event) => updateCreateStudentField("email", event.target.value)}
+                    placeholder="a_testov@kbtu.kz"
+                    required
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    value={createStudentForm.password}
+                    onChange={(event) => updateCreateStudentField("password", event.target.value)}
+                    minLength={6}
+                    required
+                  />
+                </label>
+                <label>
+                  Full Name
+                  <input
+                    value={createStudentForm.fullName}
+                    onChange={(event) => updateCreateStudentField("fullName", event.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Course
+                  <input
+                    type="number"
+                    min={1}
+                    value={createStudentForm.course}
+                    onChange={(event) => updateCreateStudentField("course", Number(event.target.value))}
+                    required
+                  />
+                </label>
+                <label>
+                  Group
+                  <input
+                    value={createStudentForm.groupName}
+                    onChange={(event) => updateCreateStudentField("groupName", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Status
+                  <select
+                    value={createStudentForm.status}
+                    onChange={(event) => updateCreateStudentField("status", event.target.value as StudentStatus)}
+                  >
+                    {studentStatuses.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Faculty
+                  <select
+                    value={createStudentForm.facultyId}
+                    onChange={(event) =>
+                      updateCreateStudentField("facultyId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Program
+                  <select
+                    value={createStudentForm.programId}
+                    onChange={(event) =>
+                      updateCreateStudentField("programId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select program</option>
+                    {createPrograms.map((program) => (
+                      <option key={program.id} value={program.id}>
+                        {program.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Semester
+                  <select
+                    value={createStudentForm.currentSemesterId}
+                    onChange={(event) =>
+                      updateCreateStudentField("currentSemesterId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select semester</option>
+                    {terms.map((term) => (
+                      <option key={term.id} value={term.id}>
+                        {term.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Credits Earned
+                  <input
+                    type="number"
+                    min={0}
+                    value={createStudentForm.creditsEarned}
+                    onChange={(event) => updateCreateStudentField("creditsEarned", Number(event.target.value))}
+                  />
+                </label>
+                <label>
+                  Passport Number
+                  <input
+                    value={createStudentForm.passportNumber}
+                    onChange={(event) => updateCreateStudentField("passportNumber", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Phone
+                  <input value={createStudentForm.phone} onChange={(event) => updateCreateStudentField("phone", event.target.value)} />
+                </label>
+                <label>
+                  Emergency Contact
+                  <input
+                    value={createStudentForm.emergencyContact}
+                    onChange={(event) => updateCreateStudentField("emergencyContact", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Address
+                  <input value={createStudentForm.address} onChange={(event) => updateCreateStudentField("address", event.target.value)} />
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={createStudentForm.enabled}
+                    onChange={(event) => updateCreateStudentField("enabled", event.target.checked)}
+                  />{" "}
+                  Enabled
+                </label>
+              </div>
+              <button type="submit">Create Student</button>
+            </form>
+          </section>
+
+          <section className="card">
+            <h3>Edit Existing Student</h3>
+            <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
+              <label>
+                Student
+                <select
+                  value={selectedStudentId}
+                  onChange={(event) => setSelectedStudentId(event.target.value ? Number(event.target.value) : "")}
+                >
+                  <option value="">Select student</option>
+                  {students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.id} - {student.name} ({student.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </form>
+
+            {loadingStudentDetails ? <p>Loading student details...</p> : null}
+
+            {selectedStudentMeta ? (
+              <form className="form" onSubmit={handleUpdateStudent}>
+                <div className="inline-form">
+                  <label>
+                    Email
+                    <input
+                      value={editStudentForm.email}
+                      onChange={(event) => updateEditStudentField("email", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    New Password
+                    <input
+                      value={editStudentForm.password}
+                      onChange={(event) => updateEditStudentField("password", event.target.value)}
+                      placeholder="Leave blank to keep current password"
+                    />
+                  </label>
+                  <label>
+                    Full Name
+                    <input
+                      value={editStudentForm.fullName}
+                      onChange={(event) => updateEditStudentField("fullName", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Course
+                    <input
+                      type="number"
+                      min={1}
+                      value={editStudentForm.course}
+                      onChange={(event) => updateEditStudentField("course", Number(event.target.value))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Group
+                    <input
+                      value={editStudentForm.groupName}
+                      onChange={(event) => updateEditStudentField("groupName", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Status
+                    <select
+                      value={editStudentForm.status}
+                      onChange={(event) => updateEditStudentField("status", event.target.value as StudentStatus)}
+                    >
+                      {studentStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Faculty
+                    <select
+                      value={editStudentForm.facultyId}
+                      onChange={(event) =>
+                        updateEditStudentField("facultyId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select faculty</option>
+                      {faculties.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Program
+                    <select
+                      value={editStudentForm.programId}
+                      onChange={(event) =>
+                        updateEditStudentField("programId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select program</option>
+                      {editPrograms.map((program) => (
+                        <option key={program.id} value={program.id}>
+                          {program.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Semester
+                    <select
+                      value={editStudentForm.currentSemesterId}
+                      onChange={(event) =>
+                        updateEditStudentField("currentSemesterId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select semester</option>
+                      {terms.map((term) => (
+                        <option key={term.id} value={term.id}>
+                          {term.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Credits Earned
+                    <input
+                      type="number"
+                      min={0}
+                      value={editStudentForm.creditsEarned}
+                      onChange={(event) => updateEditStudentField("creditsEarned", Number(event.target.value))}
+                    />
+                  </label>
+                  <label>
+                    Passport Number
+                    <input
+                      value={editStudentForm.passportNumber}
+                      onChange={(event) => updateEditStudentField("passportNumber", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Phone
+                    <input value={editStudentForm.phone} onChange={(event) => updateEditStudentField("phone", event.target.value)} />
+                  </label>
+                  <label>
+                    Emergency Contact
+                    <input
+                      value={editStudentForm.emergencyContact}
+                      onChange={(event) => updateEditStudentField("emergencyContact", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Address
+                    <input value={editStudentForm.address} onChange={(event) => updateEditStudentField("address", event.target.value)} />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editStudentForm.enabled}
+                      onChange={(event) => updateEditStudentField("enabled", event.target.checked)}
+                    />{" "}
+                    Enabled
+                  </label>
+                </div>
+                <button type="submit" disabled={!selectedStudentId}>
+                  Save Student Changes
+                </button>
+              </form>
+            ) : selectedStudentId ? (
+              <p className="muted">No student details loaded yet.</p>
+            ) : (
+              <p className="muted">Select a student to edit the existing profile.</p>
+            )}
+          </section>
+
           <section className="card">
             <h3>Create Term</h3>
             <form className="inline-form" onSubmit={handleCreateTerm}>

@@ -5,7 +5,7 @@ Swagger UI: `http://localhost:8080/swagger-ui/index.html`
 OpenAPI JSON: `http://localhost:8080/v3/api-docs`
 
 This document summarizes the current API surface under `/api/v1/**`.
-For exact schemas, prefer Swagger as the source of truth.
+For exact schemas and field-level DTO details, Swagger is the source of truth.
 
 ## 1. API Roots
 
@@ -13,6 +13,10 @@ For exact schemas, prefer Swagger as the source of truth.
 - `/api/v1/public`
 - `/api/v1/student`
 - `/api/v1/student/assistant`
+- `/api/v1/student/dorm`
+- `/api/v1/student/food`
+- `/api/v1/student/campus-map`
+- `/api/v1/student/laundry`
 - `/api/v1/teacher`
 - `/api/v1/teacher/assistant`
 - `/api/v1/admin`
@@ -72,17 +76,17 @@ Response:
 
 ```json
 {
-  "email": "a_newstudent@kbtu.kz",
-  "password": "secret123",
-  "confirmPassword": "secret123",
-  "fullName": "New Student"
+  "email": "a_testov@kbtu.kz",
+  "password": "student123",
+  "confirmPassword": "student123",
+  "fullName": "Aslan Testov"
 }
 ```
 
 Role detection rules:
 - student: `a_surname@kbtu.kz`
 - professor: `a.surname@kbtu.kz`
-- admin: explicit admin-style emails such as `admin@kbtu.kz`
+- admin: admin-like emails such as `admin@kbtu.kz`
 
 ### 2.5 Authorization Header
 
@@ -105,7 +109,7 @@ All `/api/v1/**` responses include:
   "code": "BAD_REQUEST",
   "message": "...",
   "details": {},
-  "timestamp": "2026-03-18T...Z"
+  "timestamp": "2026-04-06T...Z"
 }
 ```
 
@@ -151,52 +155,59 @@ Auth: none
 
 Auth: `STUDENT`
 
-### 5.1 Profile and Academic Data
+### 5.1 Profile
 
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/student/profile` | Student profile |
 | POST | `/api/v1/student/profile-photo` | Upload student profile photo |
+
+### 5.2 Academic Data
+
+| Method | Path | Description |
+|---|---|---|
 | GET | `/api/v1/student/schedule` | Weekly schedule |
 | GET | `/api/v1/student/schedule/options` | Schedule semester filters |
-| GET | `/api/v1/student/enrollments` | Enrollments list |
-| GET | `/api/v1/student/enrollments/options` | Enrollment semester filters |
 | GET | `/api/v1/student/journal` | Journal table |
 | GET | `/api/v1/student/journal/options` | Journal semester filters |
 | GET | `/api/v1/student/transcript` | Transcript and GPA summary |
 | GET | `/api/v1/student/attendance` | Attendance summary and records |
+| GET | `/api/v1/student/attendance/active` | Active self check-in attendance sessions |
+| POST | `/api/v1/student/attendance-sessions/{sessionId}/check-in` | Self check-in to attendance session |
 | GET | `/api/v1/student/exam-schedule` | Exam schedule |
 
-### 5.2 Registration Center
+Attendance self check-in body:
+```json
+{
+  "code": "OPTIONAL_IF_MODE_IS_CODE"
+}
+```
+
+### 5.3 Registration, Enrollments, FX, Finance
 
 | Method | Path | Description |
 |---|---|---|
+| GET | `/api/v1/student/enrollments` | Enrollments list |
+| GET | `/api/v1/student/enrollments/options` | Enrollment semester filters |
 | GET | `/api/v1/student/course-registration/overview` | Registration dashboard state |
 | GET | `/api/v1/student/course-registration/catalog` | Full current-semester catalog |
-| GET | `/api/v1/student/course-registration/available` | Sections currently available for registration/add |
+| GET | `/api/v1/student/course-registration/available` | Sections available for registration/add |
 | POST | `/api/v1/student/course-registration/submit` | Submit registration for section |
 | POST | `/api/v1/student/add-drop/add` | Add section during add/drop |
 | POST | `/api/v1/student/add-drop/drop` | Drop section during add/drop |
 | GET | `/api/v1/student/fx` | FX overview |
 | POST | `/api/v1/student/fx` | Create FX request |
+| GET | `/api/v1/student/financial` | Charges, payments, balance, hold flag |
+| GET | `/api/v1/student/holds` | Active holds |
 
 Body for registration/add/drop/FX:
 ```json
 {
-  "sectionId": 1
+  "sectionId": 8
 }
 ```
 
-### 5.3 Finance, Holds, Files
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/v1/student/financial` | Charges, payments, balance |
-| GET | `/api/v1/student/holds` | Active holds |
-| GET | `/api/v1/student/files` | Student files with signed links |
-| GET | `/api/v1/student/materials/{sectionId}` | Published section materials |
-
-### 5.4 Requests and Student Services
+### 5.4 Services and Communication
 
 | Method | Path | Description |
 |---|---|---|
@@ -207,10 +218,15 @@ Body for registration/add/drop/FX:
 | POST | `/api/v1/student/requests` | Create request |
 | GET | `/api/v1/student/requests/{id}/messages` | Request thread |
 | POST | `/api/v1/student/requests/{id}/messages` | Add message to request |
+| GET | `/api/v1/student/news` | Student news feed |
+| GET | `/api/v1/student/announcements` | Course announcements |
+| GET | `/api/v1/student/notifications` | Notification center data |
+| POST | `/api/v1/student/notifications/{id}/read` | Mark notification as read |
+| POST | `/api/v1/student/notifications/read-all` | Mark all notifications as read |
+| GET | `/api/v1/student/files` | Student files with signed links |
+| GET | `/api/v1/student/materials/{sectionId}` | Published section materials |
 
-Request body examples:
-
-Create request:
+Create request body:
 ```json
 {
   "category": "FINANCE",
@@ -218,33 +234,94 @@ Create request:
 }
 ```
 
-Add request message:
+Add request message body:
 ```json
 {
   "message": "Please update status"
 }
 ```
 
-### 5.5 News and Notifications
+### 5.5 Analytics and AI
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/v1/student/news` | Student news feed |
-| GET | `/api/v1/student/announcements` | Course announcements |
-| GET | `/api/v1/student/notifications` | Notification center data |
-| POST | `/api/v1/student/notifications/{id}/read` | Mark notification as read |
-| POST | `/api/v1/student/notifications/read-all` | Mark all notifications as read |
-
-### 5.6 Student AI Assistant
-
-| Method | Path | Description |
-|---|---|---|
+| GET | `/api/v1/student/analytics/risk` | Risk dashboard |
+| GET | `/api/v1/student/planner` | GPA/final planner dashboard |
+| POST | `/api/v1/student/planner/simulate` | Simulate GPA/planner outcome |
+| GET | `/api/v1/student/workflows` | Student workflow overview |
 | POST | `/api/v1/student/assistant/chat` | Student AI assistant |
 
-Request:
+Student assistant request:
 ```json
 {
   "message": "How many points do I need on the final for Calculus II?"
+}
+```
+
+Planner simulation request:
+```json
+{
+  "projectedFinals": [
+    { "sectionId": 8, "projectedFinalScore": 35.0 },
+    { "sectionId": 9, "projectedFinalScore": 32.0 }
+  ]
+}
+```
+
+### 5.6 Campus Life
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/v1/student/dorm/buildings` | Dorm buildings |
+| GET | `/api/v1/student/dorm/rooms` | Available dorm rooms |
+| GET | `/api/v1/student/dorm/buildings/{buildingId}/rooms` | Rooms by dorm building |
+| GET | `/api/v1/student/dorm/applications` | Student dorm applications |
+| GET | `/api/v1/student/dorm/applications/{id}` | Dorm application details |
+| POST | `/api/v1/student/dorm/applications` | Create dorm application |
+| PUT | `/api/v1/student/dorm/applications/{id}/step1` | Update dorm application step 1 |
+| PUT | `/api/v1/student/dorm/applications/{id}/step2` | Update dorm application step 2 |
+| PUT | `/api/v1/student/dorm/applications/{id}/step3` | Update dorm application step 3 |
+| POST | `/api/v1/student/dorm/applications/{id}/submit` | Submit dorm application |
+| POST | `/api/v1/student/dorm/applications/{id}/cancel` | Cancel dorm application |
+| GET | `/api/v1/student/food/categories` | Food categories |
+| GET | `/api/v1/student/food/items` | Food menu items |
+| GET | `/api/v1/student/food/items/popular` | Popular food items |
+| GET | `/api/v1/student/food/orders` | Student food orders |
+| GET | `/api/v1/student/food/orders/{id}` | Food order details |
+| POST | `/api/v1/student/food/orders` | Create food order |
+| POST | `/api/v1/student/food/orders/{id}/cancel` | Cancel food order |
+| GET | `/api/v1/student/campus-map/buildings` | Campus buildings |
+| GET | `/api/v1/student/campus-map/buildings/{id}` | Building details |
+| GET | `/api/v1/student/campus-map/buildings/search` | Search buildings |
+| GET | `/api/v1/student/campus-map/buildings/{buildingId}/rooms` | Rooms by building |
+| GET | `/api/v1/student/campus-map/rooms/{id}` | Room details |
+| GET | `/api/v1/student/campus-map/rooms/search` | Search rooms |
+| GET | `/api/v1/student/campus-map/navigate` | Navigation route |
+| GET | `/api/v1/student/laundry/rooms` | Laundry rooms |
+| GET | `/api/v1/student/laundry/rooms/{roomId}/availability` | Laundry room availability |
+| GET | `/api/v1/student/laundry/rooms/{roomId}/machines` | Laundry machines |
+| GET | `/api/v1/student/laundry/bookings` | Student laundry bookings |
+| POST | `/api/v1/student/laundry/bookings` | Book laundry machine |
+| POST | `/api/v1/student/laundry/bookings/{id}/cancel` | Cancel laundry booking |
+
+Food order request example:
+```json
+{
+  "items": [
+    { "itemId": 1, "quantity": 2 },
+    { "itemId": 4, "quantity": 1 }
+  ],
+  "note": "No onions",
+  "pickupTime": "12:30"
+}
+```
+
+Laundry booking request example:
+```json
+{
+  "machineId": 1,
+  "startTime": "2026-04-06T18:00:00",
+  "durationMinutes": 90
 }
 ```
 
@@ -260,12 +337,24 @@ Auth: `PROFESSOR`
 | POST | `/api/v1/teacher/profile-photo` | Upload teacher profile photo |
 | GET | `/api/v1/teacher/sections` | Teacher section list |
 | GET | `/api/v1/teacher/sections/{sectionId}/roster` | Section roster |
+| GET | `/api/v1/teacher/analytics/risk` | Teacher risk dashboard |
+| POST | `/api/v1/teacher/assistant/chat` | Teacher AI assistant |
 
-### 6.2 Attendance and Grades
+### 6.2 Attendance
 
 | Method | Path | Description |
 |---|---|---|
-| POST | `/api/v1/teacher/sections/{sectionId}/attendance` | Save attendance |
+| POST | `/api/v1/teacher/sections/{sectionId}/attendance` | Save manual attendance snapshot |
+| GET | `/api/v1/teacher/sections/{sectionId}/attendance/active` | Get active attendance session |
+| POST | `/api/v1/teacher/sections/{sectionId}/attendance/open` | Open attendance session |
+| POST | `/api/v1/teacher/attendance-sessions/{sessionId}/close` | Close attendance session |
+| GET | `/api/v1/teacher/attendance-sessions/{sessionId}/records` | Attendance roster for session |
+| PUT | `/api/v1/teacher/attendance-sessions/{sessionId}/students/{studentId}` | Override attendance status |
+
+### 6.3 Grades, Components, Materials
+
+| Method | Path | Description |
+|---|---|---|
 | GET | `/api/v1/teacher/sections/{sectionId}/components` | Assessment components |
 | POST | `/api/v1/teacher/sections/{sectionId}/components` | Create assessment component |
 | POST | `/api/v1/teacher/sections/{sectionId}/components/{componentId}/publish?published=true` | Publish/unpublish component |
@@ -274,59 +363,26 @@ Auth: `PROFESSOR`
 | POST | `/api/v1/teacher/sections/{sectionId}/final-grades` | Save final grade |
 | POST | `/api/v1/teacher/sections/{sectionId}/final-grades/{studentId}/publish` | Publish final grade |
 | GET | `/api/v1/teacher/sections/{sectionId}/grades/export` | Export grades as XLSX |
-
-### 6.3 Announcements, Materials, Notes
-
-| Method | Path | Description |
-|---|---|---|
 | GET | `/api/v1/teacher/sections/{sectionId}/announcements` | Section announcements |
 | POST | `/api/v1/teacher/sections/{sectionId}/announcements` | Create announcement |
 | GET | `/api/v1/teacher/sections/{sectionId}/materials` | List materials |
-| POST | `/api/v1/teacher/sections/{sectionId}/materials` | Upload course material |
+| POST | `/api/v1/teacher/sections/{sectionId}/materials` | Upload material |
 | POST | `/api/v1/teacher/materials/{materialId}/visibility?published=true` | Publish/hide material |
 | DELETE | `/api/v1/teacher/materials/{materialId}` | Delete material |
 | GET | `/api/v1/teacher/sections/{sectionId}/student-notes` | Student notes |
 | POST | `/api/v1/teacher/sections/{sectionId}/student-notes` | Upsert student note |
 | POST | `/api/v1/teacher/sections/{sectionId}/student-files` | Upload file to student files |
-
-Multipart routes:
-- `POST /api/v1/teacher/sections/{sectionId}/materials`
-  - `title`
-  - `description` (optional)
-  - `visibility` (`PUBLIC` or `ENROLLED_ONLY`)
-  - `file`
-- `POST /api/v1/teacher/sections/{sectionId}/student-files`
-  - `studentId`
-  - `file`
-
-### 6.4 Grade Changes and Notifications
-
-| Method | Path | Description |
-|---|---|---|
 | GET | `/api/v1/teacher/grade-change-requests` | Teacher grade change requests |
 | POST | `/api/v1/teacher/sections/{sectionId}/grade-change-requests` | Create grade change request |
-| GET | `/api/v1/teacher/notifications` | Notification center data |
+| GET | `/api/v1/teacher/notifications` | Notification center |
 | POST | `/api/v1/teacher/notifications/{id}/read` | Mark notification as read |
 | POST | `/api/v1/teacher/notifications/read-all` | Mark all notifications as read |
-
-### 6.5 Teacher AI Assistant
-
-| Method | Path | Description |
-|---|---|---|
-| POST | `/api/v1/teacher/assistant/chat` | Teacher AI assistant |
-
-Request:
-```json
-{
-  "message": "Show me students at risk in my sections"
-}
-```
 
 ## 7. Admin API
 
 Auth: `ADMIN`
 
-Admin permissions:
+Admin permission model:
 - `SUPER`
 - `REGISTRAR`
 - `FINANCE`
@@ -334,7 +390,7 @@ Admin permissions:
 - `CONTENT`
 - `MOBILITY`
 
-### 7.1 User and Core Reference Data
+### 7.1 Core Admin Operations
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
@@ -343,10 +399,12 @@ Admin permissions:
 | GET | `/api/v1/admin/subjects` | `ADMIN role` | List subjects |
 | GET | `/api/v1/admin/teachers` | `ADMIN role` | List teachers |
 | GET | `/api/v1/admin/students` | `ADMIN role` | List students |
-| POST | `/api/v1/admin/students/{id}/status` | `ADMIN role` | Update student status |
 | GET | `/api/v1/admin/stats` | `ADMIN role` | Dashboard statistics |
+| GET | `/api/v1/admin/notifications` | `ADMIN role` | Notifications |
+| POST | `/api/v1/admin/notifications/{id}/read` | `ADMIN role` | Mark notification as read |
+| POST | `/api/v1/admin/notifications/read-all` | `ADMIN role` | Mark all notifications as read |
 
-### 7.2 Academic Setup and Registration Operations
+### 7.2 Academic and Student Management
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
@@ -357,29 +415,71 @@ Admin permissions:
 | POST | `/api/v1/admin/sections/{id}/assign-professor` | `REGISTRAR` | Assign professor |
 | POST | `/api/v1/admin/sections/{id}/meeting-times` | `REGISTRAR` | Add meeting time |
 | POST | `/api/v1/admin/windows` | `REGISTRAR` | Upsert registration window |
-| GET | `/api/v1/admin/windows` | `ADMIN role` | List registration windows |
+| GET | `/api/v1/admin/windows` | `REGISTRAR` | List windows |
 | POST | `/api/v1/admin/enrollments/override` | `REGISTRAR` | Manual enrollment override |
-| GET | `/api/v1/admin/fx` | `ADMIN role` | FX queue |
-| POST | `/api/v1/admin/fx/{id}/status` | `ADMIN role` | Update FX status |
-
-### 7.3 Exams, Finance, Holds
-
-| Method | Path | Permission | Description |
-|---|---|---|---|
+| GET | `/api/v1/admin/fx` | `REGISTRAR` | FX queue |
+| POST | `/api/v1/admin/fx/{id}/status` | `REGISTRAR` | Update FX status |
 | GET | `/api/v1/admin/exams` | `REGISTRAR` | List exam sessions |
 | POST | `/api/v1/admin/exams` | `REGISTRAR` | Create exam session |
 | PUT | `/api/v1/admin/exams/{id}` | `REGISTRAR` | Update exam session |
 | DELETE | `/api/v1/admin/exams/{id}` | `REGISTRAR` | Delete exam session |
+| POST | `/api/v1/admin/grade-change-requests/{id}/review` | `REGISTRAR` | Review grade change request |
+| GET | `/api/v1/admin/grade-change-requests` | `REGISTRAR` | Grade change queue |
+| POST | `/api/v1/admin/students` | `REGISTRAR` | Create user + student profile |
+| PUT | `/api/v1/admin/students/{id}` | `REGISTRAR` | Update user + student profile |
+| POST | `/api/v1/admin/students/{id}/status` | `REGISTRAR` | Update student status only |
+
+Create student request example:
+```json
+{
+  "email": "a_testov@kbtu.kz",
+  "password": "student123",
+  "fullName": "Aslan Testov",
+  "facultyId": 1,
+  "programId": 1,
+  "currentSemesterId": 8,
+  "course": 2,
+  "groupName": "TBD",
+  "status": "ACTIVE",
+  "creditsEarned": 36,
+  "passportNumber": "N1234567",
+  "address": "Almaty",
+  "phone": "+77010000000",
+  "emergencyContact": "+77020000000",
+  "enabled": true
+}
+```
+
+Update student request example:
+```json
+{
+  "email": "a_testov@kbtu.kz",
+  "password": "",
+  "fullName": "Aslan Testov",
+  "facultyId": 1,
+  "programId": 1,
+  "currentSemesterId": 8,
+  "course": 3,
+  "groupName": "TBD",
+  "status": "ACTIVE",
+  "creditsEarned": 72,
+  "passportNumber": "N1234567",
+  "address": "Almaty",
+  "phone": "+77010000000",
+  "emergencyContact": "+77020000000",
+  "enabled": true
+}
+```
+
+### 7.3 Finance, Requests, Content, Mobility
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
 | GET | `/api/v1/admin/holds` | `FINANCE` | List active holds |
 | POST | `/api/v1/admin/holds` | `FINANCE` | Create hold |
 | POST | `/api/v1/admin/holds/{id}/remove` | `FINANCE` | Remove hold |
 | POST | `/api/v1/admin/finance/invoices` | `FINANCE` | Create invoice |
 | POST | `/api/v1/admin/finance/payments` | `FINANCE` | Register payment |
-
-### 7.4 Mobility, Clearance, Surveys, Requests
-
-| Method | Path | Permission | Description |
-|---|---|---|---|
 | GET | `/api/v1/admin/mobility` | `MOBILITY` | List mobility applications |
 | POST | `/api/v1/admin/mobility/{id}/status` | `MOBILITY` | Update mobility status |
 | GET | `/api/v1/admin/clearance` | `MOBILITY` | List clearance sheets |
@@ -387,25 +487,24 @@ Admin permissions:
 | GET | `/api/v1/admin/surveys` | `CONTENT` | List surveys |
 | POST | `/api/v1/admin/surveys` | `CONTENT` | Create survey |
 | POST | `/api/v1/admin/surveys/{id}/close` | `CONTENT` | Close survey |
-| GET | `/api/v1/admin/surveys/{id}/responses` | `CONTENT` | Survey responses |
-| GET | `/api/v1/admin/requests` | `SUPPORT` | List requests |
+| GET | `/api/v1/admin/surveys/{id}/responses` | `CONTENT` | Export survey responses |
+| GET | `/api/v1/admin/requests` | `SUPPORT` | List request tickets |
 | POST | `/api/v1/admin/requests/{id}/assign` | `SUPPORT` | Assign request |
 | POST | `/api/v1/admin/requests/{id}/status` | `SUPPORT` | Update request status |
-
-### 7.5 Moderation, Checklist, Audit, Notifications
-
-| Method | Path | Permission | Description |
-|---|---|---|---|
-| GET | `/api/v1/admin/grade-change-requests` | `REGISTRAR` | Grade change moderation queue |
-| POST | `/api/v1/admin/grade-change-requests/{id}/review` | `REGISTRAR` | Review grade change request |
 | POST | `/api/v1/admin/news` | `CONTENT` | Create news |
 | GET | `/api/v1/admin/checklist-templates` | `REGISTRAR` | List checklist templates |
 | POST | `/api/v1/admin/checklist-templates` | `REGISTRAR` | Create checklist template |
 | POST | `/api/v1/admin/checklist/generate` | `REGISTRAR` | Generate checklist items |
 | GET | `/api/v1/admin/audit` | `SUPER` | Audit log |
-| GET | `/api/v1/admin/notifications` | `ADMIN role` | Notification center data |
-| POST | `/api/v1/admin/notifications/{id}/read` | `ADMIN role` | Mark notification as read |
-| POST | `/api/v1/admin/notifications/read-all` | `ADMIN role` | Mark all notifications as read |
+
+### 7.4 Analytics and Admin Assistant
+
+| Method | Path | Permission | Description |
+|---|---|---|---|
+| GET | `/api/v1/admin/analytics` | `SUPER` | Global analytics dashboard |
+| GET | `/api/v1/admin/workflows` | `SUPER` | Workflow overview |
+| GET | `/api/v1/admin/workflows/{type}/{id}/timeline` | `SUPER` | Workflow timeline |
+| POST | `/api/v1/admin/assistant/chat` | `SUPER` | Admin AI assistant |
 
 ## 8. Chat API
 
@@ -437,19 +536,59 @@ Example direct room request:
 | GET | `/api/v1/files/download/asset/{id}?exp=...&sig=...` | No bearer | Asset download by signed URL |
 | GET | `/api/v1/files/download/material/{id}?exp=...&sig=...` | No bearer | Material download by signed URL |
 
-## 10. Real-Time Notifications
+## 10. Real-Time Features
 
 WebSocket endpoint:
 - `/ws`
 
-Notification destination used by the frontend:
-- `/user/queue/notifications`
+Used by frontend:
+- notifications: `/user/queue/notifications`
+- attendance personal events: `/user/queue/attendance`
+- attendance section events: `/topic/attendance/section/{sectionId}`
+- chat topics and app destinations for room messaging
 
 Current behavior:
-- unread counters update live in the app sidebar
-- notification center pages refresh automatically after new events
+- unread notification counters update live
+- notification pages refresh live
+- attendance open/check-in/close events update teacher and student screens in real time
+- chat uses WebSocket/STOMP for room messaging
 
-## 11. Quick cURL Examples
+## 11. AI Assistant Notes
+
+The AI assistant does not query PostgreSQL directly.
+
+Flow:
+1. frontend sends a request to backend
+2. backend authenticates the user
+3. backend loads context from repositories and services
+4. backend sends context plus the question to Gemini
+5. Gemini returns text
+6. backend sends the answer back to the client
+
+So:
+- DB access is backend-only
+- assistants are read-only
+- some student planner answers are deterministic and calculated in backend first
+
+## 12. Demo Data Note
+
+The repository does not contain your local PostgreSQL data.
+
+So if another person clones the repo:
+- they will not automatically get your current 100 students
+- they will not get your local passwords file
+- they will not get your exact local files or DB state
+
+To generate demo data on a fresh database, they must explicitly enable the guarded seed:
+
+```env
+APP_SEED_ENABLED=true
+APP_SEED_CONFIRM_TOKEN=DEMO_ONLY_RESET
+```
+
+If they need your exact current data, they need a PostgreSQL dump.
+
+## 13. Quick cURL Examples
 
 ### Login
 
@@ -475,31 +614,20 @@ curl -X POST http://localhost:8080/api/v1/student/assistant/chat \
   -d '{"message":"How many points do I need on the final for Calculus II?"}'
 ```
 
-### Teacher uploads material
+### Admin create student
 
 ```bash
-curl -X POST "http://localhost:8080/api/v1/teacher/sections/1/materials" \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -F "title=Week 1 slides" \
-  -F "description=Intro" \
-  -F "visibility=ENROLLED_ONLY" \
-  -F "file=@./week1.pdf"
-```
-
-### Admin creates invoice
-
-```bash
-curl -X POST http://localhost:8080/api/v1/admin/finance/invoices \
+curl -X POST http://localhost:8080/api/v1/admin/students \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
-  -d '{"studentId":1,"amount":150000,"description":"Tuition","dueDate":"2026-03-01"}'
+  -d '{"email":"a_testov@kbtu.kz","password":"student123","fullName":"Aslan Testov","facultyId":1,"programId":1,"currentSemesterId":8,"course":2,"groupName":"TBD","status":"ACTIVE","creditsEarned":36,"enabled":true}'
 ```
 
-## 12. Notes for Mobile Team
+### Teacher open attendance session
 
-- Use only `/api/v1/**`.
-- Public endpoints under `/api/v1/public/**` do not require bearer token.
-- Expect `401`, `403`, and `409` as functional states.
-- Use `/api/v1/auth/refresh` for token rotation.
-- Use Swagger for exact DTO shapes.
-- Real-time notifications are available through WebSocket if the mobile client wants live unread counters.
+```bash
+curl -X POST http://localhost:8080/api/v1/teacher/sections/8/attendance/open \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"classDate":"2026-04-06","attendanceCloseAt":"2026-04-06T10:15:00","checkInMode":"ONE_CLICK","allowTeacherOverride":true}'
+```

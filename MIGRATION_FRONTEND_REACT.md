@@ -2,13 +2,13 @@
 
 ## Current State
 
-The migration is complete at the web layer.
+The browser migration is complete.
 
-- Legacy Thymeleaf controllers and templates have been removed.
-- React is the only browser UI.
+- Legacy Thymeleaf pages are no longer the active web UI.
+- React is the main frontend for browser use.
 - Backend is API-first and serves `/api/v1/**` for web and mobile clients.
-- Browser hits for public SPA routes are redirected to the frontend application URL.
-- Protected application UI is now handled by React routes under `/app/**`.
+- Public browser traffic goes to the React app.
+- Protected application UI is handled by React routes under `/app/**`.
 
 ## Frontend Route Coverage
 
@@ -23,9 +23,12 @@ The migration is complete at the web layer.
 
 ### Student React pages
 
+Core:
 - `/app/student`
 - `/app/student/registration`
 - `/app/student/notifications`
+- `/app/student/planner`
+- `/app/student/workflows`
 - `/app/student/schedule`
 - `/app/student/enrollments`
 - `/app/student/journal`
@@ -38,11 +41,18 @@ The migration is complete at the web layer.
 - `/app/student/news`
 - `/app/student/requests`
 
+Campus life:
+- `/app/student/dorm`
+- `/app/student/food`
+- `/app/student/campus-map`
+- `/app/student/laundry`
+
 ### Teacher React pages
 
 - `/app/teacher`
 - `/app/teacher/assistant`
 - `/app/teacher/notifications`
+- `/app/teacher/risk`
 - `/app/teacher/sections`
 - `/app/teacher/sections/:sectionId`
 - `/app/teacher/attendance`
@@ -55,6 +65,9 @@ The migration is complete at the web layer.
 ### Admin React pages
 
 - `/app/admin`
+- `/app/admin/analytics`
+- `/app/admin/assistant`
+- `/app/admin/workflows`
 - `/app/admin/registration`
 - `/app/admin/notifications`
 - `/app/admin/users`
@@ -76,16 +89,27 @@ Covered by React UI:
 - registration center
 - schedule and enrollment filters
 - journal and transcript
-- attendance and exam schedule
+- attendance and self check-in attendance
+- exam schedule
 - finance and holds
 - requests and request messages
+- checklist, mobility, clearance
 - files and materials
 - news and notifications
+- planner and workflows
 - AI assistant
+- dorm
+- food ordering
+- campus map
+- laundry
 
-API roots:
-- `/api/v1/student`
-- `/api/v1/student/assistant`
+API roots used by student UI:
+- `/api/v1/student/**`
+- `/api/v1/student/assistant/**`
+- `/api/v1/student/dorm/**`
+- `/api/v1/student/food/**`
+- `/api/v1/student/campus-map/**`
+- `/api/v1/student/laundry/**`
 
 ### Teacher API coverage
 
@@ -93,34 +117,44 @@ Covered by React UI:
 - teacher profile and profile photo
 - sections overview and section details
 - roster
-- attendance
+- live attendance flow
+- attendance override and close flow
 - gradebook and final grades
 - announcements
 - materials
 - student notes
 - grade change requests
 - notifications
+- risk dashboard
 - AI assistant
 - upload to student files
 
-API roots:
-- `/api/v1/teacher`
-- `/api/v1/teacher/assistant`
+API roots used by teacher UI:
+- `/api/v1/teacher/**`
+- `/api/v1/teacher/assistant/**`
 
 ### Admin API coverage
 
 Covered by React UI:
 - dashboard stats
+- analytics
+- workflows
+- AI assistant
 - registration operations
 - academic setup
 - finance
 - moderation and news
-- users
+- users and permissions
 - requests
 - notifications
 
-API root:
-- `/api/v1/admin`
+Admin student management now includes backend support for:
+- create student
+- update student
+- update student status
+
+API roots used by admin UI:
+- `/api/v1/admin/**`
 
 ### Shared coverage
 
@@ -129,23 +163,26 @@ API root:
 - chat: `/api/v1/chat/**`
 - signed file downloads: `/api/v1/files/**`
 - WebSocket endpoint: `/ws`
-- live notification destination: `/user/queue/notifications`
+- live notifications: `/user/queue/notifications`
+- live attendance events for students and teachers
 
 ## Migration Work Completed
 
-1. Removed legacy Thymeleaf web layer from the application.
+1. Removed the old Thymeleaf browser layer as the primary UI.
 2. Kept backend business logic behind REST controllers and services.
 3. Added React app under `frontend/` with role-protected routes.
-4. Added JWT login, refresh, logout, and protected route handling in the frontend.
+4. Added JWT login, refresh, logout, and protected route handling in frontend.
 5. Added public React pages for home, news, professors, and registration.
-6. Added student workflows for academic and service modules.
-7. Added teacher workflows for course delivery and moderation tasks.
-8. Added admin workflows for academic, finance, support, and registration operations.
-9. Added Gemini-powered student and teacher assistants.
+6. Added complete student academic and service flows.
+7. Added teacher workflows for course delivery, attendance, and moderation.
+8. Added admin workflows for academic operations, finance, support, and analytics.
+9. Added student, teacher, and admin AI assistants.
 10. Added notification centers for all roles.
 11. Added live unread badges and WebSocket-driven notification refresh.
-12. Added Docker frontend service with SPA-friendly Nginx routing.
-13. Kept backend CORS and frontend URL configuration externalized through env variables.
+12. Added live student self check-in attendance flow with teacher control.
+13. Added campus life modules: dorm, food, campus map, laundry.
+14. Added Docker frontend service with SPA-friendly routing.
+15. Kept backend CORS and frontend URL configuration externalized through env variables.
 
 ## Runtime Notes
 
@@ -165,13 +202,27 @@ API root:
 - `APP_CORS_ALLOWED_ORIGINS`
 - `VITE_API_BASE_URL`
 - `APP_SEED_ENABLED`
+- `APP_SEED_CONFIRM_TOKEN`
+
+## Demo Data Note
+
+Frontend migration does not mean demo data ships with the repository.
+
+Important:
+- local PostgreSQL data is not stored in git
+- `.env.local` is not stored in git
+- `seed-users.local.txt` is not stored in git
+- local uploaded files are not stored in git
+
+So another developer can clone the repository and still have an empty or fresh database unless they:
+- run the guarded demo seed on a fresh DB
+- or restore a PostgreSQL dump
 
 ## Result
 
-The project is no longer a mixed Thymeleaf app.
-
-It now runs as:
+The project now runs as:
 - Spring Boot backend API
 - React frontend SPA
 - PostgreSQL database
-- WebSocket support for chat and live notification updates
+- WebSocket support for chat, live notifications, and live attendance events
+- AI-assisted student, teacher, and admin workflows

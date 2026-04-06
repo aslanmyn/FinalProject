@@ -4,13 +4,18 @@ import type {
   AdminAnalyticsDashboard,
   AdminAssistantReply,
   AdminExamItem,
+  AdminFacultyItem,
   AdminFxItem,
   AdminGradeChangeItem,
   AdminHoldItem,
   AdminNotificationCenterData,
+  AdminProgramItem,
   AdminRequestPage,
   AdminSectionItem,
+  AdminStudentDetail,
   AdminSimpleStudentItem,
+  AdminStudentUpsertPayload,
+  AdminStudentUpsertResult,
   AdminSimpleSubjectItem,
   AdminSimpleTeacherItem,
   AdminStats,
@@ -718,6 +723,36 @@ export async function fetchAdminTeachers(): Promise<AdminSimpleTeacherItem[]> {
 
 export async function fetchAdminStudents(): Promise<AdminSimpleStudentItem[]> {
   return request<AdminSimpleStudentItem[]>("/api/v1/admin/students");
+}
+
+export async function fetchAdminStudentDetail(studentId: number): Promise<AdminStudentDetail> {
+  return request<AdminStudentDetail>(`/api/v1/admin/students/${studentId}`);
+}
+
+export async function fetchAdminFaculties(): Promise<AdminFacultyItem[]> {
+  return request<AdminFacultyItem[]>("/api/v1/admin/faculties");
+}
+
+export async function fetchAdminPrograms(facultyId?: number): Promise<AdminProgramItem[]> {
+  const suffix = facultyId ? `?facultyId=${facultyId}` : "";
+  return request<AdminProgramItem[]>(`/api/v1/admin/programs${suffix}`);
+}
+
+export async function createAdminStudent(payload: AdminStudentUpsertPayload): Promise<AdminStudentUpsertResult> {
+  return request<AdminStudentUpsertResult>("/api/v1/admin/students", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export async function updateAdminStudent(
+  studentId: number,
+  payload: AdminStudentUpsertPayload
+): Promise<AdminStudentUpsertResult> {
+  return request<AdminStudentUpsertResult>(`/api/v1/admin/students/${studentId}`, {
+    method: "PUT",
+    body: payload
+  });
 }
 
 export async function fetchAdminSections(semesterId?: number): Promise<AdminSectionItem[]> {

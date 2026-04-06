@@ -59,6 +59,75 @@ export interface AdminSimpleStudentItem {
   status: string;
 }
 
+export interface AdminFacultyItem {
+  id: number;
+  name: string;
+}
+
+export interface AdminProgramItem {
+  id: number;
+  name: string;
+  creditLimit: number;
+  facultyId: number | null;
+  facultyName: string | null;
+}
+
+export interface AdminStudentDetail {
+  userId: number;
+  studentId: number;
+  email: string;
+  fullName: string;
+  course: number;
+  groupName: string | null;
+  status: string;
+  facultyId: number | null;
+  facultyName: string | null;
+  programId: number | null;
+  programName: string | null;
+  currentSemesterId: number | null;
+  currentSemesterName: string | null;
+  creditsEarned: number;
+  passportNumber: string | null;
+  address: string | null;
+  phone: string | null;
+  emergencyContact: string | null;
+  enabled: boolean;
+}
+
+export interface AdminStudentUpsertPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  facultyId: number;
+  programId: number;
+  currentSemesterId: number;
+  course: number;
+  groupName: string;
+  status: "ACTIVE" | "ON_LEAVE" | "GRADUATED";
+  creditsEarned: number;
+  passportNumber: string;
+  address: string;
+  phone: string;
+  emergencyContact: string;
+  enabled: boolean;
+}
+
+export interface AdminStudentUpsertResult {
+  userId: number;
+  studentId: number;
+  email: string;
+  fullName: string;
+  course: number;
+  status: string;
+  facultyId: number;
+  facultyName: string;
+  programId: number;
+  programName: string;
+  currentSemesterId: number;
+  currentSemesterName: string;
+  enabled: boolean;
+}
+
 export interface AdminSectionItem {
   id: number;
   capacity: number;

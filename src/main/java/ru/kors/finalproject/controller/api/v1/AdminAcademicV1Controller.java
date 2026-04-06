@@ -20,6 +20,7 @@ import ru.kors.finalproject.web.api.v1.ApiPageableFactory;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.List;
 import java.util.Map;
@@ -238,6 +239,49 @@ public class AdminAcademicV1Controller {
                 request.getOldValue(), request.getNewValue(), request.getReason(),
                 request.getStatus(), request.getCreatedAt()
         ));
+    }
+
+    @GetMapping("/faculties")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "List faculties", description = "Returns faculties used by the admin student creation and update forms.")
+    public ResponseEntity<?> listFaculties(@AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(facultyRepository.findAll().stream()
+                .sorted(Comparator.comparing(Faculty::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(faculty -> new FacultyDto(faculty.getId(), faculty.getName()))
+                .toList());
+    }
+
+    @GetMapping("/programs")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "List programs", description = "Returns programs, optionally filtered by faculty, for the admin student creation and update forms.")
+    public ResponseEntity<?> listPrograms(
+            @AuthenticationPrincipal User admin,
+            @RequestParam(required = false) Long facultyId) {
+        return ResponseEntity.ok(programRepository.findAllWithFaculty().stream()
+                .filter(program -> facultyId == null
+                        || (program.getFaculty() != null && facultyId.equals(program.getFaculty().getId())))
+                .sorted(Comparator.comparing(Program::getName, String.CASE_INSENSITIVE_ORDER))
+                .map(program -> new ProgramDto(
+                        program.getId(),
+                        program.getName(),
+                        program.getCreditLimit(),
+                        program.getFaculty() != null ? program.getFaculty().getId() : null,
+                        program.getFaculty() != null ? program.getFaculty().getName() : null
+                ))
+                .toList());
+    }
+
+    @GetMapping("/students/{id}")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Get student details", description = "Returns the full user and student profile payload needed for editing an existing student.")
+    public ResponseEntity<?> getStudent(
+            @AuthenticationPrincipal User admin,
+            @PathVariable Long id) {
+        Student student = studentRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
+        User user = userRepository.findByEmail(student.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User account for student not found"));
+        return ResponseEntity.ok(toStudentDetailDto(student, user));
     }
 
     @PostMapping("/students")
@@ -502,6 +546,30 @@ public class AdminAcademicV1Controller {
         );
     }
 
+    private StudentDetailDto toStudentDetailDto(Student student, User user) {
+        return new StudentDetailDto(
+                user.getId(),
+                student.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                student.getCourse(),
+                student.getGroupName(),
+                student.getStatus(),
+                student.getFaculty() != null ? student.getFaculty().getId() : null,
+                student.getFaculty() != null ? student.getFaculty().getName() : null,
+                student.getProgram() != null ? student.getProgram().getId() : null,
+                student.getProgram() != null ? student.getProgram().getName() : null,
+                student.getCurrentSemester() != null ? student.getCurrentSemester().getId() : null,
+                student.getCurrentSemester() != null ? student.getCurrentSemester().getName() : null,
+                student.getCreditsEarned(),
+                student.getPassportNumber(),
+                student.getAddress(),
+                student.getPhone(),
+                student.getEmergencyContact(),
+                user.isEnabled()
+        );
+    }
+
     private String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
@@ -543,6 +611,8 @@ public class AdminAcademicV1Controller {
                                  Double oldValue, Double newValue, String reason,
                                  GradeChangeRequest.RequestStatus status, Instant createdAt) {}
     public record ReviewGradeChangeBody(boolean approve, String comment) {}
+    public record FacultyDto(Long id, String name) {}
+    public record ProgramDto(Long id, String name, int creditLimit, Long facultyId, String facultyName) {}
     public record CreateStudentBody(
             @Schema(example = "a_testov@kbtu.kz") String email,
             @Schema(example = "student123") String password,
@@ -572,6 +642,26 @@ public class AdminAcademicV1Controller {
             String programName,
             Long currentSemesterId,
             String currentSemesterName,
+            boolean enabled) {}
+    public record StudentDetailDto(
+            Long userId,
+            Long studentId,
+            String email,
+            String fullName,
+            int course,
+            String groupName,
+            Student.StudentStatus status,
+            Long facultyId,
+            String facultyName,
+            Long programId,
+            String programName,
+            Long currentSemesterId,
+            String currentSemesterName,
+            int creditsEarned,
+            String passportNumber,
+            String address,
+            String phone,
+            String emergencyContact,
             boolean enabled) {}
     public record UpdateStudentBody(
             @Schema(example = "a_testov@kbtu.kz") String email,

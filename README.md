@@ -1,62 +1,103 @@
 # KBTU Portal
 
-KBTU Portal is a university platform with three application roles: `STUDENT`, `PROFESSOR`, and `ADMIN`.
+KBTU Portal is a full-stack university platform with four major surfaces:
+- public portal
+- student portal
+- teacher portal
+- admin portal
 
-It includes:
-- role-based JWT authentication
-- React frontend for student, teacher, and admin workflows
-- REST API for web and mobile clients
-- PostgreSQL persistence with Flyway migrations
-- file storage with signed download links
-- real-time notifications over WebSocket
-- Gemini-based AI assistants for students and teachers
+It already includes:
+- JWT authentication and refresh tokens
+- React SPA frontend
+- Spring Boot API backend
+- PostgreSQL with Flyway migrations
+- chat and real-time notifications over WebSocket
+- AI assistants for student, teacher, and admin roles
+- academic workflows: registration, add/drop, FX, grade changes, requests, analytics
+- campus life modules: dorm, food ordering, campus map, laundry
 
-## Tech Stack
+## Architecture
 
-- Backend: Spring Boot 4, Spring Security, Spring Data JPA, Flyway, WebSocket/STOMP
-- Database: PostgreSQL
-- Frontend: React, Vite, TypeScript
-- API docs: OpenAPI / Swagger
-- AI: Google Gemini API
+Frontend:
+- React + Vite + TypeScript
+- role-protected routes under `/app/**`
+
+Backend:
+- Spring Boot 4
+- Spring Security
+- Spring Data JPA
+- Flyway
+- WebSocket/STOMP
+- OpenAPI / Swagger
+
+Database:
+- PostgreSQL
 
 ## Main Modules
 
-- Public portal: home, news, professor catalog, professor public profile
-- Student portal: registration center, schedule, enrollments, journal, transcript, attendance, exams, requests, finance, files, news, notifications, AI assistant
-- Teacher portal: sections, roster, attendance, gradebook, materials, announcements, notes, grade changes, notifications, AI assistant
-- Admin portal: registration operations, academic setup, finance, moderation, requests, users, notifications
-- Shared: chat, signed file downloads, real-time notifications
+Public:
+- home
+- public news
+- professor directory
+- public professor profile
 
-## Run With Docker
+Student:
+- profile and profile photo
+- registration center
+- schedule
+- enrollments
+- journal
+- transcript
+- attendance and self check-in attendance
+- exam schedule
+- requests and request messages
+- finance and holds
+- files and materials
+- notifications
+- planner and workflows
+- AI assistant
+- dorm
+- food ordering
+- campus map
+- laundry
 
-```bash
-docker compose up -d --build
-```
+Teacher:
+- profile and profile photo
+- sections and section details
+- roster
+- live attendance control
+- gradebook and final grades
+- announcements
+- materials
+- student notes
+- grade change requests
+- notifications
+- risk dashboard
+- AI assistant
 
-Default URLs:
-- Backend API: `http://localhost:8080`
-- Frontend: `http://localhost:3000`
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+Admin:
+- users and admin permissions
+- academic setup: terms, sections, windows, exams
+- registration override
+- finance and holds
+- mobility, clearance, surveys, requests
+- notifications
+- analytics and workflows
+- AI assistant
+- create and update student records
 
-If ports are busy:
-
-```bash
-APP_HOST_PORT=8081 FRONTEND_HOST_PORT=3001 docker compose up -d --build
-```
-
-Stop:
-
-```bash
-docker compose down
-```
+Shared:
+- chat
+- signed file downloads
+- real-time notifications
+- real-time attendance events
 
 ## Local Development
 
 Backend:
 
 ```bash
-./mvnw spring-boot:run
+./mvnw spring-boot:run -Dspring-boot.run.arguments=--app.seed.enabled=false
 ```
 
 Frontend:
@@ -71,45 +112,125 @@ Default local URLs:
 - Backend API: `http://localhost:8080`
 - Frontend dev server: `http://localhost:5173`
 - Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+
+## Docker
+
+```bash
+docker compose up -d --build
+```
+
+Default Docker URLs:
+- Backend API: `http://localhost:8080`
+- Frontend: `http://localhost:3000`
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+
+Stop:
+
+```bash
+docker compose down
+```
 
 ## Configuration
 
-The backend loads runtime overrides from:
-- `.env.local` via `spring.config.import=optional:file:.env.local[.properties]`
+Runtime overrides are loaded from:
+- `.env.local`
 - environment variables
-- `.env.example` as the reference template
+- `.env.example` as the template
 
 Important variables:
 - `APP_PROFILE`
 - `APP_WEB_FRONTEND_URL`
 - `APP_CORS_ALLOWED_ORIGINS`
-- `APP_SEED_ENABLED`
 - `DB_URL`
 - `DB_USER`
 - `DB_PASSWORD`
 - `JWT_SECRET`
 - `APP_STORAGE_ROOT`
 - `APP_STORAGE_SIGNING_SECRET`
+- `APP_SEED_ENABLED`
+- `APP_SEED_CONFIRM_TOKEN`
 - `AI_ASSISTANT_ENABLED`
 - `AI_ASSISTANT_READ_ONLY`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
 
-Production recommendation:
-- set `APP_SEED_ENABLED=false`
-- use strong values for `JWT_SECRET` and `APP_STORAGE_SIGNING_SECRET`
-- keep `GEMINI_API_KEY` only in local/host environment variables, never in git
+## Demo Data and Seed
 
-## API and Frontend Notes
+Important:
+- the repository does not contain your local PostgreSQL data
+- the repository does not contain `.env.local`
+- the repository does not contain `seed-users.local.txt`
+- `storage/` is also local and ignored by git
 
-- Main REST namespace: `/api/v1/**`
-- Public endpoints: `/api/v1/public/**`
-- Auth endpoints: `/api/v1/auth/**`
-- Student assistant: `/api/v1/student/assistant/chat`
-- Teacher assistant: `/api/v1/teacher/assistant/chat`
+That means another person who clones the repo will not automatically get your existing 100 students, passwords, files, or local database state.
+
+Seed behavior:
+- seed is disabled by default
+- seed is additionally protected by a confirm token
+- default safe mode is:
+  - `APP_SEED_ENABLED=false`
+  - `APP_SEED_CONFIRM_TOKEN=`
+
+To generate the demo dataset on a fresh database, both must be set:
+
+```env
+APP_SEED_ENABLED=true
+APP_SEED_CONFIRM_TOKEN=DEMO_ONLY_RESET
+```
+
+If someone needs your exact current data, they need a PostgreSQL dump, not just the repository.
+
+## Login and Role Rules
+
+Role is inferred from the email format.
+
+Examples:
+- student: `a_mustafayev@kbtu.kz`
+- professor: `a.nurgaliyev@kbtu.kz`
+- admin: `admin@kbtu.kz`
+
+Typical demo passwords:
+- student: `student123`
+- professor: `prof123`
+- admin: `admin123`
+
+## AI Assistant
+
+The AI assistant does not have direct database access.
+
+How it works:
+1. frontend sends the question to backend
+2. backend authenticates the user
+3. backend loads the needed context from repositories/services
+4. backend sends structured context plus the question to Gemini
+5. Gemini returns an answer
+6. backend returns the answer to the frontend
+
+So:
+- database access is only done by the backend
+- Gemini does not connect to PostgreSQL directly
+- assistants are read-only
+- some planner calculations are deterministic and computed in backend first
+
+## API Notes
+
+Main namespaces:
+- `/api/v1/auth/**`
+- `/api/v1/public/**`
+- `/api/v1/student/**`
+- `/api/v1/student/assistant/**`
+- `/api/v1/teacher/**`
+- `/api/v1/teacher/assistant/**`
+- `/api/v1/admin/**`
+- `/api/v1/chat/**`
+- `/api/v1/files/**`
+
+Realtime:
 - WebSocket endpoint: `/ws`
-- User notification destination: `/user/queue/notifications`
+- notifications: `/user/queue/notifications`
+- attendance events: section and user-specific destinations used by frontend
 
-For route details, request/response examples, and mobile guidance, see:
+For route details and example payloads, see:
 - `API_DOCUMENTATION.md`
 - `MIGRATION_FRONTEND_REACT.md`
