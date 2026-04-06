@@ -3651,6 +3651,36 @@ button:disabled {
   gap: 14px;
 }
 
+.student-contact-card {
+  display: grid;
+  gap: 18px;
+}
+
+.student-contact-form-grid {
+  align-items: start;
+}
+
+.student-contact-field {
+  display: grid;
+  gap: 8px;
+}
+
+.student-contact-field span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.student-contact-field-wide {
+  grid-column: 1 / -1;
+}
+
+.student-contact-actions {
+  gap: 10px;
+}
+
 .service-form-action {
   display: flex;
   flex-direction: column;

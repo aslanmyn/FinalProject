@@ -8,6 +8,7 @@ import {
   fetchStudentRiskDashboard,
   fetchStudentSchedule,
   fetchStudentWorkflows,
+  updateStudentProfile,
   uploadStudentProfilePhoto
 } from "../../lib/api";
 import type { WorkflowOverview } from "../../types/common";
@@ -69,6 +70,12 @@ function sortSchedule(items: StudentScheduleItem[]): StudentScheduleItem[] {
   });
 }
 
+interface StudentContactFormState {
+  phone: string;
+  address: string;
+  emergencyContact: string;
+}
+
 export default function StudentDashboardPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [schedule, setSchedule] = useState<StudentScheduleItem[]>([]);
@@ -80,6 +87,14 @@ export default function StudentDashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState<StudentContactFormState>({
+    phone: "",
+    address: "",
+    emergencyContact: ""
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -120,6 +135,15 @@ export default function StudentDashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!profile) return;
+    setProfileForm({
+      phone: profile.phone || "",
+      address: profile.address || "",
+      emergencyContact: profile.emergencyContact || ""
+    });
+  }, [profile]);
+
   const schedulePreview = useMemo(() => schedule.slice(0, 4), [schedule]);
 
   async function handleProfilePhotoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -144,6 +168,25 @@ export default function StudentDashboardPage() {
       setUploadError(err instanceof ApiError ? err.message : "Failed to upload profile photo");
     } finally {
       setUploading(false);
+    }
+  }
+
+  function handleProfileFieldChange(field: keyof StudentContactFormState, value: string) {
+    setProfileForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleProfileSave() {
+    setSavingProfile(true);
+    setProfileSaveError(null);
+    setProfileSaveSuccess(null);
+    try {
+      const updatedProfile = await updateStudentProfile(profileForm);
+      setProfile(updatedProfile);
+      setProfileSaveSuccess("Contact information updated.");
+    } catch (err) {
+      setProfileSaveError(err instanceof ApiError ? err.message : "Failed to update profile");
+    } finally {
+      setSavingProfile(false);
     }
   }
 
@@ -246,6 +289,63 @@ export default function StudentDashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="card student-contact-card">
+            <div className="schedule-summary-header">
+              <div>
+                <h3>Update Contact Details</h3>
+                <p className="muted">These fields are student-managed and do not affect your academic records.</p>
+              </div>
+            </div>
+
+            <div className="service-form-grid student-contact-form-grid">
+              <label className="student-contact-field">
+                <span>Phone number</span>
+                <input
+                  type="text"
+                  value={profileForm.phone}
+                  onChange={(event) => handleProfileFieldChange("phone", event.target.value)}
+                  placeholder="+7 700 000 0000"
+                  maxLength={50}
+                />
+              </label>
+
+              <label className="student-contact-field">
+                <span>Emergency contact</span>
+                <input
+                  type="text"
+                  value={profileForm.emergencyContact}
+                  onChange={(event) => handleProfileFieldChange("emergencyContact", event.target.value)}
+                  placeholder="Parent, guardian, or trusted contact"
+                  maxLength={255}
+                />
+              </label>
+
+              <label className="student-contact-field student-contact-field-wide">
+                <span>Address</span>
+                <textarea
+                  value={profileForm.address}
+                  onChange={(event) => handleProfileFieldChange("address", event.target.value)}
+                  placeholder="Current city, street, dormitory, or apartment"
+                  rows={3}
+                  maxLength={255}
+                />
+              </label>
+
+              <div className="service-form-action student-contact-actions">
+                <button
+                  type="button"
+                  className="profile-upload-button"
+                  onClick={() => void handleProfileSave()}
+                  disabled={savingProfile}
+                >
+                  {savingProfile ? "Saving..." : "Save profile"}
+                </button>
+                {profileSaveError ? <p className="error">{profileSaveError}</p> : null}
+                {profileSaveSuccess ? <p className="success">{profileSaveSuccess}</p> : null}
               </div>
             </div>
           </section>

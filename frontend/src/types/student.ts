@@ -11,6 +11,8 @@ export interface StudentProfile {
   faculty: string | null;
   creditsEarned: number;
   phone: string | null;
+  address: string | null;
+  emergencyContact: string | null;
   profilePhotoUrl: string | null;
 }
 

@@ -215,6 +215,17 @@ export async function fetchStudentProfile(): Promise<StudentProfile> {
   return request<StudentProfile>("/api/v1/student/profile");
 }
 
+export async function updateStudentProfile(payload: {
+  phone: string;
+  address: string;
+  emergencyContact: string;
+}): Promise<StudentProfile> {
+  return request<StudentProfile>("/api/v1/student/profile", {
+    method: "PUT",
+    body: payload
+  });
+}
+
 export async function uploadStudentProfilePhoto(file: File): Promise<StudentProfile> {
   const formData = new FormData();
   formData.append("file", file);

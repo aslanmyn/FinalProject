@@ -160,7 +160,17 @@ Auth: `STUDENT`
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/student/profile` | Student profile |
+| PUT | `/api/v1/student/profile` | Update student-managed contact fields such as phone, address, emergency contact |
 | POST | `/api/v1/student/profile-photo` | Upload student profile photo |
+
+Update profile body:
+```json
+{
+  "phone": "+77010000000",
+  "address": "Almaty, Satpayev street 22",
+  "emergencyContact": "Ainur Mustafayeva, +77020000000"
+}
+```
 
 ### 5.2 Academic Data
 
