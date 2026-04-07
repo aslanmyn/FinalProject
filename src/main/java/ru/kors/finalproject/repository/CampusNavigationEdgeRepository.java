@@ -11,6 +11,14 @@ public interface CampusNavigationEdgeRepository extends JpaRepository<CampusNavi
     @Query("SELECT e FROM CampusNavigationEdge e WHERE e.fromRoom.id = :roomId OR e.toRoom.id = :roomId")
     List<CampusNavigationEdge> findEdgesByRoomId(Long roomId);
 
-    @Query("SELECT e FROM CampusNavigationEdge e WHERE e.accessible = true")
+    @Query("""
+            SELECT e
+            FROM CampusNavigationEdge e
+            LEFT JOIN FETCH e.fromRoom
+            LEFT JOIN FETCH e.toRoom
+            LEFT JOIN FETCH e.fromBuilding
+            LEFT JOIN FETCH e.toBuilding
+            WHERE e.accessible = true
+            """)
     List<CampusNavigationEdge> findAllAccessible();
 }

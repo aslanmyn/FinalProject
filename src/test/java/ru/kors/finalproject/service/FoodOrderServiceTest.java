@@ -95,6 +95,18 @@ class FoodOrderServiceTest {
     }
 
     @Test
+    @DisplayName("createOrder rejects pickup times in the past")
+    void createOrder_rejectsPastPickupTime() {
+        assertThatThrownBy(() -> foodOrderService.createOrder(
+                student,
+                Map.of(10L, 1),
+                null,
+                Instant.parse("2020-01-01T00:00:00Z")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Pickup time must be in the future");
+    }
+
+    @Test
     @DisplayName("createOrder calculates total and stores all order lines")
     void createOrder_calculatesTotal() {
         when(foodItemRepository.findById(10L)).thenReturn(Optional.of(bowl));
@@ -105,7 +117,7 @@ class FoodOrderServiceTest {
         items.put(10L, 2);
         items.put(11L, 1);
 
-        FoodOrder order = foodOrderService.createOrder(student, items, "No onions", Instant.parse("2026-04-03T12:30:00Z"));
+        FoodOrder order = foodOrderService.createOrder(student, items, "No onions", Instant.now().plusSeconds(3600));
 
         assertThat(order.getStatus()).isEqualTo(FoodOrder.OrderStatus.PENDING);
         assertThat(order.getItems()).hasSize(2);

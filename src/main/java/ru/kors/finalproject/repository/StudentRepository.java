@@ -1,5 +1,7 @@
 package ru.kors.finalproject.repository;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import ru.kors.finalproject.entity.Student;
@@ -17,4 +19,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 
     @Query("SELECT s FROM Student s LEFT JOIN FETCH s.program LEFT JOIN FETCH s.faculty LEFT JOIN FETCH s.currentSemester")
     java.util.List<Student> findAllWithDetails();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Student s WHERE s.id = :id")
+    Optional<Student> findByIdForUpdate(Long id);
 }

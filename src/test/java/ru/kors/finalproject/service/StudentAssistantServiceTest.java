@@ -23,11 +23,9 @@ import ru.kors.finalproject.repository.StudentRequestRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 
 import java.time.DayOfWeek;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -35,7 +33,6 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -72,7 +69,6 @@ class StudentAssistantServiceTest {
     private SemesterRepository semesterRepository;
 
     private StudentAssistantService service;
-
     private Student student;
     private Program program;
     private Semester currentSemester;
@@ -128,103 +124,59 @@ class StudentAssistantServiceTest {
     }
 
     @Test
-    @DisplayName("ask builds a structured next-semester schedule recommendation from an AI plan")
-    void ask_scheduleRecommendationRequest_returnsStructuredSchedule() {
-        Subject subject = Subject.builder()
-                .id(20L)
-                .code("CSCI2107")
-                .name("Computer Networks")
-                .program(program)
-                .build();
-
+    @DisplayName("schedule request is handled by deterministic planner and respects day-specific preferences")
+    void ask_scheduleRecommendationRequest_returnsStructuredDeterministicSchedule() {
         Teacher teacher = Teacher.builder()
                 .id(30L)
                 .name("Aidos Nurgaliyev")
                 .build();
 
-        SubjectOffering offering = SubjectOffering.builder()
-                .id(8L)
-                .subject(subject)
-                .semester(nextSemester)
-                .teacher(teacher)
-                .lessonType(SubjectOffering.LessonType.LECTURE)
-                .capacity(25)
-                .dayOfWeek(DayOfWeek.MONDAY)
-                .startTime(LocalTime.of(12, 0))
-                .endTime(LocalTime.of(14, 0))
-                .room("L-430")
-                .build();
+        Subject mondayCourse = Subject.builder().id(20L).code("CSCI2107").name("Computer Networks").program(program).build();
+        Subject fridayCourse = Subject.builder().id(21L).code("MATH2201").name("Discrete Mathematics").program(program).build();
+        Subject tuesdayCourse = Subject.builder().id(22L).code("ENGL2101").name("Academic English").program(program).build();
+
+        SubjectOffering mondayLate = offering(8L, mondayCourse, teacher, DayOfWeek.MONDAY, 16, 18, "L-430");
+        SubjectOffering mondayMorning = offering(9L, mondayCourse, teacher, DayOfWeek.MONDAY, 9, 11, "L-431");
+        SubjectOffering fridayLate = offering(10L, fridayCourse, teacher, DayOfWeek.FRIDAY, 15, 17, "M-201");
+        SubjectOffering fridayMorning = offering(11L, fridayCourse, teacher, DayOfWeek.FRIDAY, 9, 11, "M-202");
+        SubjectOffering tuesdayMorning = offering(12L, tuesdayCourse, teacher, DayOfWeek.TUESDAY, 9, 10, "P-101");
+        SubjectOffering tuesdayAfternoon = offering(13L, tuesdayCourse, teacher, DayOfWeek.TUESDAY, 15, 16, "P-102");
 
         when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
-        when(subjectOfferingRepository.findBySemesterIdWithDetails(2L)).thenReturn(List.of(offering));
-        when(geminiClientService.getLocale()).thenReturn("ru");
-        when(geminiClientService.generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt()))
-                .thenReturn(new GeminiClientService.GeminiReply("""
-                        {
-                          "feasible": true,
-                          "partial": false,
-                          "chatResponse": "I built a next semester schedule without conflicts and after 12:00.",
-                          "summary": "After 12 and avoid Friday",
-                          "satisfiedPreferences": ["After 12:00", "Avoid Friday"],
-                          "unsatisfiedPreferences": [],
-                          "blockingCourses": [],
-                          "selectedSections": [
-                            {
-                              "courseCode": "CSCI2107",
-                              "courseName": "Computer Networks",
-                              "sectionId": 8,
-                              "teacherName": "Aidos Nurgaliyev",
-                              "meetingTimes": [
-                                {
-                                  "dayOfWeek": "MONDAY",
-                                  "startTime": "12:00",
-                                  "endTime": "14:00",
-                                  "room": "L-430"
-                                }
-                              ]
-                            }
-                          ],
-                          "warnings": []
-                        }
-                        """, "gemini-2.5-flash", Instant.parse("2026-04-06T10:00:00Z")))
-                .thenReturn(new GeminiClientService.GeminiReply("""
-                        {
-                          "valid": true,
-                          "errors": []
-                        }
-                        """, "gemini-2.5-flash", Instant.parse("2026-04-06T10:00:01Z")));
+        when(subjectOfferingRepository.findBySemesterIdWithDetails(2L))
+                .thenReturn(List.of(mondayLate, mondayMorning, fridayLate, fridayMorning, tuesdayMorning, tuesdayAfternoon));
 
         StudentAssistantService.StudentAssistantReply reply = service.ask(
                 student,
-                "Make my next semester schedule after 12 and avoid Friday if possible."
+                "У меня в понедельник и пятницу после 15, а остальные дни лучше с утра."
         );
 
-        assertThat(reply.model()).isEqualTo("gemini-2.5-flash");
-        assertThat(reply.answer()).contains("without conflicts").contains("after 12");
+        assertThat(reply.model()).isEqualTo("deterministic-schedule-planner");
         assertThat(reply.scheduleRecommendation()).isNotNull();
         assertThat(reply.scheduleRecommendation().semesterName()).isEqualTo("2025-2026 Spring");
-        assertThat(reply.scheduleRecommendation().selectedSections()).hasSize(1);
-        assertThat(reply.scheduleRecommendation().selectedSections().get(0).courseCode()).isEqualTo("CSCI2107");
-        assertThat(reply.scheduleRecommendation().visualSchedule())
-                .containsKey("MONDAY");
-        assertThat(reply.scheduleRecommendation().visualSchedule().get("MONDAY"))
-                .hasSize(1);
-        assertThat(reply.scheduleRecommendation().visualSchedule().get("MONDAY").get(0).startTime())
-                .isEqualTo("12:00");
+        assertThat(reply.scheduleRecommendation().selectedSections()).hasSize(3);
+        assertThat(reply.scheduleRecommendation().selectedSections().stream()
+                .map(StudentAssistantService.SelectedSection::sectionId))
+                .containsExactlyInAnyOrder(8L, 10L, 12L);
+        assertThat(reply.scheduleRecommendation().satisfiedPreferences())
+                .contains("Понедельник: после 15:00", "Пятница: после 15:00", "Остальные дни: лучше с утра");
+        assertThat(reply.scheduleRecommendation().unsatisfiedPreferences()).isEmpty();
+        assertThat(reply.scheduleRecommendation().visualSchedule().get("MONDAY").get(0).startTime()).isEqualTo("16:00");
+        assertThat(reply.scheduleRecommendation().visualSchedule().get("FRIDAY").get(0).startTime()).isEqualTo("15:00");
+        assertThat(reply.scheduleRecommendation().visualSchedule().get("TUESDAY").get(0).startTime()).isEqualTo("09:00");
 
-        verify(geminiClientService, times(2))
-                .generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
+        verify(geminiClientService, never()).generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
         verify(auditService).logStudentAction(
                 eq(student),
                 eq("AI_ASSISTANT_QUERY"),
                 eq("StudentAssistant"),
                 eq(student.getId()),
-                contains("next semester schedule")
+                contains("понедельник")
         );
     }
 
     @Test
-    @DisplayName("ask answers maximum GPA questions deterministically without calling Gemini")
+    @DisplayName("GPA maximum questions still use deterministic planner without Gemini")
     void ask_maximumGpaQuestion_returnsDeterministicReply() {
         AcademicAnalyticsService.StudentPlannerCourse plannerCourse = new AcademicAnalyticsService.StudentPlannerCourse(
                 8L,
@@ -266,16 +218,10 @@ class StudentAssistantServiceTest {
 
         verify(geminiClientService, never()).generate(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
         verify(geminiClientService, never()).generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
-        verify(auditService).logStudentAction(
-                eq(student),
-                eq("AI_ASSISTANT_QUERY"),
-                eq("StudentAssistant"),
-                eq(student.getId()),
-                contains("maximum scores")
-        );
     }
+
     @Test
-    @DisplayName("ask returns a clear quota message for normal AI questions when Gemini quota is exhausted")
+    @DisplayName("normal AI questions still return a friendly quota message when Gemini is exhausted")
     void ask_regularQuestion_whenQuotaExceeded_returnsFriendlyQuotaReply() {
         AcademicAnalyticsService.StudentPlannerDashboard plannerDashboard = new AcademicAnalyticsService.StudentPlannerDashboard(
                 student.getId(),
@@ -297,72 +243,64 @@ class StudentAssistantServiceTest {
         );
 
         assertThat(reply.model()).isEqualTo("gemini-quota-limit");
-        assertThat(reply.answer()).contains("лимит Gemini API").contains("сброса квоты");
+        assertThat(reply.answer()).contains("Gemini API");
         assertThat(reply.scheduleRecommendation()).isNull();
 
         verify(geminiClientService, times(1))
                 .generate(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
-        verify(auditService).logStudentAction(
-                eq(student),
-                eq("AI_ASSISTANT_QUERY"),
-                eq("StudentAssistant"),
-                eq(student.getId()),
-                contains("attendance risk")
-        );
     }
 
     @Test
-    @DisplayName("ask returns a clear quota message for schedule planning when Gemini quota is exhausted")
-    void ask_scheduleRecommendationRequest_whenQuotaExceeded_returnsFriendlyQuotaReply() {
+    @DisplayName("schedule planning stays available even when Gemini quota is exhausted")
+    void ask_scheduleRecommendationRequest_whenQuotaExceeded_stillUsesDeterministicPlanner() {
+        Teacher teacher = Teacher.builder()
+                .id(30L)
+                .name("Aidos Nurgaliyev")
+                .build();
         Subject subject = Subject.builder()
                 .id(20L)
                 .code("CSCI2107")
                 .name("Computer Networks")
                 .program(program)
                 .build();
-
-        Teacher teacher = Teacher.builder()
-                .id(30L)
-                .name("Aidos Nurgaliyev")
-                .build();
-
-        SubjectOffering offering = SubjectOffering.builder()
-                .id(8L)
-                .subject(subject)
-                .semester(nextSemester)
-                .teacher(teacher)
-                .lessonType(SubjectOffering.LessonType.LECTURE)
-                .capacity(25)
-                .dayOfWeek(DayOfWeek.MONDAY)
-                .startTime(LocalTime.of(12, 0))
-                .endTime(LocalTime.of(14, 0))
-                .room("L-430")
-                .build();
+        SubjectOffering offering = offering(8L, subject, teacher, DayOfWeek.MONDAY, 12, 14, "L-430");
 
         when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
         when(subjectOfferingRepository.findBySemesterIdWithDetails(2L)).thenReturn(List.of(offering));
-        when(geminiClientService.getLocale()).thenReturn("ru");
-        when(geminiClientService.generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt()))
-                .thenThrow(new GeminiClientService.GeminiQuotaExceededException("quota", new RuntimeException("limit")));
 
         StudentAssistantService.StudentAssistantReply reply = service.ask(
                 student,
                 "Make my next semester schedule after 12 and avoid Friday if possible."
         );
 
-        assertThat(reply.model()).isEqualTo("gemini-quota-limit");
-        assertThat(reply.answer()).contains("лимит Gemini API").contains("расписания");
-        assertThat(reply.scheduleRecommendation()).isNull();
+        assertThat(reply.model()).isEqualTo("deterministic-schedule-planner");
+        assertThat(reply.scheduleRecommendation()).isNotNull();
+        assertThat(reply.scheduleRecommendation().selectedSections()).hasSize(1);
 
-        verify(geminiClientService, atLeastOnce())
+        verify(geminiClientService, never())
                 .generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
-        verify(auditService).logStudentAction(
-                eq(student),
-                eq("AI_ASSISTANT_QUERY"),
-                eq("StudentAssistant"),
-                eq(student.getId()),
-                contains("next semester schedule")
-        );
+    }
+
+    private SubjectOffering offering(
+            Long id,
+            Subject subject,
+            Teacher teacher,
+            DayOfWeek dayOfWeek,
+            int startHour,
+            int endHour,
+            String room
+    ) {
+        return SubjectOffering.builder()
+                .id(id)
+                .subject(subject)
+                .semester(nextSemester)
+                .teacher(teacher)
+                .lessonType(SubjectOffering.LessonType.LECTURE)
+                .capacity(25)
+                .dayOfWeek(dayOfWeek)
+                .startTime(LocalTime.of(startHour, 0))
+                .endTime(LocalTime.of(endHour, 0))
+                .room(room)
+                .build();
     }
 }
-

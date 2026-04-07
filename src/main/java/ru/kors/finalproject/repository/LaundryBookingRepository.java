@@ -17,4 +17,7 @@ public interface LaundryBookingRepository extends JpaRepository<LaundryBooking, 
 
     @Query("SELECT b FROM LaundryBooking b WHERE b.machine.laundryRoom.id = :roomId AND b.status IN ('BOOKED','IN_PROGRESS') AND b.timeSlotStart < :end AND b.timeSlotEnd > :start")
     List<LaundryBooking> findActiveByRoomAndTimeRange(Long roomId, Instant start, Instant end);
+
+    @Query("SELECT b FROM LaundryBooking b JOIN FETCH b.machine JOIN FETCH b.student WHERE b.id = :id")
+    java.util.Optional<LaundryBooking> findByIdWithMachineAndStudent(Long id);
 }

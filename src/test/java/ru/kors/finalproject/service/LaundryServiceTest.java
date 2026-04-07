@@ -73,7 +73,7 @@ class LaundryServiceTest {
     @DisplayName("bookMachine rejects out-of-order machines")
     void bookMachine_rejectsOutOfOrderMachine() {
         machine.setStatus(LaundryMachine.MachineStatus.OUT_OF_ORDER);
-        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
+        when(laundryMachineRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(machine));
 
         assertThatThrownBy(() -> laundryService.bookMachine(student, 50L, Instant.now().plus(2, ChronoUnit.HOURS), 60))
                 .isInstanceOf(IllegalStateException.class)
@@ -83,7 +83,7 @@ class LaundryServiceTest {
     @Test
     @DisplayName("bookMachine rejects conflicting time slots")
     void bookMachine_rejectsConflict() {
-        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
+        when(laundryMachineRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(machine));
         when(laundryBookingRepository.findConflicting(any(), any(), any()))
                 .thenReturn(List.of(LaundryBooking.builder().id(1L).build()));
 
@@ -96,7 +96,7 @@ class LaundryServiceTest {
     @DisplayName("bookMachine creates a booked slot with calculated end time")
     void bookMachine_success() {
         Instant start = Instant.now().plus(2, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MINUTES);
-        when(laundryMachineRepository.findById(50L)).thenReturn(Optional.of(machine));
+        when(laundryMachineRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(machine));
         when(laundryBookingRepository.findConflicting(any(), any(), any())).thenReturn(List.of());
         when(laundryBookingRepository.save(any(LaundryBooking.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -117,7 +117,7 @@ class LaundryServiceTest {
                 .machine(machine)
                 .status(LaundryBooking.BookingStatus.BOOKED)
                 .build();
-        when(laundryBookingRepository.findById(5L)).thenReturn(Optional.of(booking));
+        when(laundryBookingRepository.findByIdWithMachineAndStudent(5L)).thenReturn(Optional.of(booking));
 
         assertThatThrownBy(() -> laundryService.cancelBooking(5L, student.getId()))
                 .isInstanceOf(IllegalArgumentException.class)

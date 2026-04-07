@@ -52,6 +52,9 @@ public class FoodOrderService {
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("Order must contain at least one item");
         }
+        if (pickupTime != null && !pickupTime.isAfter(Instant.now())) {
+            throw new IllegalArgumentException("Pickup time must be in the future");
+        }
 
         FoodOrder order = FoodOrder.builder()
                 .student(student)

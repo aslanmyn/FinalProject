@@ -113,7 +113,7 @@ async function askWithDemoFallback(message: string) {
   const normalizedMessage = message.toLowerCase();
   const isScheduleRequest =
     normalizedMessage.includes("schedule") ||
-    normalizedMessage.includes("расписание") ||
+    normalizedMessage.includes("распис") ||
     normalizedMessage.includes("demo schedule") ||
     normalizedMessage.includes("демо");
 

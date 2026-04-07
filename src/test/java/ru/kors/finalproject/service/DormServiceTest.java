@@ -14,6 +14,7 @@ import ru.kors.finalproject.entity.Student;
 import ru.kors.finalproject.repository.DormApplicationRepository;
 import ru.kors.finalproject.repository.DormBuildingRepository;
 import ru.kors.finalproject.repository.DormRoomRepository;
+import ru.kors.finalproject.repository.StudentRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -35,6 +36,8 @@ class DormServiceTest {
     private DormRoomRepository dormRoomRepository;
     @Mock
     private DormBuildingRepository dormBuildingRepository;
+    @Mock
+    private StudentRepository studentRepository;
 
     @InjectMocks
     private DormService dormService;
@@ -92,6 +95,7 @@ class DormServiceTest {
     @Test
     @DisplayName("createApplication rejects a second active application")
     void createApplication_rejectsDuplicateActiveApplication() {
+        when(studentRepository.findByIdForUpdate(student.getId())).thenReturn(Optional.of(student));
         when(dormApplicationRepository.existsByStudentIdAndStatusIn(
                 student.getId(),
                 List.of(
@@ -104,6 +108,23 @@ class DormServiceTest {
         assertThatThrownBy(() -> dormService.createApplication(student))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("active dorm application");
+    }
+
+    @Test
+    @DisplayName("updateStep2 rejects rooms that do not match the selected room type")
+    void updateStep2_rejectsRoomTypeMismatch() {
+        when(dormApplicationRepository.findByIdAndStudentId(77L, student.getId()))
+                .thenReturn(Optional.of(draftApplication));
+        when(dormRoomRepository.findById(availableRoom.getId()))
+                .thenReturn(Optional.of(availableRoom));
+
+        assertThatThrownBy(() -> dormService.updateStep2(
+                77L,
+                student.getId(),
+                DormRoom.RoomType.DOUBLE_ROOM,
+                availableRoom.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not match");
     }
 
     @Test

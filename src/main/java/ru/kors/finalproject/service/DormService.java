@@ -16,6 +16,7 @@ public class DormService {
     private final DormApplicationRepository dormApplicationRepository;
     private final DormRoomRepository dormRoomRepository;
     private final DormBuildingRepository dormBuildingRepository;
+    private final StudentRepository studentRepository;
 
     public List<DormBuilding> getAllBuildings() {
         return dormBuildingRepository.findAll();
@@ -43,17 +44,19 @@ public class DormService {
 
     @Transactional
     public DormApplication createApplication(Student student) {
+        Student lockedStudent = studentRepository.findByIdForUpdate(student.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Student not found"));
         List<DormApplication.ApplicationStatus> activeStatuses = List.of(
                 DormApplication.ApplicationStatus.DRAFT,
                 DormApplication.ApplicationStatus.SUBMITTED,
                 DormApplication.ApplicationStatus.APPROVED
         );
-        if (dormApplicationRepository.existsByStudentIdAndStatusIn(student.getId(), activeStatuses)) {
+        if (dormApplicationRepository.existsByStudentIdAndStatusIn(lockedStudent.getId(), activeStatuses)) {
             throw new IllegalStateException("You already have an active dorm application");
         }
 
         DormApplication application = DormApplication.builder()
-                .student(student)
+                .student(lockedStudent)
                 .status(DormApplication.ApplicationStatus.DRAFT)
                 .currentStep(1)
                 .createdAt(Instant.now())
@@ -86,6 +89,9 @@ public class DormService {
                     .orElseThrow(() -> new IllegalArgumentException("Room not found"));
             if (!room.hasSpace()) {
                 throw new IllegalStateException("Selected room is full");
+            }
+            if (roomTypePreference != null && room.getRoomType() != roomTypePreference) {
+                throw new IllegalArgumentException("Selected room does not match the requested room type");
             }
             app.setDormRoom(room);
         }

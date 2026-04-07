@@ -33,7 +33,7 @@ public class CampusMapService {
     }
 
     public CampusRoom getRoom(Long id) {
-        return campusRoomRepository.findById(id)
+        return campusRoomRepository.findByIdWithBuilding(id)
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
     }
 

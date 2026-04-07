@@ -85,45 +85,10 @@ public class StudentAssistantService {
     }
 
     public StudentAssistantReply buildDemoScheduleRecommendation(Student student) {
-        SchedulePlanningContext planningContext = buildSchedulePlanningContext(student);
-        String semesterName = planningContext.semester() != null ? planningContext.semester().getName() : "2026-2027 Fall";
-
-        // Pick up to 5 real sections from the available offerings
-        List<SelectedSection> selectedSections = planningContext.availableSections().stream()
-                .collect(Collectors.toMap(ScheduleSectionOption::courseCode, o -> o, (a, b) -> a, LinkedHashMap::new))
-                .values().stream()
-                .limit(5)
-                .map(option -> new SelectedSection(
-                        option.courseCode(),
-                        option.courseName(),
-                        option.sectionId(),
-                        option.teacherName(),
-                        option.meetingTimes().stream()
-                                .map(slot -> new MeetingTimeView(slot.dayOfWeek(), slot.startTime(), slot.endTime(), slot.room()))
-                                .toList()
-                ))
-                .toList();
-
-        Map<String, List<VisualScheduleItem>> visual = buildVisualScheduleFromSections(selectedSections);
-
-        ScheduleRecommendation recommendation = new ScheduleRecommendation(
-                semesterName,
-                true,
-                false,
-                "Demo schedule with " + selectedSections.size() + " courses — all classes after 12:00 where possible",
-                List.of("After 12 noon preference"),
-                List.of(),
-                List.of(),
-                selectedSections,
-                List.of("This is a demo schedule for testing visualization. Real schedule requires AI."),
-                visual
-        );
-
-        return new StudentAssistantReply(
-                "Вот ваше демо-расписание на " + semesterName + ". Это тестовое расписание для проверки визуализации.",
-                "demo-planner",
-                Instant.now(),
-                recommendation
+        return buildDeterministicScheduleRecommendation(
+                student,
+                "Make my next semester schedule after 12 and avoid Friday if possible.",
+                "deterministic-schedule-demo"
         );
     }
 
@@ -135,79 +100,7 @@ public class StudentAssistantService {
     }
 
     private StudentAssistantReply buildAiScheduleRecommendation(Student student, String message) {
-        if (student.getCourse() >= 4) {
-            return new StudentAssistantReply(
-                    "Вы на 4 курсе — в следующем семестре у вас дипломная работа и защита практики, обычного расписания предметов нет. Составлять расписание не требуется.",
-                    "schedule-planner",
-                    Instant.now(),
-                    null
-            );
-        }
-
-        SchedulePlanningContext planningContext = buildSchedulePlanningContext(student);
-        if (planningContext.semester() == null) {
-            return new StudentAssistantReply(
-                    "I could not find a next-semester academic term in the portal data yet, so I cannot build a schedule recommendation right now.",
-                    "schedule-planner",
-                    Instant.now(),
-                    null
-            );
-        }
-        if (planningContext.availableSections().isEmpty()) {
-            String scope = student.getProgram() != null ? " for your program" : "";
-            return new StudentAssistantReply(
-                    "I found the next semester `" + planningContext.semester().getName()
-                            + "`, but there are no available section times" + scope
-                            + " yet, so I cannot build a schedule recommendation.",
-                    "schedule-planner",
-                    Instant.now(),
-                    null
-            );
-        }
-
-        String planningJson = toJson(buildPlanningPromptPayload(student, planningContext));
-        System.out.println("[SCHEDULE-DEBUG] Available sections count=" + planningContext.availableSections().size() + ", planningJsonLength=" + planningJson.length());
-        AiSchedulePlanResult planResult;
-
-        // Step 1: Try compact section-selection plan (1 API call)
-        try {
-            planResult = requestAiSectionSelectionPlan(message, planningJson);
-        } catch (GeminiClientService.GeminiQuotaExceededException ex) {
-            return buildQuotaReply(true);
-        } catch (RuntimeException ex) {
-            System.out.println("[SCHEDULE-DEBUG] Section selection failed: " + ex.getMessage());
-            throw new IllegalStateException("AI schedule planning is temporarily unavailable");
-        }
-
-        // Step 2: If compact plan returned no selections, try full plan as fallback (1 more API call)
-        if (planHasNoSelections(planResult.plan())) {
-            System.out.println("[SCHEDULE-DEBUG] Compact plan empty, trying full plan");
-            try {
-                planResult = requestAiSchedulePlan(message, planningJson);
-            } catch (GeminiClientService.GeminiQuotaExceededException ex) {
-                return buildQuotaReply(true);
-            } catch (RuntimeException ex) {
-                throw new IllegalStateException("AI schedule planning is temporarily unavailable");
-            }
-        }
-
-        if (planHasNoSelections(planResult.plan())) {
-            String answer = "I found next-semester section times, but the AI could not finalize a concrete section combination from them yet. Please try a slightly simpler request such as: make my next semester schedule after 12, or avoid Friday if possible.";
-            return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), null);
-        }
-
-        // Step 3: Local validation (no API call) — check for time conflicts and invalid IDs
-        List<String> localErrors = validateScheduleLocally(planningContext, planResult.plan());
-        if (!localErrors.isEmpty()) {
-            AiSchedulePlan bestEffortPlan = mergePlanWarnings(planResult.plan(), localErrors);
-            ScheduleRecommendation recommendation = toScheduleRecommendation(planningContext, bestEffortPlan);
-            String answer = buildScheduleAnswer(recommendation, bestEffortPlan);
-            return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), recommendation);
-        }
-
-        ScheduleRecommendation recommendation = toScheduleRecommendation(planningContext, planResult.plan());
-        String answer = buildScheduleAnswer(recommendation, planResult.plan());
-        return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), recommendation);
+        return buildDeterministicScheduleRecommendation(student, message, "deterministic-schedule-planner");
     }
 
     private StudentAssistantReply buildQuotaReply(boolean scheduleRequest) {
@@ -225,7 +118,77 @@ public class StudentAssistantService {
         return new StudentAssistantReply(answer, "gemini-quota-limit", Instant.now(), null);
     }
 
-    private SchedulePlanningContext buildSchedulePlanningContext(Student student) {
+    private StudentAssistantReply buildDeterministicScheduleRecommendation(Student student, String message, String model) {
+        if (student.getCourse() >= 4) {
+            return new StudentAssistantReply(
+                    "Вы на 4 курсе или выше, поэтому на следующем семестре у вас обычно остаются дипломный проект, практика и защита. Обычное предметное расписание собирать не требуется.",
+                    model,
+                    Instant.now(),
+                    null
+            );
+        }
+
+        SchedulePlanningContext planningContext = buildSchedulePlanningContext(student);
+        if (planningContext.semester() == null) {
+            return new StudentAssistantReply(
+                    "Я пока не нашел в данных следующий академический семестр, поэтому не могу собрать расписание.",
+                    model,
+                    Instant.now(),
+                    null
+            );
+        }
+        if (planningContext.availableSections().isEmpty()) {
+            return new StudentAssistantReply(
+                    "Я нашел следующий семестр `" + planningContext.semester().getName()
+                            + "`, но для него пока нет доступных секций с временами занятий.",
+                    model,
+                    Instant.now(),
+                    null
+            );
+        }
+
+        StudentSchedulePlanningEngine.PlanningResult plan = StudentSchedulePlanningEngine.plan(
+            message,
+            planningContext.availableSections().stream()
+                    .map(option -> new StudentSchedulePlanningEngine.CourseOption(
+                            option.sectionId(),
+                            option.courseCode(),
+                            option.courseName(),
+                            option.teacherName(),
+                            option.lessonType(),
+                            option.capacity(),
+                            option.meetingTimes().stream()
+                                    .map(slot -> new StudentSchedulePlanningEngine.MeetingOption(
+                                            slot.dayOfWeek(),
+                                            slot.startTime(),
+                                            slot.endTime(),
+                                            slot.room()
+                                    ))
+                                    .toList()
+                    ))
+                    .toList()
+    );
+
+    AiSchedulePlan plannerPlan = new AiSchedulePlan(
+            plan.feasible(),
+            plan.partial(),
+            plan.chatResponse(),
+            plan.summary(),
+            plan.satisfiedPreferences(),
+            plan.unsatisfiedPreferences(),
+            plan.blockingCourses(),
+            plan.selectedSectionIds(),
+            List.of(),
+            plan.warnings(),
+            Map.of()
+    );
+
+    ScheduleRecommendation recommendation = toScheduleRecommendation(planningContext, plannerPlan);
+    String answer = buildScheduleAnswer(recommendation, plannerPlan);
+    return new StudentAssistantReply(answer, model, Instant.now(), recommendation);
+}
+
+private SchedulePlanningContext buildSchedulePlanningContext(Student student) {
         if (student.getCourse() >= 4) {
             return new SchedulePlanningContext(null, List.of());
         }
@@ -444,13 +407,10 @@ public class StudentAssistantService {
                 0.1,
                 1200
         );
-        System.out.println("[SCHEDULE-DEBUG] AI raw response length=" + reply.answer().length() + ": " + reply.answer().replace("\n", " ").replace("\r", ""));
         try {
             AiSchedulePlan plan = parseAiJson(reply.answer(), AiSchedulePlan.class);
-            System.out.println("[SCHEDULE-DEBUG] Parsed sectionIds=" + plan.selectedSectionIds() + ", sections=" + (plan.selectedSections() != null ? plan.selectedSections().size() : "null"));
             return new AiSchedulePlanResult(reply, plan);
         } catch (IllegalStateException ex) {
-            System.out.println("[SCHEDULE-DEBUG] Parse failed: " + ex.getMessage() + ", attempting normalization");
             GeminiClientService.GeminiReply normalizedReply = geminiClientService.generateJson(
                     scheduleSectionIdNormalizationPrompt(),
                     "Raw schedule answer",
@@ -617,23 +577,30 @@ public class StudentAssistantService {
     }
 
     private boolean isScheduleRecommendationRequest(String message) {
-        String normalized = message.toLowerCase(Locale.ROOT);
-        boolean mentionsSchedule = containsAny(normalized,
-                "schedule", "timetable", "class time", "class times",
-                "\u0440\u0430\u0441\u043f\u0438\u0441", "\u0432\u0440\u0435\u043c\u044f \u0443\u0440\u043e\u043a", "\u0432\u0440\u0435\u043c\u044f \u043f\u0430\u0440", "\u043f\u0430\u0440\u044b", "\u0443\u0440\u043e\u043a\u0438");
-        boolean mentionsIntent = containsAny(normalized,
-                "make", "build", "plan", "arrange", "recommend", "compose",
-                "\u0441\u0434\u0435\u043b\u0430\u0439", "\u0441\u043e\u0441\u0442\u0430\u0432", "\u043f\u043e\u0434\u0431\u0435\u0440\u0438", "\u0441\u043e\u0431\u0435\u0440\u0438", "\u043f\u043e\u0441\u0442\u0440\u043e\u0439", "\u043f\u0440\u0435\u0434\u043b\u043e\u0436");
-        boolean mentionsPreference = containsAny(normalized,
-                "after 12", "after noon", "after lunch", "avoid friday", "avoid saturday", "no conflicts", "compact",
-                "\u043f\u043e\u0441\u043b\u0435 12", "\u043f\u043e\u0441\u043b\u0435 \u043e\u0431\u0435\u0434\u0430", "\u0431\u0435\u0437 \u043f\u044f\u0442\u043d\u0438\u0446\u044b", "\u0431\u0435\u0437 \u0441\u0443\u0431\u0431\u043e\u0442\u044b", "\u0431\u0435\u0437 \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442", "\u0431\u0435\u0437 \u043e\u043a\u043e\u043d", "\u043a\u043e\u043c\u043f\u0430\u043a\u0442");
-        boolean mentionsNextTerm = containsAny(normalized,
-                "next semester", "next term", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449", "\u0441\u043b\u0435\u0434 \u0441\u0435\u043c", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0441\u0435\u043c\u0435\u0441\u0442\u0440");
-        return (mentionsSchedule && (mentionsIntent || mentionsPreference || mentionsNextTerm))
-                || (mentionsIntent && mentionsPreference)
-                || (mentionsSchedule && mentionsPreference);
-    }
-    private boolean containsAny(String text, String... tokens) {
+    String normalized = message.toLowerCase(Locale.ROOT);
+    boolean mentionsSchedule = containsAny(normalized,
+            "schedule", "timetable", "class time", "class times",
+            "\u0440\u0430\u0441\u043f\u0438\u0441", "\u0432\u0440\u0435\u043c\u044f \u0443\u0440\u043e\u043a", "\u0432\u0440\u0435\u043c\u044f \u043f\u0430\u0440", "\u043f\u0430\u0440\u044b", "\u0443\u0440\u043e\u043a\u0438");
+    boolean mentionsIntent = containsAny(normalized,
+            "make", "build", "plan", "arrange", "recommend", "compose",
+            "\u0441\u0434\u0435\u043b\u0430\u0439", "\u0441\u043e\u0441\u0442\u0430\u0432", "\u043f\u043e\u0434\u0431\u0435\u0440\u0438", "\u0441\u043e\u0431\u0435\u0440\u0438", "\u043f\u043e\u0441\u0442\u0440\u043e\u0439", "\u043f\u0440\u0435\u0434\u043b\u043e\u0436");
+    boolean mentionsPreference = containsAny(normalized,
+            "after 12", "after noon", "after lunch", "avoid friday", "avoid saturday", "no conflicts", "compact",
+            "\u043f\u043e\u0441\u043b\u0435 12", "\u043f\u043e\u0441\u043b\u0435 \u043e\u0431\u0435\u0434\u0430", "\u0431\u0435\u0437 \u043f\u044f\u0442\u043d\u0438\u0446\u044b", "\u0431\u0435\u0437 \u0441\u0443\u0431\u0431\u043e\u0442\u044b", "\u0431\u0435\u0437 \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442", "\u0431\u0435\u0437 \u043e\u043a\u043e\u043d", "\u043a\u043e\u043c\u043f\u0430\u043a\u0442");
+    boolean mentionsNextTerm = containsAny(normalized,
+            "next semester", "next term", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449", "\u0441\u043b\u0435\u0434 \u0441\u0435\u043c", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0441\u0435\u043c\u0435\u0441\u0442\u0440");
+    boolean mentionsDaySpecificTiming = containsAny(normalized,
+            "\u043f\u043e\u043d\u0435\u0434", "\u0432\u0442\u043e\u0440", "\u0441\u0440\u0435\u0434", "\u0447\u0435\u0442\u0432", "\u043f\u044f\u0442", "\u0441\u0443\u0431",
+            "monday", "tuesday", "wednesday", "thursday", "friday", "saturday")
+            && containsAny(normalized,
+            "\u043f\u043e\u0441\u043b\u0435", "\u0434\u043e", "\u0443\u0442\u0440\u043e\u043c", "\u0441 \u0443\u0442\u0440\u0430", "\u0432\u0435\u0447\u0435\u0440\u043e\u043c", "after", "before", "morning", "evening", "other days", "\u043e\u0441\u0442\u0430\u043b\u044c\u043d\u044b\u0435 \u0434\u043d\u0438");
+    return (mentionsSchedule && (mentionsIntent || mentionsPreference || mentionsNextTerm))
+            || (mentionsIntent && mentionsPreference)
+            || (mentionsSchedule && mentionsPreference)
+            || mentionsDaySpecificTiming;
+}
+
+private boolean containsAny(String text, String... tokens) {
         for (String token : tokens) {
             if (text.contains(token)) {
                 return true;
@@ -1384,5 +1351,6 @@ public class StudentAssistantService {
         }
     }
 }
+
 
 

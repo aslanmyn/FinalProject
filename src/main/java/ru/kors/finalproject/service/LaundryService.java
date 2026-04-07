@@ -58,7 +58,7 @@ public class LaundryService {
             throw new IllegalArgumentException("Start time must be in the future");
         }
 
-        LaundryMachine machine = laundryMachineRepository.findById(machineId)
+        LaundryMachine machine = laundryMachineRepository.findByIdForUpdate(machineId)
                 .orElseThrow(() -> new IllegalArgumentException("Machine not found"));
 
         if (machine.getStatus() == LaundryMachine.MachineStatus.OUT_OF_ORDER) {
@@ -85,7 +85,7 @@ public class LaundryService {
 
     @Transactional
     public LaundryBooking cancelBooking(Long bookingId, Long studentId) {
-        LaundryBooking booking = laundryBookingRepository.findById(bookingId)
+        LaundryBooking booking = laundryBookingRepository.findByIdWithMachineAndStudent(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         if (!booking.getStudent().getId().equals(studentId)) {
             throw new IllegalArgumentException("Access denied");
