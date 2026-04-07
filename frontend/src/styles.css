@@ -1397,6 +1397,13 @@ button:disabled {
   box-shadow: var(--shadow-sm);
 }
 
+.schedule-summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .schedule-summary-item h3 {
   font-size: 15px;
   font-weight: 700;
@@ -1409,6 +1416,19 @@ button:disabled {
 .schedule-summary-meta {
   color: var(--text-secondary);
   font-size: 13px;
+}
+
+.schedule-summary-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-light);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 @media (max-width: 980px) {
@@ -1748,6 +1768,104 @@ button:disabled {
 .assistant-message-body p {
   margin: 0;
   white-space: pre-wrap;
+}
+
+.assistant-message-extra {
+  margin-top: 14px;
+}
+
+.assistant-schedule-card {
+  display: grid;
+  gap: 14px;
+  padding-top: 2px;
+}
+
+.assistant-schedule-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.assistant-schedule-section-list {
+  display: grid;
+  gap: 10px;
+}
+
+.assistant-schedule-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  background: var(--bg-subtle);
+  display: grid;
+  gap: 6px;
+}
+
+.assistant-schedule-section-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.assistant-schedule-time-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.assistant-schedule-time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.assistant-schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.assistant-schedule-column {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.assistant-schedule-day {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.assistant-schedule-slot {
+  display: grid;
+  gap: 4px;
+  border-radius: 14px;
+  background: var(--bg-subtle);
+  padding: 10px;
+  font-size: 12px;
+}
+
+.assistant-schedule-empty {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.assistant-schedule-notes ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
 }
 
 .assistant-typing {

@@ -32,6 +32,7 @@ public class StudentEnrollmentV1Controller {
     private final FxRegistrationService fxRegistrationService;
     private final WindowPolicyService windowPolicyService;
     private final FinancialService financialService;
+    private final NextSemesterPlanningService nextSemesterPlanningService;
 
     @GetMapping("/enrollments")
     @Operation(summary = "Get enrollments", description = "Returns the student's registrations, optionally filtered by semester.")
@@ -204,6 +205,35 @@ public class StudentEnrollmentV1Controller {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(toFxDto(fxRegistrationService.submit(student, body.sectionId())));
     }
+
+    @GetMapping("/course-registration/next-semester")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Get next semester planning board", description = "Returns the recommended curriculum subjects, available sections, and saved section selections for the student's next semester.")
+    public ResponseEntity<?> nextSemesterPlanning(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.getOverview(student));
+    }
+
+    @PostMapping("/course-registration/next-semester/select")
+    @Operation(summary = "Save next semester section", description = "Saves one section into the student's next semester plan, replacing an older section for the same course if needed.")
+    public ResponseEntity<?> selectNextSemesterSection(
+            @AuthenticationPrincipal User user,
+            @RequestBody CourseActionBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.selectSection(student, body.sectionId()));
+    }
+
+    @PostMapping("/course-registration/next-semester/remove")
+    @Operation(summary = "Remove saved next semester section", description = "Removes a saved section from the student's next semester plan.")
+    public ResponseEntity<?> removeNextSemesterSection(
+            @AuthenticationPrincipal User user,
+            @RequestBody CourseActionBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.removeSection(student, body.sectionId()));
+    }
+
     @GetMapping("/financial")
     @Operation(summary = "Get student financial overview", description = "Returns charges, payments, balance, and whether a financial hold blocks registration.")
     public ResponseEntity<?> financial(@AuthenticationPrincipal User user) {
@@ -322,6 +352,7 @@ public class StudentEnrollmentV1Controller {
                 offering.getTeacher() != null ? offering.getTeacher().getId() : null,
                 offering.getTeacher() != null ? offering.getTeacher().getName() : null,
                 offering.getCapacity(),
+                buildMeetingSlots(offering),
                 offering.getLessonType(),
                 offering.getDayOfWeek(),
                 offering.getStartTime(),
@@ -429,7 +460,7 @@ public class StudentEnrollmentV1Controller {
                                        List<String> dropBlockedReasons) {}
     public record AvailableCourseDto(Long sectionId, String subjectCode, String subjectName, int credits,
                                      Long semesterId, String semesterName, Long teacherId, String teacherName,
-                                     int capacity, SubjectOffering.LessonType lessonType,
+                                     int capacity, List<MeetingSlotDto> meetingTimes, SubjectOffering.LessonType lessonType,
                                      java.time.DayOfWeek dayOfWeek, java.time.LocalTime startTime,
                                      java.time.LocalTime endTime, String room) {}
     public record FxEligibleCourseDto(Long sectionId, String subjectCode, String subjectName,

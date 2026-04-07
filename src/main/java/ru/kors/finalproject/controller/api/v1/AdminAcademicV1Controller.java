@@ -474,6 +474,12 @@ public class AdminAcademicV1Controller {
     }
 
     private SectionDto toSectionDto(SubjectOffering section) {
+        List<MeetingTimeDto> meetingTimes = section.getMeetingTimes() == null || section.getMeetingTimes().isEmpty()
+                ? buildLegacyMeetingTimes(section)
+                : section.getMeetingTimes().stream()
+                .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                .map(this::toMeetingTimeDto)
+                .toList();
         return new SectionDto(
                 section.getId(),
                 section.getSubject() != null ? section.getSubject().getId() : null,
@@ -484,12 +490,28 @@ public class AdminAcademicV1Controller {
                 section.getTeacher() != null ? section.getTeacher().getId() : null,
                 section.getTeacher() != null ? section.getTeacher().getName() : null,
                 section.getCapacity(),
+                meetingTimes,
                 section.getLessonType(),
                 section.getDayOfWeek(),
                 section.getStartTime(),
                 section.getEndTime(),
                 section.getRoom()
         );
+    }
+
+    private List<MeetingTimeDto> buildLegacyMeetingTimes(SubjectOffering section) {
+        if (section.getDayOfWeek() == null || section.getStartTime() == null || section.getEndTime() == null) {
+            return List.of();
+        }
+        return List.of(new MeetingTimeDto(
+                null,
+                section.getId(),
+                section.getDayOfWeek(),
+                section.getStartTime(),
+                section.getEndTime(),
+                section.getRoom(),
+                section.getLessonType()
+        ));
     }
 
     private MeetingTimeDto toMeetingTimeDto(MeetingTime meetingTime) {
@@ -584,7 +606,7 @@ public class AdminAcademicV1Controller {
     public record CreateTermBody(String name, String startDate, String endDate, boolean current) {}
     public record SectionDto(Long id, Long subjectId, String subjectCode, String subjectName,
                              Long semesterId, String semesterName, Long teacherId, String teacherName,
-                             int capacity, SubjectOffering.LessonType lessonType,
+                             int capacity, List<MeetingTimeDto> meetingTimes, SubjectOffering.LessonType lessonType,
                              java.time.DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime, String room) {}
     public record CreateSectionBody(Long subjectId, Long semesterId, Long teacherId, int capacity,
                                     SubjectOffering.LessonType lessonType) {}

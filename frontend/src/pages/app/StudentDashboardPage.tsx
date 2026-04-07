@@ -50,6 +50,15 @@ function formatTime(value: string | null): string {
   return value.slice(0, 5);
 }
 
+function formatLessonType(value: string | null): string {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function formatStatus(status: string): string {
   return status
     .toLowerCase()
@@ -393,13 +402,20 @@ export default function StudentDashboardPage() {
             ) : (
               <div className="schedule-summary-grid">
                 {schedulePreview.map((item) => (
-                  <article className="schedule-summary-item" key={`${item.sectionId}-${item.dayOfWeek}-${item.startTime}`}>
-                    <span className="badge schedule-summary-code">{item.courseCode}</span>
+                  <article
+                    className="schedule-summary-item"
+                    key={`${item.sectionId}-${item.dayOfWeek}-${item.startTime}-${item.lessonType || "slot"}`}
+                  >
+                    <div className="schedule-summary-top">
+                      <span className="badge schedule-summary-code">{item.courseCode}</span>
+                      {item.lessonType ? <span className="schedule-summary-type">{formatLessonType(item.lessonType)}</span> : null}
+                    </div>
                     <h3>{item.courseName}</h3>
                     <p className="schedule-summary-meta">
                       {formatDay(item.dayOfWeek)} | {formatTime(item.startTime)} - {formatTime(item.endTime)}
                     </p>
                     <p className="schedule-summary-meta">{item.room || "Room to be assigned"}</p>
+                    {item.teacherName ? <p className="schedule-summary-meta">{item.teacherName}</p> : null}
                   </article>
                 ))}
               </div>

@@ -51,7 +51,7 @@ public class StudentAcademicV1Controller {
                 .filter(r -> effectiveSemesterId == null
                         || (r.getSubjectOffering().getSemester() != null
                         && Objects.equals(r.getSubjectOffering().getSemester().getId(), effectiveSemesterId)))
-                .map(this::toScheduleItemDto)
+                .flatMap(registration -> toScheduleItemDtos(registration).stream())
                 .toList();
         return ResponseEntity.ok(items);
     }
@@ -311,25 +311,55 @@ public class StudentAcademicV1Controller {
         return String.join(" ", parts);
     }
 
-    private ScheduleItemDto toScheduleItemDto(Registration registration) {
+    private List<ScheduleItemDto> toScheduleItemDtos(Registration registration) {
         SubjectOffering offering = registration.getSubjectOffering();
+        if (offering == null) {
+            return List.of();
+        }
         Semester semester = offering != null ? offering.getSemester() : null;
-        return new ScheduleItemDto(
-                offering != null ? offering.getId() : null,
-                offering != null && offering.getSubject() != null ? offering.getSubject().getCode() : null,
-                offering != null && offering.getSubject() != null ? offering.getSubject().getName() : null,
-                offering != null ? offering.getDayOfWeek() : null,
-                offering != null ? offering.getStartTime() : null,
-                offering != null ? offering.getEndTime() : null,
-                offering != null ? offering.getRoom() : null,
-                offering != null && offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+        List<MeetingTime> meetingTimes = offering.getMeetingTimes() == null
+                ? List.of()
+                : offering.getMeetingTimes().stream()
+                .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                .toList();
+
+        if (!meetingTimes.isEmpty()) {
+            return meetingTimes.stream()
+                    .map(meetingTime -> new ScheduleItemDto(
+                            offering.getId(),
+                            offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                            offering.getSubject() != null ? offering.getSubject().getName() : null,
+                            meetingTime.getDayOfWeek(),
+                            meetingTime.getStartTime(),
+                            meetingTime.getEndTime(),
+                            meetingTime.getRoom(),
+                            offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                            registration.getStatus(),
+                            semester != null ? semester.getId() : null,
+                            semester != null ? semester.getName() : null,
+                            semester != null ? extractAcademicYear(semester.getName()) : null,
+                            semester != null ? extractSeason(semester.getName()) : null,
+                            meetingTime.getLessonType() != null ? meetingTime.getLessonType() : offering.getLessonType()
+                    ))
+                    .toList();
+        }
+
+        return List.of(new ScheduleItemDto(
+                offering.getId(),
+                offering.getSubject() != null ? offering.getSubject().getCode() : null,
+                offering.getSubject() != null ? offering.getSubject().getName() : null,
+                offering.getDayOfWeek(),
+                offering.getStartTime(),
+                offering.getEndTime(),
+                offering.getRoom(),
+                offering.getTeacher() != null ? offering.getTeacher().getName() : null,
                 registration.getStatus(),
                 semester != null ? semester.getId() : null,
                 semester != null ? semester.getName() : null,
                 semester != null ? extractAcademicYear(semester.getName()) : null,
                 semester != null ? extractSeason(semester.getName()) : null,
-                offering != null ? offering.getLessonType() : null
-        );
+                offering.getLessonType()
+        ));
     }
 
     private SemesterOptionDto toSemesterOptionDto(Semester semester) {

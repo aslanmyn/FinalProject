@@ -13,11 +13,21 @@ function riskBadgeClass(level: string): string {
   return "badge";
 }
 
+function formatLessonType(value: string | null): string {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function formatMeetingTime(meetingTime: TeacherRiskMeetingTimeItem): string {
   const day = meetingTime.dayOfWeek.slice(0, 3);
   const start = meetingTime.startTime ? meetingTime.startTime.slice(0, 5) : "--:--";
   const end = meetingTime.endTime ? meetingTime.endTime.slice(0, 5) : "--:--";
-  return `${day} ${start}-${end}${meetingTime.room ? ` | ${meetingTime.room}` : ""}`;
+  const lessonType = formatLessonType(meetingTime.lessonType);
+  return `${day} ${start}-${end}${meetingTime.room ? ` | ${meetingTime.room}` : ""}${lessonType ? ` | ${lessonType}` : ""}`;
 }
 
 export default function TeacherRiskPage() {

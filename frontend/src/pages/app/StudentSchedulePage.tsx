@@ -47,6 +47,15 @@ function formatTimeRange(item: StudentScheduleItem): string {
   return `${start} - ${end}`;
 }
 
+function formatLessonType(value: string | null): string {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 function buildGridMap(items: StudentScheduleItem[]): {
   starts: Map<string, { item: StudentScheduleItem; span: number }>;
   occupied: Set<string>;
@@ -294,7 +303,7 @@ export default function StudentSchedulePage() {
                                 <div className="schedule-slot-top">
                                   <strong className="schedule-slot-course">{item.courseCode}</strong>
                                   {item.lessonType ? (
-                                    <span className="schedule-slot-type">{item.lessonType}</span>
+                                    <span className="schedule-slot-type">{formatLessonType(item.lessonType)}</span>
                                   ) : null}
                                 </div>
                                 <div className="schedule-slot-name">{item.courseName}</div>

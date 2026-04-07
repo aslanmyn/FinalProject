@@ -41,6 +41,7 @@ import type {
   StudentJournalItem,
   StudentJournalOptions,
   StudentNewsItem,
+  StudentNextSemesterOverview,
   StudentNotificationCenterData,
   StudentProfile,
   StudentRegistrationOverview,
@@ -295,6 +296,24 @@ export async function fetchStudentRegistrationCatalog(): Promise<StudentCourseCa
   return request<StudentCourseCatalogItem[]>("/api/v1/student/course-registration/catalog");
 }
 
+export async function fetchStudentNextSemesterOverview(): Promise<StudentNextSemesterOverview> {
+  return request<StudentNextSemesterOverview>("/api/v1/student/course-registration/next-semester");
+}
+
+export async function saveStudentNextSemesterSection(sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/select", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
+export async function removeStudentNextSemesterSection(sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/remove", {
+    method: "POST",
+    body: { sectionId }
+  });
+}
+
 export async function submitStudentRegistration(sectionId: number): Promise<StudentActionResult> {
   return request<StudentActionResult>("/api/v1/student/course-registration/submit", {
     method: "POST",
@@ -344,6 +363,10 @@ export async function askStudentAssistant(message: string): Promise<StudentAssis
     method: "POST",
     body: { message }
   });
+}
+
+export async function fetchStudentScheduleDemo(): Promise<StudentAssistantReply> {
+  return request<StudentAssistantReply>("/api/v1/student/assistant/schedule-demo");
 }
 
 export async function fetchStudentRiskDashboard(): Promise<StudentRiskDashboard> {

@@ -24,11 +24,20 @@ export interface PublicProfessorSection {
   subjectCode: string;
   subjectName: string;
   semesterName: string;
+  meetingTimes: PublicProfessorMeetingTime[];
   lessonType: "LECTURE" | "PRACTICE" | "LAB";
   dayOfWeek: string | null;
   startTime: string | null;
   endTime: string | null;
   room: string;
+}
+
+export interface PublicProfessorMeetingTime {
+  dayOfWeek: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  lessonType: "LECTURE" | "PRACTICE" | "LAB" | null;
 }
 
 export interface PublicProfessorAnnouncement {

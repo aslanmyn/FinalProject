@@ -10,6 +10,26 @@ import {
 } from "../../lib/api";
 import type { TeacherProfile, TeacherRiskDashboard, TeacherSectionItem } from "../../types/teacher";
 
+const DAY_LABELS: Record<string, string> = {
+  MONDAY: "Mon",
+  TUESDAY: "Tue",
+  WEDNESDAY: "Wed",
+  THURSDAY: "Thu",
+  FRIDAY: "Fri",
+  SATURDAY: "Sat",
+  SUNDAY: "Sun"
+};
+
+const DAY_ORDER: Record<string, number> = {
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+  SUNDAY: 7
+};
+
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
   if (parts.length === 0) return "PR";
@@ -22,6 +42,29 @@ function formatRole(role: string): string {
 
 function formatLessonType(value: string): string {
   return value.charAt(0) + value.slice(1).toLowerCase();
+}
+
+function formatDay(dayOfWeek: string): string {
+  return DAY_LABELS[dayOfWeek] || dayOfWeek;
+}
+
+function formatTime(value: string): string {
+  return value.length >= 5 ? value.slice(0, 5) : value;
+}
+
+function compareMeetingTimes(
+  left: TeacherSectionItem["meetingTimes"][number],
+  right: TeacherSectionItem["meetingTimes"][number]
+): number {
+  if (left.dayOfWeek !== right.dayOfWeek) {
+    return (DAY_ORDER[left.dayOfWeek] || 99) - (DAY_ORDER[right.dayOfWeek] || 99);
+  }
+  return left.startTime.localeCompare(right.startTime);
+}
+
+function formatMeeting(meetingTime: TeacherSectionItem["meetingTimes"][number]): string {
+  const room = meetingTime.room ? ` | ${meetingTime.room}` : "";
+  return `${formatDay(meetingTime.dayOfWeek)} ${formatTime(meetingTime.startTime)}-${formatTime(meetingTime.endTime)}${room}`;
 }
 
 function compareSections(left: TeacherSectionItem, right: TeacherSectionItem): number {
@@ -274,8 +317,19 @@ export default function TeacherDashboardPage() {
                     <h3>{section.subjectName}</h3>
                     <p className="schedule-summary-meta">{section.semesterName}</p>
                     <p className="schedule-summary-meta">
-                      {formatLessonType(section.lessonType)} • Capacity {section.capacity}
+                      Capacity {section.capacity} | {section.meetingTimes.length} meeting{section.meetingTimes.length === 1 ? "" : "s"}
                     </p>
+                    {section.meetingTimes.length > 0 ? (
+                      <div className="schedule-chip-list">
+                        {[...section.meetingTimes].sort(compareMeetingTimes).map((meetingTime) => (
+                          <span key={meetingTime.id} className="schedule-chip">
+                            {formatMeeting(meetingTime)} | {formatLessonType(meetingTime.lessonType)}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="schedule-summary-meta">Schedule not assigned</p>
+                    )}
                     <Link className="link-btn" to={`/app/teacher/sections/${section.id}`}>
                       Open details
                     </Link>

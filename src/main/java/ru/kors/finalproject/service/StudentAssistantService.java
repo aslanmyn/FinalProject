@@ -1,11 +1,15 @@
 package ru.kors.finalproject.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -13,6 +17,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,11 +35,14 @@ public class StudentAssistantService {
     private final AuditService auditService;
     private final GpaCalculationService gpaCalculationService;
     private final AcademicAnalyticsService academicAnalyticsService;
+    private final SubjectOfferingRepository subjectOfferingRepository;
+    private final SemesterRepository semesterRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${app.ai.read-only:true}")
     private boolean readOnly;
 
-    public GeminiClientService.GeminiReply ask(Student student, String message) {
+    public StudentAssistantReply ask(Student student, String message) {
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("Question cannot be empty");
         }
@@ -43,16 +51,25 @@ public class StudentAssistantService {
         }
 
         String normalizedMessage = message.trim();
-        GeminiClientService.GeminiReply reply;
-        GeminiClientService.GeminiReply deterministicReply = tryAnswerDeterministically(student, normalizedMessage);
-        if (deterministicReply != null) {
-            reply = deterministicReply;
+        StudentAssistantReply reply;
+        if (isScheduleRecommendationRequest(normalizedMessage)) {
+            reply = buildAiScheduleRecommendation(student, normalizedMessage);
         } else {
-            String context = buildStudentContext(student);
-            try {
-                reply = geminiClientService.generate(systemPrompt(), "Student context", context, normalizedMessage, 0.2, 900);
-            } catch (RuntimeException ex) {
-                throw new IllegalStateException("AI assistant is temporarily unavailable");
+            StudentAssistantReply deterministicReply = tryAnswerDeterministically(student, normalizedMessage);
+            if (deterministicReply != null) {
+                reply = deterministicReply;
+            } else {
+                String context = buildStudentContext(student);
+                try {
+                    reply = wrapReply(
+                            geminiClientService.generate(systemPrompt(), "Student context", context, normalizedMessage, 0.2, 900),
+                            null
+                    );
+                } catch (GeminiClientService.GeminiQuotaExceededException ex) {
+                    reply = buildQuotaReply(false);
+                } catch (RuntimeException ex) {
+                    throw new IllegalStateException("AI assistant is temporarily unavailable");
+                }
             }
         }
 
@@ -65,6 +82,564 @@ public class StudentAssistantService {
         );
 
         return reply;
+    }
+
+    public StudentAssistantReply buildDemoScheduleRecommendation(Student student) {
+        SchedulePlanningContext planningContext = buildSchedulePlanningContext(student);
+        String semesterName = planningContext.semester() != null ? planningContext.semester().getName() : "2026-2027 Fall";
+
+        // Pick up to 5 real sections from the available offerings
+        List<SelectedSection> selectedSections = planningContext.availableSections().stream()
+                .collect(Collectors.toMap(ScheduleSectionOption::courseCode, o -> o, (a, b) -> a, LinkedHashMap::new))
+                .values().stream()
+                .limit(5)
+                .map(option -> new SelectedSection(
+                        option.courseCode(),
+                        option.courseName(),
+                        option.sectionId(),
+                        option.teacherName(),
+                        option.meetingTimes().stream()
+                                .map(slot -> new MeetingTimeView(slot.dayOfWeek(), slot.startTime(), slot.endTime(), slot.room()))
+                                .toList()
+                ))
+                .toList();
+
+        Map<String, List<VisualScheduleItem>> visual = buildVisualScheduleFromSections(selectedSections);
+
+        ScheduleRecommendation recommendation = new ScheduleRecommendation(
+                semesterName,
+                true,
+                false,
+                "Demo schedule with " + selectedSections.size() + " courses — all classes after 12:00 where possible",
+                List.of("After 12 noon preference"),
+                List.of(),
+                List.of(),
+                selectedSections,
+                List.of("This is a demo schedule for testing visualization. Real schedule requires AI."),
+                visual
+        );
+
+        return new StudentAssistantReply(
+                "Вот ваше демо-расписание на " + semesterName + ". Это тестовое расписание для проверки визуализации.",
+                "demo-planner",
+                Instant.now(),
+                recommendation
+        );
+    }
+
+    private StudentAssistantReply wrapReply(
+            GeminiClientService.GeminiReply reply,
+            ScheduleRecommendation recommendation
+    ) {
+        return new StudentAssistantReply(reply.answer(), reply.model(), reply.generatedAt(), recommendation);
+    }
+
+    private StudentAssistantReply buildAiScheduleRecommendation(Student student, String message) {
+        if (student.getCourse() >= 4) {
+            return new StudentAssistantReply(
+                    "Вы на 4 курсе — в следующем семестре у вас дипломная работа и защита практики, обычного расписания предметов нет. Составлять расписание не требуется.",
+                    "schedule-planner",
+                    Instant.now(),
+                    null
+            );
+        }
+
+        SchedulePlanningContext planningContext = buildSchedulePlanningContext(student);
+        if (planningContext.semester() == null) {
+            return new StudentAssistantReply(
+                    "I could not find a next-semester academic term in the portal data yet, so I cannot build a schedule recommendation right now.",
+                    "schedule-planner",
+                    Instant.now(),
+                    null
+            );
+        }
+        if (planningContext.availableSections().isEmpty()) {
+            String scope = student.getProgram() != null ? " for your program" : "";
+            return new StudentAssistantReply(
+                    "I found the next semester `" + planningContext.semester().getName()
+                            + "`, but there are no available section times" + scope
+                            + " yet, so I cannot build a schedule recommendation.",
+                    "schedule-planner",
+                    Instant.now(),
+                    null
+            );
+        }
+
+        String planningJson = toJson(buildPlanningPromptPayload(student, planningContext));
+        System.out.println("[SCHEDULE-DEBUG] Available sections count=" + planningContext.availableSections().size() + ", planningJsonLength=" + planningJson.length());
+        AiSchedulePlanResult planResult;
+
+        // Step 1: Try compact section-selection plan (1 API call)
+        try {
+            planResult = requestAiSectionSelectionPlan(message, planningJson);
+        } catch (GeminiClientService.GeminiQuotaExceededException ex) {
+            return buildQuotaReply(true);
+        } catch (RuntimeException ex) {
+            System.out.println("[SCHEDULE-DEBUG] Section selection failed: " + ex.getMessage());
+            throw new IllegalStateException("AI schedule planning is temporarily unavailable");
+        }
+
+        // Step 2: If compact plan returned no selections, try full plan as fallback (1 more API call)
+        if (planHasNoSelections(planResult.plan())) {
+            System.out.println("[SCHEDULE-DEBUG] Compact plan empty, trying full plan");
+            try {
+                planResult = requestAiSchedulePlan(message, planningJson);
+            } catch (GeminiClientService.GeminiQuotaExceededException ex) {
+                return buildQuotaReply(true);
+            } catch (RuntimeException ex) {
+                throw new IllegalStateException("AI schedule planning is temporarily unavailable");
+            }
+        }
+
+        if (planHasNoSelections(planResult.plan())) {
+            String answer = "I found next-semester section times, but the AI could not finalize a concrete section combination from them yet. Please try a slightly simpler request such as: make my next semester schedule after 12, or avoid Friday if possible.";
+            return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), null);
+        }
+
+        // Step 3: Local validation (no API call) — check for time conflicts and invalid IDs
+        List<String> localErrors = validateScheduleLocally(planningContext, planResult.plan());
+        if (!localErrors.isEmpty()) {
+            AiSchedulePlan bestEffortPlan = mergePlanWarnings(planResult.plan(), localErrors);
+            ScheduleRecommendation recommendation = toScheduleRecommendation(planningContext, bestEffortPlan);
+            String answer = buildScheduleAnswer(recommendation, bestEffortPlan);
+            return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), recommendation);
+        }
+
+        ScheduleRecommendation recommendation = toScheduleRecommendation(planningContext, planResult.plan());
+        String answer = buildScheduleAnswer(recommendation, planResult.plan());
+        return new StudentAssistantReply(answer, planResult.reply().model(), planResult.reply().generatedAt(), recommendation);
+    }
+
+    private StudentAssistantReply buildQuotaReply(boolean scheduleRequest) {
+        String answer = scheduleRequest
+                ? """
+                Дневной лимит Gemini API сейчас исчерпан.
+                Данные для следующего семестра и доступные секции уже подготовлены, но AI пока не может собрать и проверить вариант расписания.
+                Попробуйте позже: когда квота вернется, assistant снова сможет подобрать расписание без конфликтов и показать его визуально.
+                """.trim()
+                : """
+                Дневной лимит Gemini API сейчас исчерпан.
+                Сам assistant и ваши академические данные готовы, но новый AI-ответ появится только после сброса квоты.
+                Попробуйте позже сегодня или завтра.
+                """.trim();
+        return new StudentAssistantReply(answer, "gemini-quota-limit", Instant.now(), null);
+    }
+
+    private SchedulePlanningContext buildSchedulePlanningContext(Student student) {
+        if (student.getCourse() >= 4) {
+            return new SchedulePlanningContext(null, List.of());
+        }
+        Semester targetSemester = resolveNextSemester(student);
+        if (targetSemester == null) {
+            return new SchedulePlanningContext(null, List.of());
+        }
+
+        List<SubjectOffering> semesterOfferings = subjectOfferingRepository.findBySemesterIdWithDetails(targetSemester.getId()).stream()
+                .filter(offering -> offering.getSubject() != null)
+                .filter(offering -> student.getProgram() == null
+                        || (offering.getSubject().getProgram() != null
+                        && Objects.equals(offering.getSubject().getProgram().getId(), student.getProgram().getId())))
+                .toList();
+
+        Integer planningCourseYear = resolvePlanningCourseYear(student);
+        List<SubjectOffering> offerings = semesterOfferings.stream()
+                .filter(offering -> planningCourseYear == null
+                        || matchesPlanningCourseYear(offering.getSubject().getCode(), planningCourseYear))
+                .toList();
+        if (offerings.isEmpty()) {
+            offerings = semesterOfferings;
+        }
+
+        offerings = offerings.stream()
+                .sorted(Comparator.comparing((SubjectOffering offering) -> offering.getSubject().getCode(), Comparator.nullsLast(String::compareTo))
+                        .thenComparing(SubjectOffering::getId))
+                .toList();
+
+        List<ScheduleSectionOption> options = offerings.stream()
+                .map(offering -> new ScheduleSectionOption(
+                        offering.getId(),
+                        offering.getSubject().getCode(),
+                        offering.getSubject().getName(),
+                        offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                        offering.getLessonType() != null ? offering.getLessonType().name() : null,
+                        offering.getCapacity(),
+                        formatMeetingSlots(offering)
+                ))
+                .toList();
+
+        return new SchedulePlanningContext(targetSemester, options);
+    }
+
+    private Integer resolvePlanningCourseYear(Student student) {
+        if (student.getCourse() <= 0) {
+            return null;
+        }
+        Semester currentSemester = student.getCurrentSemester();
+        String currentSemesterName = currentSemester != null && currentSemester.getName() != null
+                ? currentSemester.getName().toLowerCase(Locale.ROOT)
+                : "";
+        if (currentSemesterName.contains("spring")) {
+            return student.getCourse() + 1;
+        }
+        return student.getCourse();
+    }
+
+    private boolean matchesPlanningCourseYear(String courseCode, int planningCourseYear) {
+        Integer actualCourseYear = extractCourseYear(courseCode);
+        return actualCourseYear == null || actualCourseYear == planningCourseYear;
+    }
+
+    private Integer extractCourseYear(String courseCode) {
+        if (courseCode == null) {
+            return null;
+        }
+        for (char ch : courseCode.toCharArray()) {
+            if (Character.isDigit(ch)) {
+                return Character.getNumericValue(ch);
+            }
+        }
+        return null;
+    }
+
+    private Semester resolveNextSemester(Student student) {
+        List<Semester> semesters = semesterRepository.findAll().stream()
+                .sorted(Comparator.comparing(Semester::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+
+        Semester studentCurrentSemester = student.getCurrentSemester();
+        Semester current = studentCurrentSemester != null
+                ? studentCurrentSemester
+                : semesterRepository.findByCurrentTrue().orElse(null);
+
+        if (current != null && current.getStartDate() != null) {
+            Semester resolvedCurrent = current;
+            Semester next = semesters.stream()
+                    .filter(semester -> !Objects.equals(semester.getId(), resolvedCurrent.getId()))
+                    .filter(semester -> semester.getStartDate() != null && semester.getStartDate().isAfter(resolvedCurrent.getStartDate()))
+                    .findFirst()
+                    .orElse(null);
+            if (next != null) {
+                return next;
+            }
+        }
+
+        return semesters.stream().filter(Semester::isCurrent).findFirst().orElse(current);
+    }
+
+    private List<ScheduleMeetingSlot> formatMeetingSlots(SubjectOffering offering) {
+        if (offering.getMeetingTimes() != null && !offering.getMeetingTimes().isEmpty()) {
+            return offering.getMeetingTimes().stream()
+                    .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                    .map(slot -> new ScheduleMeetingSlot(
+                            slot.getDayOfWeek() != null ? slot.getDayOfWeek().name() : null,
+                            slot.getStartTime() != null ? slot.getStartTime().toString() : null,
+                            slot.getEndTime() != null ? slot.getEndTime().toString() : null,
+                            slot.getRoom()
+                    ))
+                    .toList();
+        }
+
+        if (offering.getDayOfWeek() == null || offering.getStartTime() == null || offering.getEndTime() == null) {
+            return List.of();
+        }
+
+        return List.of(new ScheduleMeetingSlot(
+                offering.getDayOfWeek().name(),
+                offering.getStartTime().toString(),
+                offering.getEndTime().toString(),
+                offering.getRoom()
+        ));
+    }
+
+    private Map<String, Object> buildPlanningPromptPayload(Student student, SchedulePlanningContext planningContext) {
+        List<Map<String, Object>> requiredCourses = planningContext.availableSections().stream()
+                .collect(Collectors.toMap(
+                        ScheduleSectionOption::courseCode,
+                        option -> {
+                            Map<String, Object> row = new LinkedHashMap<>();
+                            row.put("courseCode", option.courseCode());
+                            row.put("courseName", option.courseName());
+                            return row;
+                        },
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
+                .toList();
+
+        List<Map<String, Object>> availableSections = planningContext.availableSections().stream()
+                .map(option -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("courseCode", option.courseCode());
+                    row.put("courseName", option.courseName());
+                    row.put("sectionId", option.sectionId());
+                    row.put("teacherName", option.teacherName());
+                    row.put("lessonType", option.lessonType());
+                    row.put("capacity", option.capacity());
+                    row.put("meetingTimes", option.meetingTimes());
+                    return row;
+                })
+                .toList();
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("studentName", student.getName());
+        payload.put("program", student.getProgram() != null ? student.getProgram().getName() : null);
+        payload.put("faculty", student.getFaculty() != null ? student.getFaculty().getName() : null);
+        payload.put("targetSemester", planningContext.semester().getName());
+        payload.put("requiredCourses", requiredCourses);
+        payload.put("availableSections", availableSections);
+        payload.put("rules", List.of(
+                "Select at most one section per required course.",
+                "Do not invent sections or times.",
+                "Do not create time conflicts.",
+                "If all preferences cannot be satisfied, keep the schedule conflict-free and satisfy as many preferences as possible.",
+                "If one or more courses make a preference impossible, explicitly list them in blockingCourses."
+        ));
+        return payload;
+    }
+
+    private AiSchedulePlanResult requestAiSchedulePlan(String message, String planningJson) {
+        GeminiClientService.GeminiReply reply = geminiClientService.generateJson(
+                schedulePlannerPrompt(),
+                "Schedule planning input JSON",
+                planningJson,
+                message,
+                0.15,
+                1800
+        );
+        try {
+            return new AiSchedulePlanResult(reply, parseAiJson(reply.answer(), AiSchedulePlan.class));
+        } catch (IllegalStateException ex) {
+            GeminiClientService.GeminiReply normalizedReply = geminiClientService.generateJson(
+                    scheduleJsonNormalizationPrompt(),
+                    "Raw schedule answer",
+                    reply.answer(),
+                    "Student request:\n" + message,
+                    0.05,
+                    1800
+            );
+            return new AiSchedulePlanResult(normalizedReply, parseAiJson(normalizedReply.answer(), AiSchedulePlan.class));
+        }
+    }
+
+    private AiValidatorResult validateAiSchedulePlan(String message, String planningJson, AiSchedulePlan plan) {
+        GeminiClientService.GeminiReply reply = geminiClientService.generateJson(
+                scheduleValidatorPrompt(),
+                "Original planning JSON",
+                planningJson,
+                "Student request:\n" + message + "\n\nProposed schedule JSON:\n" + toJson(plan),
+                0.05,
+                700
+        );
+        return parseAiJson(reply.answer(), AiValidatorResult.class);
+    }
+
+    private AiSchedulePlanResult requestAiSectionSelectionPlan(String message, String planningJson) {
+        GeminiClientService.GeminiReply reply = geminiClientService.generateJson(
+                scheduleSectionSelectionPrompt(),
+                "Schedule planning input JSON",
+                planningJson,
+                message,
+                0.1,
+                1200
+        );
+        System.out.println("[SCHEDULE-DEBUG] AI raw response length=" + reply.answer().length() + ": " + reply.answer().replace("\n", " ").replace("\r", ""));
+        try {
+            AiSchedulePlan plan = parseAiJson(reply.answer(), AiSchedulePlan.class);
+            System.out.println("[SCHEDULE-DEBUG] Parsed sectionIds=" + plan.selectedSectionIds() + ", sections=" + (plan.selectedSections() != null ? plan.selectedSections().size() : "null"));
+            return new AiSchedulePlanResult(reply, plan);
+        } catch (IllegalStateException ex) {
+            System.out.println("[SCHEDULE-DEBUG] Parse failed: " + ex.getMessage() + ", attempting normalization");
+            GeminiClientService.GeminiReply normalizedReply = geminiClientService.generateJson(
+                    scheduleSectionIdNormalizationPrompt(),
+                    "Raw schedule answer",
+                    reply.answer(),
+                    "Student request:\n" + message,
+                    0.05,
+                    700
+            );
+            return new AiSchedulePlanResult(normalizedReply, parseAiJson(normalizedReply.answer(), AiSchedulePlan.class));
+        }
+    }
+
+    private AiSchedulePlanResult repairAiSchedulePlan(String message, String planningJson, AiSchedulePlan plan, List<String> errors) {
+        GeminiClientService.GeminiReply reply = geminiClientService.generateJson(
+                scheduleRepairPrompt(),
+                "Original planning JSON",
+                planningJson,
+                "Student request:\n" + message + "\n\nInvalid schedule JSON:\n" + toJson(plan) + "\n\nValidator errors:\n" + toJson(errors),
+                0.1,
+                1800
+        );
+        return new AiSchedulePlanResult(reply, parseAiJson(reply.answer(), AiSchedulePlan.class));
+    }
+
+    private AiSchedulePlanResult requestAiSectionSelectionRepairPlan(String message, String planningJson, List<String> errors) {
+        return requestAiSectionSelectionPlan(
+                message + "\n\nAvoid these validator errors:\n- " + String.join("\n- ", sanitizeStrings(errors)),
+                planningJson
+        );
+    }
+
+    private ScheduleRecommendation toScheduleRecommendation(SchedulePlanningContext planningContext, AiSchedulePlan plan) {
+        List<SelectedSection> selectedSections = hydrateSelectedSections(planningContext, plan);
+        Map<String, List<VisualScheduleItem>> visual = plan.visualSchedule() != null && !plan.visualSchedule().isEmpty()
+                ? plan.visualSchedule().entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> sanitizeVisualItems(entry.getValue()),
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ))
+                : buildVisualScheduleFromSections(selectedSections);
+
+        return new ScheduleRecommendation(
+                planningContext.semester() != null ? planningContext.semester().getName() : null,
+                plan.feasible(),
+                plan.partial(),
+                blankToNull(plan.summary()),
+                sanitizeStrings(plan.satisfiedPreferences()),
+                sanitizeStrings(plan.unsatisfiedPreferences()),
+                sanitizeStrings(plan.blockingCourses()),
+                selectedSections,
+                sanitizeStrings(plan.warnings()),
+                visual
+        );
+    }
+
+    private List<SelectedSection> hydrateSelectedSections(SchedulePlanningContext planningContext, AiSchedulePlan plan) {
+        List<SelectedSection> explicitSections = sanitizeSections(plan.selectedSections());
+        if (!explicitSections.isEmpty()) {
+            return explicitSections;
+        }
+
+        List<Long> sectionIds = sanitizeSectionIds(plan.selectedSectionIds());
+        if (sectionIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, ScheduleSectionOption> byId = planningContext.availableSections().stream()
+                .collect(Collectors.toMap(
+                        ScheduleSectionOption::sectionId,
+                        option -> option,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+
+        return sectionIds.stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .map(option -> new SelectedSection(
+                        option.courseCode(),
+                        option.courseName(),
+                        option.sectionId(),
+                        blankToNull(option.teacherName()),
+                        option.meetingTimes().stream()
+                                .map(slot -> new MeetingTimeView(slot.dayOfWeek(), slot.startTime(), slot.endTime(), blankToNull(slot.room())))
+                                .toList()
+                ))
+                .toList();
+    }
+
+    private AiSchedulePlan mergePlanWarnings(AiSchedulePlan plan, List<String> additionalWarnings) {
+        List<String> warnings = new ArrayList<>(sanitizeStrings(plan.warnings()));
+        warnings.addAll(sanitizeStrings(additionalWarnings));
+        return new AiSchedulePlan(
+                plan.feasible(),
+                true,
+                plan.chatResponse(),
+                plan.summary(),
+                plan.satisfiedPreferences(),
+                plan.unsatisfiedPreferences(),
+                plan.blockingCourses(),
+                plan.selectedSectionIds(),
+                plan.selectedSections(),
+                warnings,
+                plan.visualSchedule()
+        );
+    }
+
+    private Map<String, List<VisualScheduleItem>> buildVisualScheduleFromSections(List<SelectedSection> sections) {
+        Map<String, List<VisualScheduleItem>> visual = new LinkedHashMap<>();
+        for (String day : List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")) {
+            visual.put(day, new ArrayList<>());
+        }
+
+        for (SelectedSection section : sections == null ? List.<SelectedSection>of() : sections) {
+            for (MeetingTimeView slot : section.meetingTimes() == null ? List.<MeetingTimeView>of() : section.meetingTimes()) {
+                if (slot.dayOfWeek() == null || slot.startTime() == null || slot.endTime() == null) {
+                    continue;
+                }
+                visual.computeIfAbsent(slot.dayOfWeek(), key -> new ArrayList<>()).add(new VisualScheduleItem(
+                        section.courseCode(),
+                        section.courseName(),
+                        slot.startTime(),
+                        slot.endTime(),
+                        slot.room(),
+                        section.teacherName()
+                ));
+            }
+        }
+
+        visual.replaceAll((day, items) -> items.stream()
+                .sorted(Comparator.comparing(VisualScheduleItem::startTime, Comparator.nullsLast(String::compareTo)))
+                .toList());
+        return visual;
+    }
+
+    private String buildScheduleAnswer(ScheduleRecommendation recommendation, AiSchedulePlan plan) {
+        StringBuilder answer = new StringBuilder();
+        if (plan.chatResponse() != null && !plan.chatResponse().isBlank()) {
+            answer.append(plan.chatResponse().trim());
+        } else if (recommendation.summary() != null) {
+            answer.append(recommendation.summary().trim());
+        } else {
+            answer.append("I prepared a next-semester schedule recommendation based on the available section times.");
+        }
+
+        if (!recommendation.warnings().isEmpty()) {
+            answer.append("\n\nWarnings:");
+            recommendation.warnings().forEach(warning -> answer.append("\n- ").append(warning));
+        }
+
+        if (!recommendation.unsatisfiedPreferences().isEmpty()) {
+            answer.append("\n\nCould not fully satisfy:");
+            recommendation.unsatisfiedPreferences().forEach(item -> answer.append("\n- ").append(item));
+        }
+
+        if (!recommendation.blockingCourses().isEmpty()) {
+            answer.append("\n\nBlocking courses:");
+            recommendation.blockingCourses().forEach(item -> answer.append("\n- ").append(item));
+        }
+
+        return answer.toString().trim();
+    }
+
+    private boolean isScheduleRecommendationRequest(String message) {
+        String normalized = message.toLowerCase(Locale.ROOT);
+        boolean mentionsSchedule = containsAny(normalized,
+                "schedule", "timetable", "class time", "class times",
+                "\u0440\u0430\u0441\u043f\u0438\u0441", "\u0432\u0440\u0435\u043c\u044f \u0443\u0440\u043e\u043a", "\u0432\u0440\u0435\u043c\u044f \u043f\u0430\u0440", "\u043f\u0430\u0440\u044b", "\u0443\u0440\u043e\u043a\u0438");
+        boolean mentionsIntent = containsAny(normalized,
+                "make", "build", "plan", "arrange", "recommend", "compose",
+                "\u0441\u0434\u0435\u043b\u0430\u0439", "\u0441\u043e\u0441\u0442\u0430\u0432", "\u043f\u043e\u0434\u0431\u0435\u0440\u0438", "\u0441\u043e\u0431\u0435\u0440\u0438", "\u043f\u043e\u0441\u0442\u0440\u043e\u0439", "\u043f\u0440\u0435\u0434\u043b\u043e\u0436");
+        boolean mentionsPreference = containsAny(normalized,
+                "after 12", "after noon", "after lunch", "avoid friday", "avoid saturday", "no conflicts", "compact",
+                "\u043f\u043e\u0441\u043b\u0435 12", "\u043f\u043e\u0441\u043b\u0435 \u043e\u0431\u0435\u0434\u0430", "\u0431\u0435\u0437 \u043f\u044f\u0442\u043d\u0438\u0446\u044b", "\u0431\u0435\u0437 \u0441\u0443\u0431\u0431\u043e\u0442\u044b", "\u0431\u0435\u0437 \u043a\u043e\u043d\u0444\u043b\u0438\u043a\u0442", "\u0431\u0435\u0437 \u043e\u043a\u043e\u043d", "\u043a\u043e\u043c\u043f\u0430\u043a\u0442");
+        boolean mentionsNextTerm = containsAny(normalized,
+                "next semester", "next term", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449", "\u0441\u043b\u0435\u0434 \u0441\u0435\u043c", "\u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0438\u0439 \u0441\u0435\u043c\u0435\u0441\u0442\u0440");
+        return (mentionsSchedule && (mentionsIntent || mentionsPreference || mentionsNextTerm))
+                || (mentionsIntent && mentionsPreference)
+                || (mentionsSchedule && mentionsPreference);
+    }
+    private boolean containsAny(String text, String... tokens) {
+        for (String token : tokens) {
+            if (text.contains(token)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String buildStudentContext(Student student) {
@@ -277,55 +852,274 @@ public class StudentAssistantService {
                 """.formatted(geminiClientService.getLocale());
     }
 
-    private GeminiClientService.GeminiReply tryAnswerDeterministically(Student student, String message) {
+    private String schedulePlannerPrompt() {
+        return """
+                You are an academic schedule planning assistant for a university portal.
+                Respond in %s unless the user clearly asked for another language.
+
+                Build the best possible next-semester schedule using ONLY the provided courses, section options, and meeting times.
+
+                Rules:
+                - Select at most one section per required course.
+                - Prefer returning selectedSectionIds that reference the original input, even if you also return selectedSections.
+                - Do not invent courses, sections, teachers, rooms, or times.
+                - Do not modify meeting times.
+                - Do not include conflicting sections.
+                - A time conflict means overlapping day/time between any selected meeting slots.
+                - Respect the user's preferences as much as possible.
+                - If all preferences cannot be satisfied, keep the schedule conflict-free and satisfy as many preferences as possible.
+                - If one or more courses make a preference impossible, explicitly say which course caused that.
+                - If no valid full schedule exists, return the best partial schedule and explain why.
+                - If a valid schedule exists, selectedSectionIds must not be empty.
+                - Before finalizing, silently re-check conflicts, duplicate course selections, and unmet preferences yourself.
+
+                Return ONLY valid JSON in this exact shape:
+                %s
+                """.formatted(geminiClientService.getLocale(), scheduleJsonSchema());
+    }
+
+    private String scheduleSectionSelectionPrompt() {
+        return """
+                You are an academic schedule planning assistant for a university portal.
+                Respond in %s unless the user clearly asked for another language.
+
+                Choose the best next-semester section combination using ONLY the provided section IDs.
+                Do not invent IDs. Do not include duplicate courses. Avoid time conflicts. Respect user preferences as much as possible.
+                If a valid schedule exists, selectedSectionIds must contain one or more real section IDs from the input.
+                If a preference is impossible, still return the best conflict-free section ID combination and explain what could not be satisfied.
+                Keep the JSON compact. Do not include markdown, long prose, or extra explanation outside the required fields.
+
+                Return ONLY valid JSON in this exact shape:
+                %s
+                """.formatted(geminiClientService.getLocale(), scheduleSectionIdSchema());
+    }
+
+    private String scheduleValidatorPrompt() {
+        return """
+                You are a strict schedule validator.
+                Respond with JSON only.
+
+                Validate the proposed schedule against the original input data.
+
+                Rules:
+                - Do not trust the proposed answer automatically.
+                - Verify that each selected section exists in the input.
+                - Verify that no selected meeting times overlap.
+                - Verify that no course was selected more than once.
+                - Verify whether the stated preferences are actually satisfied.
+                - If invalid, list exact problems.
+
+                Return ONLY:
+                {
+                  "valid": true,
+                  "errors": []
+                }
+                """;
+    }
+
+    private String scheduleRepairPrompt() {
+        return """
+                You are an academic schedule planning assistant repairing a previously invalid schedule.
+                Respond in %s unless the user clearly asked for another language.
+
+                Fix the invalid schedule using the validator errors below.
+                Do not repeat the same mistake.
+                Keep the schedule conflict-free.
+                If full feasibility is impossible, return a partial schedule and explain why.
+                Return ONLY valid JSON in this exact shape:
+                %s
+                """.formatted(geminiClientService.getLocale(), scheduleJsonSchema());
+    }
+
+    private String scheduleJsonNormalizationPrompt() {
+        return """
+                You are a strict JSON formatter for academic schedule plans.
+                Respond with JSON only.
+
+                Take the raw schedule answer and convert it into the exact schedule schema requested earlier.
+                Do not invent courses, sections, teachers, rooms, or times.
+                Preserve the original plan intent, but make the output valid JSON that matches the required schema.
+                If the raw answer is incomplete, keep unknown lists empty instead of inventing data.
+                Required JSON schema:
+                %s
+                """.formatted(scheduleJsonSchema());
+    }
+
+    private String scheduleSectionIdNormalizationPrompt() {
+        return """
+                You are a strict JSON formatter for compact academic section selection plans.
+                Respond with JSON only.
+
+                Take the raw section-selection answer and convert it into the exact compact schema requested earlier.
+                Do not invent section IDs or preferences.
+                Preserve the original plan intent, but make the output valid JSON that matches the required schema.
+                If the raw answer is incomplete, keep unknown lists empty instead of inventing data.
+                Required JSON schema:
+                %s
+                """.formatted(scheduleSectionIdSchema());
+    }
+
+    private String scheduleJsonSchema() {
+        return """
+                {
+                  "feasible": true,
+                  "partial": false,
+                  "chatResponse": "human readable explanation",
+                  "summary": "short summary",
+                  "satisfiedPreferences": [],
+                  "unsatisfiedPreferences": [],
+                  "blockingCourses": [],
+                  "selectedSectionIds": [0],
+                  "selectedSections": [
+                    {
+                      "courseCode": "",
+                      "courseName": "",
+                      "sectionId": 0,
+                      "teacherName": "",
+                      "meetingTimes": [
+                        {
+                          "dayOfWeek": "",
+                          "startTime": "",
+                          "endTime": "",
+                          "room": ""
+                        }
+                      ]
+                    }
+                  ],
+                  "warnings": [],
+                  "visualSchedule": {
+                    "MONDAY": [],
+                    "TUESDAY": [],
+                    "WEDNESDAY": [],
+                    "THURSDAY": [],
+                    "FRIDAY": [],
+                    "SATURDAY": []
+                  }
+                }
+                """;
+    }
+
+    private String scheduleSectionIdSchema() {
+        return """
+                {
+                  "feasible": true,
+                  "partial": false,
+                  "chatResponse": "Human-readable explanation of the schedule in the requested language",
+                  "summary": "One-line summary",
+                  "satisfiedPreferences": ["preference that was honored"],
+                  "unsatisfiedPreferences": ["preference that could not be honored"],
+                  "blockingCourses": ["courseCode that blocks a preference"],
+                  "selectedSectionIds": [101, 205, 310],
+                  "warnings": ["any important note"]
+                }
+
+                IMPORTANT: selectedSectionIds MUST contain real sectionId values from the availableSections input.
+                Do NOT use placeholder values like 0. Pick exactly one sectionId per required course.
+                """;
+    }
+
+    private boolean planHasNoSelections(AiSchedulePlan plan) {
+        if (plan == null) {
+            return true;
+        }
+        return sanitizeSectionIds(plan.selectedSectionIds()).isEmpty()
+                && sanitizeSections(plan.selectedSections()).isEmpty();
+    }
+
+    private List<String> validateScheduleLocally(SchedulePlanningContext context, AiSchedulePlan plan) {
+        List<String> errors = new ArrayList<>();
+        List<Long> sectionIds = sanitizeSectionIds(plan.selectedSectionIds());
+        Map<Long, ScheduleSectionOption> byId = context.availableSections().stream()
+                .collect(Collectors.toMap(ScheduleSectionOption::sectionId, o -> o, (a, b) -> a));
+
+        // Check all IDs exist
+        for (Long id : sectionIds) {
+            if (!byId.containsKey(id)) {
+                errors.add("Section ID " + id + " not found in available offerings");
+            }
+        }
+
+        // Check no duplicate courses
+        Map<String, Long> courseToSection = new LinkedHashMap<>();
+        for (Long id : sectionIds) {
+            ScheduleSectionOption opt = byId.get(id);
+            if (opt != null && opt.courseCode() != null) {
+                Long prev = courseToSection.put(opt.courseCode(), id);
+                if (prev != null) {
+                    errors.add("Duplicate course: " + opt.courseCode());
+                }
+            }
+        }
+
+        // Check for time conflicts
+        List<ScheduleSectionOption> selected = sectionIds.stream().map(byId::get).filter(Objects::nonNull).toList();
+        for (int i = 0; i < selected.size(); i++) {
+            for (int j = i + 1; j < selected.size(); j++) {
+                if (hasTimeConflict(selected.get(i), selected.get(j))) {
+                    errors.add("Time conflict between " + selected.get(i).courseCode() + " and " + selected.get(j).courseCode());
+                }
+            }
+        }
+        return errors;
+    }
+
+    private boolean hasTimeConflict(ScheduleSectionOption a, ScheduleSectionOption b) {
+        for (ScheduleMeetingSlot slotA : a.meetingTimes()) {
+            for (ScheduleMeetingSlot slotB : b.meetingTimes()) {
+                if (slotA.dayOfWeek() != null && slotA.dayOfWeek().equals(slotB.dayOfWeek())
+                        && slotA.startTime() != null && slotA.endTime() != null
+                        && slotB.startTime() != null && slotB.endTime() != null
+                        && slotA.startTime().compareTo(slotB.endTime()) < 0
+                        && slotB.startTime().compareTo(slotA.endTime()) < 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private StudentAssistantReply tryAnswerDeterministically(Student student, String message) {
         String normalized = message.toLowerCase(Locale.ROOT);
-        boolean asksAboutGpa = normalized.contains("gpa") || normalized.contains("гпа");
-        boolean asksAboutMaximum = normalized.contains("максим")
+        boolean asksAboutGpa = normalized.contains("gpa") || normalized.contains("\u0433\u043f\u0430");
+        boolean asksAboutMaximum = normalized.contains("\u043c\u0430\u043a\u0441\u0438\u043c")
                 || normalized.contains("maximum")
                 || normalized.contains("highest")
                 || normalized.contains("best possible")
-                || normalized.contains("идеаль")
-                || normalized.contains("макс");
-        boolean asksAboutPerfectScores = normalized.contains("максимальные баллы")
+                || normalized.contains("\u0438\u0434\u0435\u0430\u043b\u044c")
+                || normalized.contains("\u043c\u0430\u043a\u0441");
+        boolean asksAboutPerfectScores = normalized.contains("\u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0435 \u0431\u0430\u043b\u043b\u044b")
                 || normalized.contains("maximum scores")
                 || normalized.contains("perfect scores")
-                || normalized.contains("только максимальные")
+                || normalized.contains("\u0442\u043e\u043b\u044c\u043a\u043e \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0435")
                 || normalized.contains("40/40")
                 || normalized.contains("100/100");
-
         if (!asksAboutGpa || (!asksAboutMaximum && !asksAboutPerfectScores)) {
             return null;
         }
-
         AcademicAnalyticsService.StudentPlannerDashboard planner = academicAnalyticsService.buildStudentPlannerDashboard(student);
         if (planner.courses().isEmpty()) {
             String answer = """
-                    У вас сейчас нет активных курсов в planner, поэтому максимальный прогнозируемый GPA совпадает с уже опубликованным GPA: %s.
+                    \u0423 \u0432\u0430\u0441 \u0441\u0435\u0439\u0447\u0430\u0441 \u043d\u0435\u0442 \u0430\u043a\u0442\u0438\u0432\u043d\u044b\u0445 \u043a\u0443\u0440\u0441\u043e\u0432 \u0432 planner, \u043f\u043e\u044d\u0442\u043e\u043c\u0443 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0438\u0440\u0443\u0435\u043c\u044b\u0439 GPA \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u0435\u0442 \u0441 \u0443\u0436\u0435 \u043e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u044b\u043c GPA: %s.
                     """.formatted(formatDouble(planner.currentPublishedGpa()));
-            return new GeminiClientService.GeminiReply(answer.trim(), "deterministic-planner", java.time.Instant.now());
+            return new StudentAssistantReply(answer.trim(), "deterministic-planner", Instant.now(), null);
         }
-
         long coursesWithoutPublishedFinal = planner.courses().stream()
                 .filter(course -> course.publishedFinal() == null)
                 .count();
-
         String answer = """
-                Если по всем оставшимся предметам набрать максимальный финал 40/40, ваш максимальный прогнозируемый GPA будет %s.
-
-                Сейчас опубликованный GPA: %s.
-                Курсов в текущем planner: %d.
-                Курсов без опубликованного финала: %d.
-
-                Это расчет по текущим аттестациям и предположению, что все оставшиеся финалы будут максимальными.
+                \u0415\u0441\u043b\u0438 \u043f\u043e \u0432\u0441\u0435\u043c \u043e\u0441\u0442\u0430\u0432\u0448\u0438\u043c\u0441\u044f \u043f\u0440\u0435\u0434\u043c\u0435\u0442\u0430\u043c \u043d\u0430\u0431\u0440\u0430\u0442\u044c \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u0444\u0438\u043d\u0430\u043b 40/40, \u0432\u0430\u0448 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0438\u0440\u0443\u0435\u043c\u044b\u0439 GPA \u0431\u0443\u0434\u0435\u0442 %s.
+                \u0421\u0435\u0439\u0447\u0430\u0441 \u043e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u044b\u0439 GPA: %s.
+                \u041a\u0443\u0440\u0441\u043e\u0432 \u0432 \u0442\u0435\u043a\u0443\u0449\u0435\u043c planner: %d.
+                \u041a\u0443\u0440\u0441\u043e\u0432 \u0431\u0435\u0437 \u043e\u043f\u0443\u0431\u043b\u0438\u043a\u043e\u0432\u0430\u043d\u043d\u043e\u0433\u043e \u0444\u0438\u043d\u0430\u043b\u0430: %d.
+                \u042d\u0442\u043e \u0440\u0430\u0441\u0447\u0435\u0442 \u043f\u043e \u0442\u0435\u043a\u0443\u0449\u0438\u043c \u0430\u0442\u0442\u0435\u0441\u0442\u0430\u0446\u0438\u044f\u043c \u0438 \u043f\u0440\u0435\u0434\u043f\u043e\u043b\u043e\u0436\u0435\u043d\u0438\u044e, \u0447\u0442\u043e \u0432\u0441\u0435 \u043e\u0441\u0442\u0430\u0432\u0448\u0438\u0435\u0441\u044f \u0444\u0438\u043d\u0430\u043b\u044b \u0431\u0443\u0434\u0443\u0442 \u043c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u043c\u0438.
                 """.formatted(
                 formatDouble(planner.maxProjectionGpa()),
                 formatDouble(planner.currentPublishedGpa()),
                 planner.courses().size(),
                 coursesWithoutPublishedFinal
         );
-        return new GeminiClientService.GeminiReply(answer.trim(), "deterministic-planner", java.time.Instant.now());
+        return new StudentAssistantReply(answer.trim(), "deterministic-planner", Instant.now(), null);
     }
-
     private String normalizeComponent(Grade grade) {
         String componentName = grade.getComponent() != null ? grade.getComponent().getName() : "";
         String comment = grade.getComment() != null ? grade.getComment() : "";
@@ -361,6 +1155,198 @@ public class StudentAssistantService {
         }
         return value.substring(0, max - 3) + "...";
     }
+
+    private List<String> sanitizeStrings(List<String> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .filter(item -> !item.isBlank())
+                .toList();
+    }
+
+    private List<SelectedSection> sanitizeSections(List<AiSelectedSection> sections) {
+        if (sections == null) {
+            return List.of();
+        }
+        return sections.stream()
+                .filter(section -> section.courseCode() != null && section.sectionId() != null)
+                .map(section -> new SelectedSection(
+                        section.courseCode(),
+                        section.courseName(),
+                        section.sectionId(),
+                        blankToNull(section.teacherName()),
+                        sanitizeMeetingTimes(section.meetingTimes())
+                ))
+                .toList();
+    }
+
+    private List<MeetingTimeView> sanitizeMeetingTimes(List<AiMeetingTime> meetingTimes) {
+        if (meetingTimes == null) {
+            return List.of();
+        }
+        return meetingTimes.stream()
+                .filter(item -> item.dayOfWeek() != null && item.startTime() != null && item.endTime() != null)
+                .map(item -> new MeetingTimeView(item.dayOfWeek(), item.startTime(), item.endTime(), blankToNull(item.room())))
+                .toList();
+    }
+
+    private List<Long> sanitizeSectionIds(List<Long> sectionIds) {
+        if (sectionIds == null) {
+            return List.of();
+        }
+        return sectionIds.stream()
+                .filter(Objects::nonNull)
+                .filter(id -> id > 0)
+                .distinct()
+                .toList();
+    }
+
+    private List<VisualScheduleItem> sanitizeVisualItems(List<VisualScheduleItem> items) {
+        if (items == null) {
+            return List.of();
+        }
+        return items.stream()
+                .filter(Objects::nonNull)
+                .filter(item -> item.courseCode() != null && item.startTime() != null && item.endTime() != null)
+                .toList();
+    }
+
+    private String blankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(value);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Failed to serialize AI context");
+        }
+    }
+
+    private <T> T parseAiJson(String text, Class<T> type) {
+        String json = extractJson(text);
+        try {
+            return objectMapper.readerFor(type)
+                    .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(json);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("AI returned invalid structured schedule data");
+        }
+    }
+
+    private String extractJson(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalStateException("AI returned empty structured schedule data");
+        }
+
+        String trimmed = raw.trim();
+        if (trimmed.startsWith("```")) {
+            int firstNewline = trimmed.indexOf('\n');
+            int lastFence = trimmed.lastIndexOf("```");
+            if (firstNewline >= 0 && lastFence > firstNewline) {
+                trimmed = trimmed.substring(firstNewline + 1, lastFence).trim();
+            }
+        }
+
+        int firstBrace = trimmed.indexOf('{');
+        int lastBrace = trimmed.lastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            trimmed = trimmed.substring(firstBrace, lastBrace + 1);
+        }
+        return trimmed;
+    }
+
+    private record SchedulePlanningContext(Semester semester, List<ScheduleSectionOption> availableSections) {}
+
+    private record ScheduleSectionOption(
+            Long sectionId,
+            String courseCode,
+            String courseName,
+            String teacherName,
+            String lessonType,
+            int capacity,
+            List<ScheduleMeetingSlot> meetingTimes
+    ) {}
+
+    private record ScheduleMeetingSlot(String dayOfWeek, String startTime, String endTime, String room) {}
+
+    private record AiSchedulePlanResult(GeminiClientService.GeminiReply reply, AiSchedulePlan plan) {}
+
+    private record AiSchedulePlan(
+            boolean feasible,
+            boolean partial,
+            String chatResponse,
+            String summary,
+            List<String> satisfiedPreferences,
+            List<String> unsatisfiedPreferences,
+            List<String> blockingCourses,
+            List<Long> selectedSectionIds,
+            List<AiSelectedSection> selectedSections,
+            List<String> warnings,
+            Map<String, List<VisualScheduleItem>> visualSchedule
+    ) {}
+
+    private record AiSelectedSection(
+            String courseCode,
+            String courseName,
+            Long sectionId,
+            String teacherName,
+            List<AiMeetingTime> meetingTimes
+    ) {}
+
+    private record AiMeetingTime(String dayOfWeek, String startTime, String endTime, String room) {}
+
+    private record AiValidatorResult(boolean valid, List<String> errors) {
+        private AiValidatorResult {
+            errors = errors == null ? List.of() : errors;
+        }
+    }
+
+    public record StudentAssistantReply(
+            String answer,
+            String model,
+            Instant generatedAt,
+            ScheduleRecommendation scheduleRecommendation
+    ) {}
+
+    public record ScheduleRecommendation(
+            String semesterName,
+            boolean feasible,
+            boolean partial,
+            String summary,
+            List<String> satisfiedPreferences,
+            List<String> unsatisfiedPreferences,
+            List<String> blockingCourses,
+            List<SelectedSection> selectedSections,
+            List<String> warnings,
+            Map<String, List<VisualScheduleItem>> visualSchedule
+    ) {}
+
+    public record SelectedSection(
+            String courseCode,
+            String courseName,
+            Long sectionId,
+            String teacherName,
+            List<MeetingTimeView> meetingTimes
+    ) {}
+
+    public record MeetingTimeView(String dayOfWeek, String startTime, String endTime, String room) {}
+
+    public record VisualScheduleItem(
+            String courseCode,
+            String courseName,
+            String startTime,
+            String endTime,
+            String room,
+            String teacherName
+    ) {}
 
     private static class CourseInsight {
         private final Long offeringId;
@@ -398,3 +1384,5 @@ public class StudentAssistantService {
         }
     }
 }
+
+

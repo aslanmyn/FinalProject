@@ -35,6 +35,13 @@ public class StudentAssistantV1Controller {
         return ResponseEntity.ok(studentAssistantService.ask(student, body.message()));
     }
 
+    @GetMapping("/schedule-demo")
+    @Operation(summary = "Demo schedule recommendation", description = "Returns a mock schedule recommendation for testing frontend visualization without using AI quota.")
+    public ResponseEntity<?> scheduleDemo(@AuthenticationPrincipal User user) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(studentAssistantService.buildDemoScheduleRecommendation(student));
+    }
+
     public record AssistantQuestionBody(@Schema(example = "How much do I need on the final in Calculus II to finish with a B?") @NotBlank String message) {
     }
 }

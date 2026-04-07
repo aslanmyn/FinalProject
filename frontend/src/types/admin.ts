@@ -131,6 +131,7 @@ export interface AdminStudentUpsertResult {
 export interface AdminSectionItem {
   id: number;
   capacity: number;
+  meetingTimes?: AdminSectionMeetingTimeItem[];
   dayOfWeek?: string;
   startTime?: string;
   endTime?: string;
@@ -150,6 +151,16 @@ export interface AdminSectionItem {
     name: string;
     email?: string;
   };
+}
+
+export interface AdminSectionMeetingTimeItem {
+  id: number | null;
+  sectionId: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  lessonType: string | null;
 }
 
 export interface AdminExamItem {

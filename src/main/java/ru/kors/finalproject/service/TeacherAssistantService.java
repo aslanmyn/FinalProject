@@ -39,6 +39,16 @@ public class TeacherAssistantService {
         GeminiClientService.GeminiReply reply;
         try {
             reply = geminiClientService.generate(systemPrompt(), "Teacher context", context, message.trim(), 0.2, 800);
+        } catch (GeminiClientService.GeminiQuotaExceededException ex) {
+            reply = new GeminiClientService.GeminiReply(
+                    """
+                    Дневной лимит Gemini API сейчас исчерпан.
+                    Контекст преподавателя и ваши данные готовы, но новый AI-ответ будет доступен только после сброса квоты.
+                    Попробуйте позже.
+                    """.trim(),
+                    "gemini-quota-limit",
+                    java.time.Instant.now()
+            );
         } catch (RuntimeException ex) {
             throw new IllegalStateException("AI assistant is temporarily unavailable");
         }
@@ -366,3 +376,4 @@ public class TeacherAssistantService {
         }
     }
 }
+

@@ -5,6 +5,7 @@ type AssistantReply = {
   answer: string;
   model: string;
   generatedAt: string;
+  scheduleRecommendation?: unknown;
 };
 
 type ConversationItem = {
@@ -12,6 +13,7 @@ type ConversationItem = {
   role: "user" | "assistant";
   text: string;
   meta?: string;
+  payload?: AssistantReply;
 };
 
 type AssistantConsoleProps = {
@@ -25,6 +27,7 @@ type AssistantConsoleProps = {
   welcomeMessage: string;
   ask: (message: string) => Promise<AssistantReply>;
   summary?: ReactNode;
+  renderAssistantExtra?: (reply: AssistantReply) => ReactNode;
 };
 
 function formatMeta(reply: AssistantReply): string {
@@ -41,7 +44,8 @@ export default function AssistantConsole({
   suggestions,
   welcomeMessage,
   ask,
-  summary
+  summary,
+  renderAssistantExtra
 }: AssistantConsoleProps) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -88,7 +92,8 @@ export default function AssistantConsole({
           id: `a-${Date.now()}`,
           role: "assistant",
           text: reply.answer,
-          meta: formatMeta(reply)
+          meta: formatMeta(reply),
+          payload: reply
         }
       ]);
     } catch (err) {
@@ -148,6 +153,9 @@ export default function AssistantConsole({
                   <p key={`${item.id}-${index}`}>{line}</p>
                 ))}
               </div>
+              {item.role === "assistant" && item.payload && renderAssistantExtra ? (
+                <div className="assistant-message-extra">{renderAssistantExtra(item.payload)}</div>
+              ) : null}
             </article>
           ))}
 

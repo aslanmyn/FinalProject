@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.kors.finalproject.entity.MeetingTime;
 import ru.kors.finalproject.entity.News;
 import ru.kors.finalproject.entity.SubjectOffering;
 import ru.kors.finalproject.entity.Teacher;
@@ -18,6 +19,7 @@ import ru.kors.finalproject.service.FileLinkService;
 
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.Comparator;
 import java.util.List;
 
 @RestController
@@ -110,17 +112,48 @@ public class PublicV1Controller {
     }
 
     private SectionDto toSectionDto(SubjectOffering so) {
+        List<MeetingTimeDto> meetingTimes = so.getMeetingTimes() == null || so.getMeetingTimes().isEmpty()
+                ? buildLegacyMeetingTimes(so)
+                : so.getMeetingTimes().stream()
+                .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                .map(this::toMeetingTimeDto)
+                .toList();
+
         return new SectionDto(
                 so.getId(),
                 so.getSubject() != null ? so.getSubject().getCode() : "",
                 so.getSubject() != null ? so.getSubject().getName() : "",
                 so.getSemester() != null ? so.getSemester().getName() : "",
+                meetingTimes,
                 so.getLessonType(),
                 so.getDayOfWeek(),
                 so.getStartTime(),
                 so.getEndTime(),
                 so.getRoom() != null ? so.getRoom() : ""
         );
+    }
+
+    private MeetingTimeDto toMeetingTimeDto(MeetingTime meetingTime) {
+        return new MeetingTimeDto(
+                meetingTime.getDayOfWeek(),
+                meetingTime.getStartTime(),
+                meetingTime.getEndTime(),
+                meetingTime.getRoom(),
+                meetingTime.getLessonType()
+        );
+    }
+
+    private List<MeetingTimeDto> buildLegacyMeetingTimes(SubjectOffering offering) {
+        if (offering.getDayOfWeek() == null || offering.getStartTime() == null || offering.getEndTime() == null) {
+            return List.of();
+        }
+        return List.of(new MeetingTimeDto(
+                offering.getDayOfWeek(),
+                offering.getStartTime(),
+                offering.getEndTime(),
+                offering.getRoom(),
+                offering.getLessonType()
+        ));
     }
 
     private String resolveTeacherPhotoUrl(Teacher teacher) {
@@ -166,11 +199,20 @@ public class PublicV1Controller {
             String subjectCode,
             String subjectName,
             String semesterName,
+            List<MeetingTimeDto> meetingTimes,
             SubjectOffering.LessonType lessonType,
             java.time.DayOfWeek dayOfWeek,
             LocalTime startTime,
             LocalTime endTime,
             String room
+    ) {}
+
+    public record MeetingTimeDto(
+            java.time.DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            String room,
+            SubjectOffering.LessonType lessonType
     ) {}
 
     public record AnnouncementDto(

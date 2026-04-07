@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
 import java.util.List;
@@ -37,6 +38,29 @@ public class GeminiClientService {
             double temperature,
             int maxOutputTokens
     ) {
+        return generateInternal(systemPrompt, contextLabel, context, message, temperature, maxOutputTokens, null);
+    }
+
+    public GeminiReply generateJson(
+            String systemPrompt,
+            String contextLabel,
+            String context,
+            String message,
+            double temperature,
+            int maxOutputTokens
+    ) {
+        return generateInternal(systemPrompt, contextLabel, context, message, temperature, maxOutputTokens, MediaType.APPLICATION_JSON_VALUE);
+    }
+
+    private GeminiReply generateInternal(
+            String systemPrompt,
+            String contextLabel,
+            String context,
+            String message,
+            double temperature,
+            int maxOutputTokens,
+            String responseMimeType
+    ) {
         if (!aiEnabled) {
             throw new IllegalStateException("AI assistant is disabled");
         }
@@ -55,17 +79,39 @@ public class GeminiClientService {
         GeminiGenerateRequest request = new GeminiGenerateRequest(
                 new GeminiInstruction(List.of(new GeminiPart(systemPrompt))),
                 List.of(new GeminiContent("user", List.of(new GeminiPart(prompt)))),
-                new GeminiGenerationConfig(temperature, maxOutputTokens)
+                new GeminiGenerationConfig(temperature, maxOutputTokens, responseMimeType)
         );
 
-        GeminiGenerateResponse response = restClient.post()
-                .uri("/models/{model}:generateContent", geminiModel)
-                .header("x-goog-api-key", geminiApiKey)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(GeminiGenerateResponse.class);
+        GeminiGenerateResponse response = null;
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                response = restClient.post()
+                        .uri("/models/{model}:generateContent", geminiModel)
+                        .header("x-goog-api-key", geminiApiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .body(request)
+                        .retrieve()
+                        .body(GeminiGenerateResponse.class);
+                break;
+            } catch (RestClientResponseException ex) {
+                if (isQuotaExceeded(ex)) {
+                    throw new GeminiQuotaExceededException("Gemini daily token limit is exhausted", ex);
+                }
+                if (isRetryable(ex) && attempt < maxRetries) {
+                    try { Thread.sleep(2000L * attempt); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    continue;
+                }
+                throw new GeminiServiceException("Gemini request failed: " + ex.getStatusCode(), ex);
+            } catch (RuntimeException ex) {
+                if (attempt < maxRetries) {
+                    try { Thread.sleep(2000L * attempt); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                    continue;
+                }
+                throw new GeminiServiceException("Gemini request failed", ex);
+            }
+        }
 
         if (response == null || response.candidates() == null || response.candidates().isEmpty()) {
             throw new IllegalStateException("Empty AI response");
@@ -96,6 +142,37 @@ public class GeminiClientService {
     public record GeminiReply(String answer, String model, Instant generatedAt) {
     }
 
+    public static class GeminiQuotaExceededException extends RuntimeException {
+        public GeminiQuotaExceededException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    public static class GeminiServiceException extends RuntimeException {
+        public GeminiServiceException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    private boolean isRetryable(RestClientResponseException ex) {
+        int status = ex.getStatusCode().value();
+        return status == 503 || status == 500 || status == 502;
+    }
+
+    private boolean isQuotaExceeded(RestClientResponseException ex) {
+        if (ex.getStatusCode().value() == 429) {
+            return true;
+        }
+        String body = ex.getResponseBodyAsString();
+        if (body == null || body.isBlank()) {
+            return false;
+        }
+        String normalized = body.toLowerCase();
+        return normalized.contains("resource_exhausted")
+                || normalized.contains("quota")
+                || normalized.contains("limit");
+    }
+
     private record GeminiGenerateRequest(
             @JsonProperty("system_instruction") GeminiInstruction systemInstruction,
             List<GeminiContent> contents,
@@ -112,7 +189,11 @@ public class GeminiClientService {
     private record GeminiPart(String text) {
     }
 
-    private record GeminiGenerationConfig(Double temperature, Integer maxOutputTokens) {
+    private record GeminiGenerationConfig(
+            Double temperature,
+            Integer maxOutputTokens,
+            @JsonProperty("responseMimeType") String responseMimeType
+    ) {
     }
 
     private record GeminiGenerateResponse(List<GeminiCandidate> candidates) {

@@ -40,6 +40,16 @@ public class AdminAssistantService {
                     0.2,
                     850
             );
+        } catch (GeminiClientService.GeminiQuotaExceededException ex) {
+            reply = new GeminiClientService.GeminiReply(
+                    """
+                    Дневной лимит Gemini API сейчас исчерпан.
+                    Админский аналитический контекст готов, но новый AI-ответ появится только после сброса квоты.
+                    Попробуйте позже.
+                    """.trim(),
+                    "gemini-quota-limit",
+                    Instant.now()
+            );
         } catch (RuntimeException ex) {
             throw new IllegalStateException("AI assistant is temporarily unavailable");
         }
@@ -166,3 +176,4 @@ public class AdminAssistantService {
     public record AssistantReply(String answer, String model, Instant generatedAt) {
     }
 }
+

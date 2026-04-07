@@ -37,6 +37,15 @@ function formatTime(value: string | null): string {
   return value.length >= 5 ? value.slice(0, 5) : value;
 }
 
+function formatLessonType(value: string | null): string {
+  if (!value) return "";
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export default function ProfessorProfilePage() {
   const { id } = useParams();
   const [data, setData] = useState<PublicProfessorProfile | null>(null);
@@ -157,7 +166,7 @@ export default function ProfessorProfilePage() {
             <div className="teacher-section-card-header">
               <div>
                 <h3>Current Sections</h3>
-                <p className="muted">Current teaching load with semester, lesson type and exact time.</p>
+                <p className="muted">Current teaching load with full lecture and practice meeting slots.</p>
               </div>
             </div>
 
@@ -172,14 +181,27 @@ export default function ProfessorProfilePage() {
                       <span className="badge">{section.semesterName}</span>
                     </div>
                     <h4>{section.subjectName}</h4>
-                    <div className="public-professor-section-meta">
-                      <span>{formatDay(section.dayOfWeek)}</span>
-                      <span>
-                        {formatTime(section.startTime)}-{formatTime(section.endTime)}
-                      </span>
-                      <span>{section.room || "Room TBA"}</span>
+                    <div className="schedule-chip-list">
+                      {(section.meetingTimes.length > 0
+                        ? section.meetingTimes
+                        : [{
+                            dayOfWeek: section.dayOfWeek,
+                            startTime: section.startTime,
+                            endTime: section.endTime,
+                            room: section.room,
+                            lessonType: section.lessonType
+                          }]
+                      ).map((meetingTime, index) => (
+                        <span
+                          key={`${section.id}-${meetingTime.dayOfWeek || "tba"}-${meetingTime.startTime || index}-${index}`}
+                          className="schedule-chip"
+                        >
+                          {formatDay(meetingTime.dayOfWeek)} {formatTime(meetingTime.startTime)}-{formatTime(meetingTime.endTime)}
+                          {meetingTime.room ? ` | ${meetingTime.room}` : ""}
+                          {meetingTime.lessonType ? ` | ${formatLessonType(meetingTime.lessonType)}` : ""}
+                        </span>
+                      ))}
                     </div>
-                    <span className="public-professor-section-type">{section.lessonType}</span>
                   </article>
                 ))}
               </div>

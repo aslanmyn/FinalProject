@@ -104,6 +104,44 @@ export interface StudentAssistantReply {
   answer: string;
   model: string;
   generatedAt: string;
+  scheduleRecommendation?: StudentAssistantScheduleRecommendation | null;
+}
+
+export interface StudentAssistantScheduleMeetingTime {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+}
+
+export interface StudentAssistantSelectedSection {
+  courseCode: string;
+  courseName: string | null;
+  sectionId: number;
+  teacherName: string | null;
+  meetingTimes: StudentAssistantScheduleMeetingTime[];
+}
+
+export interface StudentAssistantVisualScheduleItem {
+  courseCode: string;
+  courseName: string | null;
+  startTime: string;
+  endTime: string;
+  room: string | null;
+  teacherName: string | null;
+}
+
+export interface StudentAssistantScheduleRecommendation {
+  semesterName: string | null;
+  feasible: boolean;
+  partial: boolean;
+  summary: string | null;
+  satisfiedPreferences: string[];
+  unsatisfiedPreferences: string[];
+  blockingCourses: string[];
+  selectedSections: StudentAssistantSelectedSection[];
+  warnings: string[];
+  visualSchedule: Record<string, StudentAssistantVisualScheduleItem[]>;
 }
 
 export interface StudentRiskCourse {
@@ -300,6 +338,51 @@ export interface StudentRegistrationOverview {
   currentRegistrations: StudentRegistrationBoardItem[];
   eligibleFxCount: number;
   fxRequestCount: number;
+}
+
+export interface StudentNextSemesterSectionOption {
+  sectionId: number;
+  teacherName: string | null;
+  capacity: number;
+  occupiedSeats: number;
+  meetingTimes: StudentRegistrationMeetingSlot[];
+  selected: boolean;
+  blockedReasons: string[];
+  canSelect: boolean;
+}
+
+export interface StudentNextSemesterSubjectOption {
+  subjectId: number;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  required: boolean;
+  displayOrder: number;
+  selectedSectionId: number | null;
+  sections: StudentNextSemesterSectionOption[];
+}
+
+export interface StudentNextSemesterSelection {
+  plannedRegistrationId: number;
+  sectionId: number;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  teacherName: string | null;
+  meetingTimes: StudentRegistrationMeetingSlot[];
+}
+
+export interface StudentNextSemesterOverview {
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: number | null;
+  semesterNumber: number | null;
+  selectionEnabled: boolean;
+  maxSelections: number;
+  selectedCount: number;
+  message: string;
+  subjects: StudentNextSemesterSubjectOption[];
+  savedSelections: StudentNextSemesterSelection[];
 }
 
 export interface StudentCourseCatalogItem {

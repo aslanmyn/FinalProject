@@ -26,6 +26,7 @@ import ru.kors.finalproject.entity.News;
 import ru.kors.finalproject.entity.Notification;
 import ru.kors.finalproject.entity.Payment;
 import ru.kors.finalproject.entity.Program;
+import ru.kors.finalproject.entity.ProgramCurriculumItem;
 import ru.kors.finalproject.entity.Registration;
 import ru.kors.finalproject.entity.RegistrationWindow;
 import ru.kors.finalproject.entity.RequestMessage;
@@ -59,6 +60,7 @@ import ru.kors.finalproject.repository.NewsRepository;
 import ru.kors.finalproject.repository.NotificationRepository;
 import ru.kors.finalproject.repository.PaymentRepository;
 import ru.kors.finalproject.repository.ProgramRepository;
+import ru.kors.finalproject.repository.ProgramCurriculumItemRepository;
 import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.RegistrationWindowRepository;
 import ru.kors.finalproject.repository.RequestMessageRepository;
@@ -122,6 +124,7 @@ public class DataInitializer implements CommandLineRunner {
     private final EntityManager entityManager;
     private final FacultyRepository facultyRepository;
     private final ProgramRepository programRepository;
+    private final ProgramCurriculumItemRepository programCurriculumItemRepository;
     private final SemesterRepository semesterRepository;
     private final UserRepository userRepository;
     private final TeacherRepository teacherRepository;
@@ -193,8 +196,10 @@ public class DataInitializer implements CommandLineRunner {
         seedAdmins(context);
         seedTeachers(context);
         seedSubjects(context);
+        seedProgramCurriculum(context);
         seedPrerequisites(context);
         seedStudentsAndAcademics(context);
+        seedNextSemesterOfferings(context);
         seedNews(context);
         seedRequests(context);
         seedSurvey(context);
@@ -210,7 +215,33 @@ public class DataInitializer implements CommandLineRunner {
     private boolean isLargeDemoDatasetPresent() {
         return facultyRepository.findByName(SITE).isPresent()
                 && teacherRepository.findByEmail(DemoIdentitySupport.teacherEmailFromFullName("Professor Aidos Nurgaliyev")).isPresent()
-                && studentRepository.count() >= STUDENT_COUNT;
+                && studentRepository.count() >= STUDENT_COUNT
+                && programCurriculumItemRepository.count() > 0
+                && hasUpdatedSchedulePatterns();
+    }
+
+    private boolean isDemoDatasetCompatibleForReset() {
+        return facultyRepository.findByName(SITE).isPresent()
+                && userRepository.findByEmail("admin@kbtu.kz").isPresent()
+                && teacherRepository.findByEmail(DemoIdentitySupport.teacherEmailFromFullName("Professor Aidos Nurgaliyev")).isPresent()
+                && semesterRepository.count() >= 8
+                && studentRepository.count() >= STUDENT_COUNT / 2;
+    }
+
+    private boolean hasUpdatedSchedulePatterns() {
+        return subjectOfferingRepository.findBySemesterIdWithDetails(8L).stream()
+                .filter(offering -> offering.getSubject() != null)
+                .filter(offering -> {
+                    String code = offering.getSubject().getCode();
+                    return code != null && (code.startsWith("LAN") || code.startsWith("HUM") || code.startsWith("PHE"));
+                })
+                .anyMatch(offering -> offering.getMeetingTimes() != null
+                        && offering.getMeetingTimes().size() >= 3
+                        && offering.getMeetingTimes().stream().allMatch(slot ->
+                        slot.getLessonType() == SubjectOffering.LessonType.PRACTICE
+                                && slot.getStartTime() != null
+                                && slot.getEndTime() != null
+                                && java.time.Duration.between(slot.getStartTime(), slot.getEndTime()).toHours() == 1));
     }
 
     /**
@@ -220,10 +251,12 @@ public class DataInitializer implements CommandLineRunner {
     private boolean hasExistingNonDemoData() {
         long userCount = userRepository.count();
         if (userCount == 0) {
-            return false; // empty database — safe to seed
+            return false; // empty database - safe to seed
         }
-        // If there are users but the demo dataset is NOT present, this is real data
-        return !isLargeDemoDatasetPresent();
+        if (isDemoDatasetCompatibleForReset()) {
+            return false;
+        }
+        return true;
     }
 
     private void resetDatabase() {
@@ -250,6 +283,8 @@ public class DataInitializer implements CommandLineRunner {
                     payments,
                     charges,
                     refresh_tokens,
+                    program_curriculum_items,
+                    planned_registrations,
                     registrations,
                     registration_windows,
                     add_drop_periods,
@@ -304,7 +339,8 @@ public class DataInitializer implements CommandLineRunner {
                 new SemesterSpec(5, "2024-2025 Fall", LocalDate.of(2024, 9, 1), LocalDate.of(2024, 12, 20), false),
                 new SemesterSpec(6, "2024-2025 Spring", LocalDate.of(2025, 1, 15), LocalDate.of(2025, 5, 25), false),
                 new SemesterSpec(7, "2025-2026 Fall", LocalDate.of(2025, 9, 1), LocalDate.of(2025, 12, 20), false),
-                new SemesterSpec(8, "2025-2026 Spring", LocalDate.of(2026, 1, 19), LocalDate.of(2026, 5, 29), true)
+                new SemesterSpec(8, "2025-2026 Spring", LocalDate.of(2026, 1, 19), LocalDate.of(2026, 5, 29), true),
+                new SemesterSpec(9, "2026-2027 Fall", LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 20), false)
         );
         for (SemesterSpec spec : specs) {
             Semester semester = semesterRepository.save(Semester.builder()
@@ -422,6 +458,35 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
+    private void seedProgramCurriculum(SeedContext context) {
+        for (Map.Entry<String, List<List<String>>> entry : context.curriculum.entrySet()) {
+            Program program = context.programs.get(entry.getKey());
+            if (program == null) {
+                continue;
+            }
+            List<List<String>> slots = entry.getValue();
+            for (int slotIndex = 0; slotIndex < slots.size(); slotIndex++) {
+                int academicYear = (slotIndex / 2) + 1;
+                int semesterNumber = (slotIndex % 2) + 1;
+                List<String> subjectCodes = slots.get(slotIndex);
+                for (int order = 0; order < subjectCodes.size(); order++) {
+                    Subject subject = context.subjects.get(subjectCodes.get(order));
+                    if (subject == null) {
+                        continue;
+                    }
+                    programCurriculumItemRepository.save(ProgramCurriculumItem.builder()
+                            .program(program)
+                            .subject(subject)
+                            .academicYear(academicYear)
+                            .semesterNumber(semesterNumber)
+                            .displayOrder(order + 1)
+                            .required(true)
+                            .build());
+                }
+            }
+        }
+    }
+
     private void seedPrerequisites(SeedContext context) {
         savePrerequisite(context, "MATH1202", "MATH1102");
         savePrerequisite(context, "CSCI1204", "CSCI1101");
@@ -457,6 +522,36 @@ public class DataInitializer implements CommandLineRunner {
                 .subject(subject)
                 .prerequisite(prerequisite)
                 .build());
+    }
+
+    private void seedNextSemesterOfferings(SeedContext context) {
+        Semester nextSemester = context.semesters.get(9);
+        if (nextSemester == null) {
+            return;
+        }
+        // For each faculty, create offerings for the next curriculum slot after each student's current slot.
+        // We collect all unique subject codes that any student would take next semester.
+        java.util.Set<String> nextSubjectCodes = new java.util.LinkedHashSet<>();
+        for (Map.Entry<String, List<List<String>>> entry : context.curriculum.entrySet()) {
+            List<List<String>> slots = entry.getValue();
+            // Students at course years 1-3 get next-semester offerings.
+            // Course 4 students only have diploma/practice defence, no regular schedule.
+            for (int course = 1; course <= 3; course++) {
+                int nextSlotIndex = course * 2; // 0-based index for the next slot
+                if (nextSlotIndex < slots.size()) {
+                    nextSubjectCodes.addAll(slots.get(nextSlotIndex));
+                }
+            }
+        }
+
+        // Create offerings with meeting times for each unique subject in the next semester
+        for (String subjectCode : nextSubjectCodes) {
+            Subject subject = context.subjects.get(subjectCode);
+            if (subject == null) {
+                continue;
+            }
+            getOrCreateOffering(context, subject, nextSemester);
+        }
     }
 
     private void seedStudentsAndAcademics(SeedContext context) {
@@ -553,49 +648,44 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         Teacher teacher = pickTeacher(context, subject.getCode());
-        SchedulePattern pattern = buildSchedulePattern(subject.getCode());
+        List<MeetingSlotSeed> slots = buildMeetingPattern(subject);
+        MeetingSlotSeed primarySlot = slots.get(0);
         SubjectOffering offering = subjectOfferingRepository.save(SubjectOffering.builder()
                 .subject(subject)
                 .semester(semester)
                 .teacher(teacher)
                 .capacity(20)
-                .dayOfWeek(pattern.lectureDay())
-                .startTime(pattern.lectureStart())
-                .endTime(pattern.lectureEnd())
-                .room(pattern.lectureRoom())
-                .lessonType(SubjectOffering.LessonType.LECTURE)
+                .dayOfWeek(primarySlot.dayOfWeek())
+                .startTime(primarySlot.startTime())
+                .endTime(primarySlot.endTime())
+                .room(primarySlot.room())
+                .lessonType(primarySlot.lessonType())
                 .build());
 
-        meetingTimeRepository.saveAll(List.of(
-                MeetingTime.builder()
+        List<MeetingTime> meetingTimes = slots.stream()
+                .map(slot -> MeetingTime.builder()
                         .subjectOffering(offering)
-                        .dayOfWeek(pattern.lectureDay())
-                        .startTime(pattern.lectureStart())
-                        .endTime(pattern.lectureEnd())
-                        .room(pattern.lectureRoom())
-                        .lessonType(SubjectOffering.LessonType.LECTURE)
-                        .build(),
-                MeetingTime.builder()
-                        .subjectOffering(offering)
-                        .dayOfWeek(pattern.practiceDay())
-                        .startTime(pattern.practiceStart())
-                        .endTime(pattern.practiceEnd())
-                        .room(pattern.practiceRoom())
-                        .lessonType(SubjectOffering.LessonType.PRACTICE)
-                        .build()
-        ));
+                        .dayOfWeek(slot.dayOfWeek())
+                        .startTime(slot.startTime())
+                        .endTime(slot.endTime())
+                        .room(slot.room())
+                        .lessonType(slot.lessonType())
+                        .build())
+                .toList();
+        meetingTimeRepository.saveAll(meetingTimes);
+        offering.setMeetingTimes(new ArrayList<>(meetingTimes));
 
         List<AssessmentComponent> components = createComponentsForOffering(offering, semester.isCurrent(), semester.getStartDate());
         context.componentsByOffering.put(offering.getId(), components);
 
         if (semester.isCurrent()) {
-            List<AttendanceSession> sessions = createAttendanceSessions(offering, teacher, semester.getStartDate(), pattern.lectureDay());
+            List<AttendanceSession> sessions = createAttendanceSessions(offering, teacher, semester.getStartDate(), primarySlot.dayOfWeek());
             context.attendanceSessionsByOffering.put(offering.getId(), sessions);
             examScheduleRepository.save(ExamSchedule.builder()
                     .subjectOffering(offering)
                     .examDate(semester.getEndDate().minusDays(12 + Math.floorMod(subject.getCode().hashCode(), 8)))
                     .examTime(LocalTime.of(10 + Math.floorMod(subject.getCode().hashCode(), 4) * 2, 0))
-                    .room(pattern.lectureRoom())
+                    .room(primarySlot.room())
                     .format(Math.floorMod(subject.getCode().hashCode(), 3) == 0 ? "Written" : "Computer-based")
                     .build());
         }
@@ -1122,27 +1212,62 @@ public class DataInitializer implements CommandLineRunner {
         return context.teachersByFaculty.values().stream().flatMap(List::stream).toList();
     }
 
-    private SchedulePattern buildSchedulePattern(String subjectCode) {
+    private List<MeetingSlotSeed> buildMeetingPattern(Subject subject) {
+        String subjectCode = subject.getCode();
         DayOfWeek[] days = {DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY};
         LocalTime[] starts = {LocalTime.of(8, 0), LocalTime.of(10, 0), LocalTime.of(12, 0), LocalTime.of(14, 0), LocalTime.of(16, 0), LocalTime.of(18, 0)};
         int hash = Math.floorMod(subjectCode.hashCode(), 10_000);
+        if (isPracticeOnlySubject(subject)) {
+            int startIndex = (hash / 11) % starts.length;
+            int dayIndex = hash % days.length;
+            List<MeetingSlotSeed> slots = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                DayOfWeek day = days[(dayIndex + i) % days.length];
+                LocalTime start = starts[(startIndex + i) % starts.length];
+                slots.add(new MeetingSlotSeed(
+                        day,
+                        start,
+                        start.plusHours(1),
+                        roomCode(subjectCode, "P"),
+                        SubjectOffering.LessonType.PRACTICE
+                ));
+            }
+            return slots;
+        }
+
         DayOfWeek lectureDay = days[hash % days.length];
         LocalTime lectureStart = starts[(hash / 7) % starts.length];
-        LocalTime lectureEnd = lectureStart.plusHours(2);
         DayOfWeek practiceDay = days[(hash + 2) % days.length];
         LocalTime practiceStart = starts[(hash / 13) % starts.length];
-        int practiceHours = hash % 2 == 0 ? 1 : 2;
-        LocalTime practiceEnd = practiceStart.plusHours(practiceHours);
-        return new SchedulePattern(
-                lectureDay,
-                lectureStart,
-                lectureEnd,
-                roomCode(subjectCode, "L"),
-                practiceDay,
-                practiceStart,
-                practiceEnd,
-                roomCode(subjectCode, "P")
+
+        return List.of(
+                new MeetingSlotSeed(
+                        lectureDay,
+                        lectureStart,
+                        lectureStart.plusHours(2),
+                        roomCode(subjectCode, "L"),
+                        SubjectOffering.LessonType.LECTURE
+                ),
+                new MeetingSlotSeed(
+                        practiceDay,
+                        practiceStart,
+                        practiceStart.plusHours(1),
+                        roomCode(subjectCode, "P"),
+                        SubjectOffering.LessonType.PRACTICE
+                )
         );
+    }
+
+    private boolean isPracticeOnlySubject(Subject subject) {
+        String code = subject.getCode();
+        String name = subject.getName() != null ? subject.getName().toLowerCase(Locale.ROOT) : "";
+        return code.startsWith("LAN")
+                || code.startsWith("HUM")
+                || code.startsWith("PHE")
+                || name.contains("language")
+                || name.contains("communication")
+                || name.contains("history")
+                || name.contains("philosophy");
     }
 
     private String roomCode(String subjectCode, String prefix) {
@@ -1597,9 +1722,13 @@ public class DataInitializer implements CommandLineRunner {
 
     private record SubjectSeed(String code, String name) {}
 
-    private record SchedulePattern(DayOfWeek lectureDay, LocalTime lectureStart, LocalTime lectureEnd,
-                                   String lectureRoom, DayOfWeek practiceDay, LocalTime practiceStart,
-                                   LocalTime practiceEnd, String practiceRoom) {}
+    private record MeetingSlotSeed(
+            DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            String room,
+            SubjectOffering.LessonType lessonType
+    ) {}
 
     private record GradeScale(String letter, double points) {}
 
@@ -1608,3 +1737,4 @@ public class DataInitializer implements CommandLineRunner {
 
     private record AccountCredential(String role, String email, String password, String fullName, String details) {}
 }
+
