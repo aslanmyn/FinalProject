@@ -45,7 +45,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - finalproject_pgdata:/var/lib/postgresql/data
     healthcheck:
