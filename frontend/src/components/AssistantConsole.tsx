@@ -18,12 +18,12 @@ type ConversationItem = {
 
 type AssistantConsoleProps = {
   title: string;
-  subtitle: string;
-  eyebrow: string;
-  heroTitle: string;
-  heroDescription: string;
+  subtitle?: string;
+  eyebrow?: string;
+  heroTitle?: string;
+  heroDescription?: string;
   placeholder: string;
-  suggestions: string[];
+  suggestions?: string[];
   welcomeMessage: string;
   ask: (message: string) => Promise<AssistantReply>;
   summary?: ReactNode;
@@ -41,7 +41,7 @@ export default function AssistantConsole({
   heroTitle,
   heroDescription,
   placeholder,
-  suggestions,
+  suggestions = [],
   welcomeMessage,
   ask,
   summary,
@@ -108,34 +108,41 @@ export default function AssistantConsole({
       <header className="topbar">
         <div>
           <h2>{title}</h2>
-          <p className="muted">{subtitle}</p>
+          {subtitle ? <p className="muted">{subtitle}</p> : null}
         </div>
       </header>
 
-      <section className="card assistant-hero-card">
-        <div className="assistant-hero">
-          <div>
-            <span className="assistant-eyebrow">{eyebrow}</span>
-            <h3>{heroTitle}</h3>
-            <p className="muted">{heroDescription}</p>
-          </div>
-          <div className="assistant-suggestion-list">
-            {suggestions.map((prompt) => (
-              <button
-                key={prompt}
-                type="button"
-                className="assistant-suggestion"
-                onClick={() => void handleSend(prompt)}
-                disabled={sending}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {summary ? <div className="assistant-summary-grid">{summary}</div> : null}
-      </section>
+      {(eyebrow || heroTitle || heroDescription || suggestions.length > 0 || summary) ? (
+        <section className="card assistant-hero-card">
+          {(eyebrow || heroTitle || heroDescription || suggestions.length > 0) ? (
+            <div className="assistant-hero">
+              {(eyebrow || heroTitle || heroDescription) ? (
+                <div>
+                  {eyebrow ? <span className="assistant-eyebrow">{eyebrow}</span> : null}
+                  {heroTitle ? <h3>{heroTitle}</h3> : null}
+                  {heroDescription ? <p className="muted">{heroDescription}</p> : null}
+                </div>
+              ) : null}
+              {suggestions.length > 0 ? (
+                <div className="assistant-suggestion-list">
+                  {suggestions.map((prompt) => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      className="assistant-suggestion"
+                      onClick={() => void handleSend(prompt)}
+                      disabled={sending}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {summary ? <div className="assistant-summary-grid">{summary}</div> : null}
+        </section>
+      ) : null}
 
       <section className="card assistant-chat-card">
         <div className="assistant-messages">
