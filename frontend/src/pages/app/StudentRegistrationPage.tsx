@@ -402,7 +402,7 @@ export default function StudentRegistrationPage() {
                           <tr>
                             <th>Teacher</th>
                             <th>Schedule</th>
-                            <th>Seats</th>
+                            <th>Interested / Capacity</th>
                             <th>Status</th>
                             <th>Action</th>
                           </tr>

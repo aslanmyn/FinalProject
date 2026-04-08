@@ -49,9 +49,15 @@ public class FxRegistrationService {
     }
 
     public List<FxEligibility> listEligible(Student student) {
+        if (student.getCurrentSemester() == null) {
+            return List.of();
+        }
+        Long currentSemesterId = student.getCurrentSemester().getId();
         return finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId()).stream()
                 .filter(finalGrade -> finalGrade.getNumericValue() < 50.0)
                 .filter(finalGrade -> finalGrade.getSubjectOffering() != null)
+                .filter(finalGrade -> finalGrade.getSubjectOffering().getSemester() != null
+                        && currentSemesterId.equals(finalGrade.getSubjectOffering().getSemester().getId()))
                 .map(finalGrade -> new FxEligibility(
                         finalGrade.getSubjectOffering().getId(),
                         finalGrade.getSubjectOffering().getSubject().getCode(),
@@ -73,6 +79,11 @@ public class FxRegistrationService {
         }
         SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(subjectOfferingId)
                 .orElseThrow(() -> new IllegalArgumentException("Section not found"));
+
+        if (offering.getSemester() == null
+                || !offering.getSemester().getId().equals(student.getCurrentSemester().getId())) {
+            throw new IllegalArgumentException("FX can only be submitted for sections in the current semester");
+        }
 
         boolean eligible = finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId()).stream()
                 .anyMatch(finalGrade -> finalGrade.getSubjectOffering() != null

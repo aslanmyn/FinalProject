@@ -26,6 +26,8 @@ public interface PlannedRegistrationRepository extends JpaRepository<PlannedRegi
 
     long countByStudentIdAndSemesterId(Long studentId, Long semesterId);
 
+    long countBySubjectOfferingId(Long subjectOfferingId);
+
     boolean existsByStudentIdAndSubjectOfferingId(Long studentId, Long subjectOfferingId);
 
     @Query("""

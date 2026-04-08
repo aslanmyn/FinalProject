@@ -11,7 +11,6 @@ import ru.kors.finalproject.entity.Student;
 import ru.kors.finalproject.entity.SubjectOffering;
 import ru.kors.finalproject.repository.PlannedRegistrationRepository;
 import ru.kors.finalproject.repository.ProgramCurriculumItemRepository;
-import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.SemesterRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 
@@ -36,7 +35,6 @@ public class NextSemesterPlanningService {
     private final ProgramCurriculumItemRepository programCurriculumItemRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final PlannedRegistrationRepository plannedRegistrationRepository;
-    private final RegistrationRepository registrationRepository;
     private final AuditService auditService;
 
     @Transactional(readOnly = true)
@@ -119,11 +117,7 @@ public class NextSemesterPlanningService {
                                         offering.getId(),
                                         offering.getTeacher() != null ? offering.getTeacher().getName() : null,
                                         offering.getCapacity(),
-                                        registrationRepository.countBySubjectOfferingIdAndStatusIn(
-                                                offering.getId(),
-                                                List.of(ru.kors.finalproject.entity.Registration.RegistrationStatus.CONFIRMED,
-                                                        ru.kors.finalproject.entity.Registration.RegistrationStatus.SUBMITTED)
-                                        ),
+                                        plannedRegistrationRepository.countBySubjectOfferingId(offering.getId()),
                                         buildMeetingTimes(offering),
                                         selectedFlag,
                                         reasons,
