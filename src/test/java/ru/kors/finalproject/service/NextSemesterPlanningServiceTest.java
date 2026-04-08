@@ -17,7 +17,6 @@ import ru.kors.finalproject.entity.SubjectOffering;
 import ru.kors.finalproject.entity.Teacher;
 import ru.kors.finalproject.repository.PlannedRegistrationRepository;
 import ru.kors.finalproject.repository.ProgramCurriculumItemRepository;
-import ru.kors.finalproject.repository.RegistrationRepository;
 import ru.kors.finalproject.repository.SemesterRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 
@@ -30,8 +29,6 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,8 +45,6 @@ class NextSemesterPlanningServiceTest {
     @Mock
     private PlannedRegistrationRepository plannedRegistrationRepository;
     @Mock
-    private RegistrationRepository registrationRepository;
-    @Mock
     private AuditService auditService;
 
     private NextSemesterPlanningService service;
@@ -65,7 +60,6 @@ class NextSemesterPlanningServiceTest {
                 programCurriculumItemRepository,
                 subjectOfferingRepository,
                 plannedRegistrationRepository,
-                registrationRepository,
                 auditService
         );
 
@@ -149,7 +143,7 @@ class NextSemesterPlanningServiceTest {
                 .thenReturn(List.of(item));
         when(subjectOfferingRepository.findBySemesterIdWithDetails(9L)).thenReturn(List.of(offering));
         when(plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(15L, 9L)).thenReturn(List.of());
-        when(registrationRepository.countBySubjectOfferingIdAndStatusIn(eq(44L), anyList())).thenReturn(0L);
+        when(plannedRegistrationRepository.countBySubjectOfferingId(44L)).thenReturn(0L);
 
         NextSemesterPlanningService.NextSemesterPlanOverview overview = service.getOverview(student);
 
