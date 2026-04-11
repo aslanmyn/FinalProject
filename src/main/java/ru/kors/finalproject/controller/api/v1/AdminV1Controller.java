@@ -2,6 +2,7 @@ package ru.kors.finalproject.controller.api.v1;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -336,6 +337,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/stats")
+    @Operation(summary = "Admin stats", description = "Returns high-level dashboard statistics for the admin portal.")
     public ResponseEntity<?> stats(@AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(Map.of(
                 "adminId", admin.getId(),
@@ -348,6 +350,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/subjects")
+    @Operation(summary = "List subjects", description = "Returns subjects with optional program and faculty context for admin selection UIs.")
     public ResponseEntity<?> subjects(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(subjectRepository.findAllWithProgramOrderByCodeAsc().stream().map(s -> Map.of(
                 "id", (Object) s.getId(),
@@ -362,6 +365,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/teachers")
+    @Operation(summary = "List teachers", description = "Returns teachers for admin selectors and academic setup forms.")
     public ResponseEntity<?> teachers(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(teacherRepository.findAllByOrderByNameAsc().stream().map(t -> Map.of(
                 "id", (Object) t.getId(),
@@ -371,6 +375,7 @@ public class AdminV1Controller {
     }
 
     @GetMapping("/students")
+    @Operation(summary = "List students", description = "Returns students for admin selectors and management forms.")
     public ResponseEntity<?> students(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(studentRepository.findAllWithDetails().stream().map(s -> Map.of(
                 "id", (Object) s.getId(),

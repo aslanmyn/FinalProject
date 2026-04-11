@@ -406,7 +406,7 @@ Admin permission model:
 |---|---|---|---|
 | GET | `/api/v1/admin/users` | `SUPER` | List users |
 | POST | `/api/v1/admin/users/{id}/permissions` | `SUPER` | Update admin permissions |
-| GET | `/api/v1/admin/subjects` | `ADMIN role` | List subjects |
+| GET | `/api/v1/admin/subjects` | `ADMIN role` | List subjects with program/faculty context |
 | GET | `/api/v1/admin/teachers` | `ADMIN role` | List teachers |
 | GET | `/api/v1/admin/students` | `ADMIN role` | List students |
 | GET | `/api/v1/admin/stats` | `ADMIN role` | Dashboard statistics |
@@ -414,12 +414,18 @@ Admin permission model:
 | POST | `/api/v1/admin/notifications/{id}/read` | `ADMIN role` | Mark notification as read |
 | POST | `/api/v1/admin/notifications/read-all` | `ADMIN role` | Mark all notifications as read |
 
-### 7.2 Academic and Student Management
+### 7.2 Academic, Subject, Teacher, and Student Management
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
 | POST | `/api/v1/admin/terms` | `REGISTRAR` | Create term |
 | GET | `/api/v1/admin/terms` | `REGISTRAR` | List terms |
+| GET | `/api/v1/admin/subjects/{id}` | `REGISTRAR` | Get subject details |
+| POST | `/api/v1/admin/subjects` | `REGISTRAR` | Create subject |
+| PUT | `/api/v1/admin/subjects/{id}` | `REGISTRAR` | Update subject |
+| GET | `/api/v1/admin/teachers/{id}` | `REGISTRAR` | Get teacher details |
+| POST | `/api/v1/admin/teachers` | `REGISTRAR` | Create user + teacher profile |
+| PUT | `/api/v1/admin/teachers/{id}` | `REGISTRAR` | Update user + teacher profile |
 | POST | `/api/v1/admin/sections` | `REGISTRAR` | Create section |
 | GET | `/api/v1/admin/sections` | `REGISTRAR` | List sections |
 | POST | `/api/v1/admin/sections/{id}/assign-professor` | `REGISTRAR` | Assign professor |
@@ -438,6 +444,62 @@ Admin permission model:
 | POST | `/api/v1/admin/students` | `REGISTRAR` | Create user + student profile |
 | PUT | `/api/v1/admin/students/{id}` | `REGISTRAR` | Update user + student profile |
 | POST | `/api/v1/admin/students/{id}/status` | `REGISTRAR` | Update student status only |
+
+Create subject request example:
+```json
+{
+  "code": "CSCI2104",
+  "name": "Databases",
+  "credits": 4,
+  "programId": 1
+}
+```
+
+Update subject request example:
+```json
+{
+  "code": "CSCI2104",
+  "name": "Advanced Databases",
+  "credits": 5,
+  "programId": 1
+}
+```
+
+Create teacher request example:
+```json
+{
+  "email": "a.testov@kbtu.kz",
+  "password": "prof123",
+  "fullName": "Askar Testov",
+  "facultyId": 1,
+  "department": "Information Systems",
+  "positionTitle": "Senior Lecturer",
+  "publicEmail": "askar.testov@kbtu.kz",
+  "officeRoom": "417",
+  "bio": "Teaches software engineering and distributed systems.",
+  "officeHours": "Mon 10:00-12:00",
+  "teacherRole": "TEACHER",
+  "enabled": true
+}
+```
+
+Update teacher request example:
+```json
+{
+  "email": "a.testov@kbtu.kz",
+  "password": "",
+  "fullName": "Askar Testov",
+  "facultyId": 1,
+  "department": "Information Systems",
+  "positionTitle": "Associate Professor",
+  "publicEmail": "askar.testov@kbtu.kz",
+  "officeRoom": "419",
+  "bio": "Leads database systems and backend engineering courses.",
+  "officeHours": "Wed 14:00-16:00",
+  "teacherRole": "TEACHER",
+  "enabled": true
+}
+```
 
 Create student request example:
 ```json
@@ -631,6 +693,24 @@ curl -X POST http://localhost:8080/api/v1/admin/students \
   -H "Authorization: Bearer <ACCESS_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"email":"a_testov@kbtu.kz","password":"student123","fullName":"Aslan Testov","facultyId":1,"programId":1,"currentSemesterId":8,"course":2,"groupName":"TBD","status":"ACTIVE","creditsEarned":36,"enabled":true}'
+```
+
+### Admin create subject
+
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/subjects \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"code":"CSCI2104","name":"Databases","credits":4,"programId":1}'
+```
+
+### Admin create teacher
+
+```bash
+curl -X POST http://localhost:8080/api/v1/admin/teachers \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"a.testov@kbtu.kz","password":"prof123","fullName":"Askar Testov","facultyId":1,"department":"Information Systems","positionTitle":"Senior Lecturer","publicEmail":"askar.testov@kbtu.kz","officeRoom":"417","bio":"Teaches software engineering and distributed systems.","officeHours":"Mon 10:00-12:00","teacherRole":"TEACHER","enabled":true}'
 ```
 
 ### Teacher open attendance session

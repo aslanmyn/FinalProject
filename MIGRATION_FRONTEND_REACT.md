@@ -148,6 +148,12 @@ Covered by React UI:
 - requests
 - notifications
 
+Admin academic setup now includes backend support for:
+- create subject
+- update subject
+- create teacher
+- update teacher
+
 Admin student management now includes backend support for:
 - create student
 - update student
@@ -175,7 +181,7 @@ API roots used by admin UI:
 5. Added public React pages for home, news, professors, and registration.
 6. Added complete student academic and service flows.
 7. Added teacher workflows for course delivery, attendance, and moderation.
-8. Added admin workflows for academic operations, finance, support, and analytics.
+8. Added admin workflows for academic operations, subject and teacher management, finance, support, and analytics.
 9. Added student, teacher, and admin AI assistants.
 10. Added notification centers for all roles.
 11. Added live unread badges and WebSocket-driven notification refresh.

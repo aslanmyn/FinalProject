@@ -28,7 +28,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
-@Tag(name = "Admin Academic", description = "Academic operations for admins: terms, sections, windows, exams, FX, grade changes, and student creation/update.")
+@Tag(name = "Admin Academic", description = "Academic operations for admins: subjects, teachers, students, terms, sections, windows, exams, FX, and grade changes.")
 @SecurityRequirement(name = "Bearer")
 public class AdminAcademicV1Controller {
 
@@ -94,6 +94,7 @@ public class AdminAcademicV1Controller {
 
     @PostMapping("/sections/{id}/assign-professor")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Assign professor", description = "Assigns an existing teacher to a section.")
     public ResponseEntity<?> assignProfessor(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -105,6 +106,7 @@ public class AdminAcademicV1Controller {
 
     @PostMapping("/sections/{id}/meeting-times")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Add meeting time", description = "Adds a meeting time to a section and validates room/teacher conflicts.")
     public ResponseEntity<?> addMeetingTime(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -145,6 +147,7 @@ public class AdminAcademicV1Controller {
 
     @GetMapping("/exams")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "List exams", description = "Returns exam sessions, optionally filtered by semester.")
     public ResponseEntity<?> listExams(
             @AuthenticationPrincipal User user,
             @RequestParam(required = false) Long semesterId) {
@@ -158,6 +161,7 @@ public class AdminAcademicV1Controller {
 
     @PostMapping("/exams")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Create exam", description = "Creates a new exam session for a section.")
     public ResponseEntity<?> createExam(
             @AuthenticationPrincipal User admin,
             @RequestBody CreateExamBody body) {
@@ -170,6 +174,7 @@ public class AdminAcademicV1Controller {
 
     @PutMapping("/exams/{id}")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Update exam", description = "Updates an existing exam session.")
     public ResponseEntity<?> updateExam(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -183,6 +188,7 @@ public class AdminAcademicV1Controller {
 
     @DeleteMapping("/exams/{id}")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Delete exam", description = "Deletes an exam session.")
     public ResponseEntity<?> deleteExam(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id) {
@@ -192,6 +198,7 @@ public class AdminAcademicV1Controller {
 
     @GetMapping("/fx")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "List FX registrations", description = "Returns the FX queue for registrar review.")
     public ResponseEntity<?> listFx(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(fxRegistrationService.listAll().stream()
                 .map(this::toFxDto)
@@ -200,6 +207,7 @@ public class AdminAcademicV1Controller {
 
     @PostMapping("/fx/{id}/status")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Update FX status", description = "Updates the status of an FX registration request.")
     public ResponseEntity<?> updateFxStatus(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,
@@ -209,6 +217,7 @@ public class AdminAcademicV1Controller {
 
     @GetMapping("/grade-change-requests")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "List grade change requests", description = "Returns submitted grade change requests for registrar review.")
     public ResponseEntity<?> gradeChangeRequests(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
@@ -228,6 +237,7 @@ public class AdminAcademicV1Controller {
 
     @PostMapping("/grade-change-requests/{id}/review")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Review grade change request", description = "Approves or rejects a submitted grade change request.")
     public ResponseEntity<?> reviewGradeChangeRequest(
             @AuthenticationPrincipal User admin,
             @PathVariable Long id,

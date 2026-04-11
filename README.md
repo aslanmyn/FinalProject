@@ -77,7 +77,7 @@ Teacher:
 
 Admin:
 - users and admin permissions
-- academic setup: terms, sections, windows, exams
+- academic setup: subjects, teachers, terms, sections, windows, exams
 - registration override
 - finance and holds
 - mobility, clearance, surveys, requests
@@ -85,6 +85,8 @@ Admin:
 - analytics and workflows
 - AI assistant
 - create and update student records
+- create and update teacher records
+- create and update subject records
 
 Shared:
 - chat
