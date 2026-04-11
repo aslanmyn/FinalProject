@@ -349,11 +349,15 @@ public class AdminV1Controller {
 
     @GetMapping("/subjects")
     public ResponseEntity<?> subjects(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(subjectRepository.findAll().stream().map(s -> Map.of(
+        return ResponseEntity.ok(subjectRepository.findAllWithProgramOrderByCodeAsc().stream().map(s -> Map.of(
                 "id", (Object) s.getId(),
                 "code", s.getCode() != null ? s.getCode() : "",
                 "name", s.getName() != null ? s.getName() : "",
-                "credits", s.getCredits()
+                "credits", s.getCredits(),
+                "programId", s.getProgram() != null ? s.getProgram().getId() : null,
+                "programName", s.getProgram() != null ? s.getProgram().getName() : "",
+                "facultyId", s.getProgram() != null && s.getProgram().getFaculty() != null ? s.getProgram().getFaculty().getId() : null,
+                "facultyName", s.getProgram() != null && s.getProgram().getFaculty() != null ? s.getProgram().getFaculty().getName() : ""
         )).toList());
     }
 

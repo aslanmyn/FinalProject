@@ -38,10 +38,12 @@ public class AdminAcademicV1Controller {
     private final FxRegistrationService fxRegistrationService;
     private final SemesterRepository semesterRepository;
     private final RegistrationWindowRepository registrationWindowRepository;
+    private final SubjectRepository subjectRepository;
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final ExamScheduleRepository examScheduleRepository;
     private final GradeChangeRequestRepository gradeChangeRequestRepository;
     private final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
     private final UserRepository userRepository;
     private final FacultyRepository facultyRepository;
     private final ProgramRepository programRepository;
@@ -271,6 +273,42 @@ public class AdminAcademicV1Controller {
                 .toList());
     }
 
+    @GetMapping("/subjects/{id}")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Get subject details", description = "Returns the full subject payload needed for editing an existing subject.")
+    public ResponseEntity<?> getSubject(
+            @AuthenticationPrincipal User admin,
+            @PathVariable Long id) {
+        Subject subject = subjectRepository.findByIdWithProgram(id)
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found"));
+        return ResponseEntity.ok(toSubjectDetailDto(subject));
+    }
+
+    @PostMapping("/subjects")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Create subject", description = "Creates a new academic subject/course for later use in sections.")
+    public ResponseEntity<?> createSubject(
+            @AuthenticationPrincipal User admin,
+            @RequestBody CreateSubjectBody body) {
+        Subject saved = adminAcademicService.createSubject(
+                body.code(), body.name(), body.credits(), body.programId(), admin);
+        Subject detailed = subjectRepository.findByIdWithProgram(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toCreatedSubjectDto(detailed));
+    }
+
+    @PutMapping("/subjects/{id}")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Update subject", description = "Updates an existing academic subject/course.")
+    public ResponseEntity<?> updateSubject(
+            @AuthenticationPrincipal User admin,
+            @PathVariable Long id,
+            @RequestBody UpdateSubjectBody body) {
+        Subject saved = adminAcademicService.updateSubject(
+                id, body.code(), body.name(), body.credits(), body.programId(), admin);
+        Subject detailed = subjectRepository.findByIdWithProgram(saved.getId()).orElse(saved);
+        return ResponseEntity.ok(toCreatedSubjectDto(detailed));
+    }
+
     @GetMapping("/students/{id}")
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
     @Operation(summary = "Get student details", description = "Returns the full user and student profile payload needed for editing an existing student.")
@@ -282,6 +320,147 @@ public class AdminAcademicV1Controller {
         User user = userRepository.findByEmail(student.getEmail())
                 .orElseThrow(() -> new IllegalStateException("User account for student not found"));
         return ResponseEntity.ok(toStudentDetailDto(student, user));
+    }
+
+    @GetMapping("/teachers/{id}")
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Get teacher details", description = "Returns the full user and teacher profile payload needed for editing an existing teacher.")
+    public ResponseEntity<?> getTeacher(
+            @AuthenticationPrincipal User admin,
+            @PathVariable Long id) {
+        Teacher teacher = teacherRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new IllegalArgumentException("Teacher not found"));
+        User user = userRepository.findByEmail(teacher.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User account for teacher not found"));
+        return ResponseEntity.ok(toTeacherDetailDto(teacher, user));
+    }
+
+    @PostMapping("/teachers")
+    @Transactional
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Create teacher", description = "Creates both the user account and the teacher profile in one request.")
+    public ResponseEntity<?> createTeacher(
+            @AuthenticationPrincipal User admin,
+            @RequestBody CreateTeacherBody body) {
+        String email = normalizeEmail(body.email());
+        if (userRoleDetector.detectRole(email) != UserRole.PROFESSOR) {
+            throw new IllegalArgumentException("Teacher email must use the a.surname@kbtu.kz format");
+        }
+        if (body.password() == null || body.password().isBlank() || body.password().length() < 6) {
+            throw new IllegalArgumentException("Password must be at least 6 characters");
+        }
+        if (body.fullName() == null || body.fullName().isBlank()) {
+            throw new IllegalArgumentException("Full name is required");
+        }
+        if (userRepository.existsByEmail(email) || teacherRepository.findByEmail(email).isPresent()) {
+            throw new IllegalStateException("Teacher with this email already exists");
+        }
+
+        Faculty faculty = facultyRepository.findById(body.facultyId())
+                .orElseThrow(() -> new IllegalArgumentException("Faculty not found"));
+
+        User user = userRepository.save(User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(body.password()))
+                .fullName(body.fullName().trim())
+                .role(User.UserRole.PROFESSOR)
+                .enabled(body.enabled() == null || body.enabled())
+                .build());
+
+        Teacher teacher = teacherRepository.save(Teacher.builder()
+                .email(email)
+                .name(body.fullName().trim())
+                .faculty(faculty)
+                .department(blankToNull(body.department()))
+                .positionTitle(blankToNull(body.positionTitle()))
+                .publicEmail(normalizeOptionalEmail(body.publicEmail()))
+                .officeRoom(blankToNull(body.officeRoom()))
+                .bio(blankToNull(body.bio()))
+                .officeHours(blankToNull(body.officeHours()))
+                .role(body.teacherRole() != null ? body.teacherRole() : Teacher.TeacherRole.TEACHER)
+                .build());
+
+        return ResponseEntity.ok(new CreatedTeacherDto(
+                user.getId(),
+                teacher.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                faculty.getId(),
+                faculty.getName(),
+                teacher.getDepartment(),
+                teacher.getPositionTitle(),
+                teacher.getRole(),
+                user.isEnabled()
+        ));
+    }
+
+    @PutMapping("/teachers/{id}")
+    @Transactional
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_REGISTRAR')")
+    @Operation(summary = "Update teacher", description = "Updates an existing teacher's user account and profile fields in one request.")
+    public ResponseEntity<?> updateTeacher(
+            @AuthenticationPrincipal User admin,
+            @PathVariable Long id,
+            @RequestBody UpdateTeacherBody body) {
+        Teacher teacher = teacherRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Teacher not found"));
+        User user = userRepository.findByEmail(teacher.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User account for teacher not found"));
+
+        String email = normalizeEmail(body.email());
+        if (userRoleDetector.detectRole(email) != UserRole.PROFESSOR) {
+            throw new IllegalArgumentException("Teacher email must use the a.surname@kbtu.kz format");
+        }
+        if (body.fullName() == null || body.fullName().isBlank()) {
+            throw new IllegalArgumentException("Full name is required");
+        }
+        if (!email.equals(teacher.getEmail())) {
+            if (userRepository.existsByEmail(email) || teacherRepository.findByEmail(email).isPresent()) {
+                throw new IllegalStateException("Teacher with this email already exists");
+            }
+        }
+
+        Faculty faculty = facultyRepository.findById(body.facultyId())
+                .orElseThrow(() -> new IllegalArgumentException("Faculty not found"));
+
+        if (body.password() != null && !body.password().isBlank()) {
+            if (body.password().length() < 6) {
+                throw new IllegalArgumentException("Password must be at least 6 characters");
+            }
+            user.setPassword(passwordEncoder.encode(body.password()));
+        }
+
+        user.setEmail(email);
+        user.setFullName(body.fullName().trim());
+        if (body.enabled() != null) {
+            user.setEnabled(body.enabled());
+        }
+        userRepository.save(user);
+
+        teacher.setEmail(email);
+        teacher.setName(body.fullName().trim());
+        teacher.setFaculty(faculty);
+        teacher.setDepartment(blankToNull(body.department()));
+        teacher.setPositionTitle(blankToNull(body.positionTitle()));
+        teacher.setPublicEmail(normalizeOptionalEmail(body.publicEmail()));
+        teacher.setOfficeRoom(blankToNull(body.officeRoom()));
+        teacher.setBio(blankToNull(body.bio()));
+        teacher.setOfficeHours(blankToNull(body.officeHours()));
+        teacher.setRole(body.teacherRole() != null ? body.teacherRole() : teacher.getRole());
+        teacherRepository.save(teacher);
+
+        return ResponseEntity.ok(new CreatedTeacherDto(
+                user.getId(),
+                teacher.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                faculty.getId(),
+                faculty.getName(),
+                teacher.getDepartment(),
+                teacher.getPositionTitle(),
+                teacher.getRole(),
+                user.isEnabled()
+        ));
     }
 
     @PostMapping("/students")
@@ -592,11 +771,60 @@ public class AdminAcademicV1Controller {
         );
     }
 
+    private TeacherDetailDto toTeacherDetailDto(Teacher teacher, User user) {
+        return new TeacherDetailDto(
+                user.getId(),
+                teacher.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                teacher.getFaculty() != null ? teacher.getFaculty().getId() : null,
+                teacher.getFaculty() != null ? teacher.getFaculty().getName() : null,
+                teacher.getDepartment(),
+                teacher.getPositionTitle(),
+                teacher.getPublicEmail(),
+                teacher.getOfficeRoom(),
+                teacher.getBio(),
+                teacher.getOfficeHours(),
+                teacher.getRole(),
+                user.isEnabled()
+        );
+    }
+
+    private SubjectDetailDto toSubjectDetailDto(Subject subject) {
+        return new SubjectDetailDto(
+                subject.getId(),
+                subject.getCode(),
+                subject.getName(),
+                subject.getCredits(),
+                subject.getProgram() != null ? subject.getProgram().getId() : null,
+                subject.getProgram() != null ? subject.getProgram().getName() : null,
+                subject.getProgram() != null && subject.getProgram().getFaculty() != null ? subject.getProgram().getFaculty().getId() : null,
+                subject.getProgram() != null && subject.getProgram().getFaculty() != null ? subject.getProgram().getFaculty().getName() : null
+        );
+    }
+
+    private CreatedSubjectDto toCreatedSubjectDto(Subject subject) {
+        return new CreatedSubjectDto(
+                subject.getId(),
+                subject.getCode(),
+                subject.getName(),
+                subject.getCredits(),
+                subject.getProgram() != null ? subject.getProgram().getId() : null,
+                subject.getProgram() != null ? subject.getProgram().getName() : null,
+                subject.getProgram() != null && subject.getProgram().getFaculty() != null ? subject.getProgram().getFaculty().getId() : null,
+                subject.getProgram() != null && subject.getProgram().getFaculty() != null ? subject.getProgram().getFaculty().getName() : null
+        );
+    }
+
     private String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email is required");
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeOptionalEmail(String email) {
+        return email == null || email.isBlank() ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 
     private String blankToNull(String value) {
@@ -635,6 +863,73 @@ public class AdminAcademicV1Controller {
     public record ReviewGradeChangeBody(boolean approve, String comment) {}
     public record FacultyDto(Long id, String name) {}
     public record ProgramDto(Long id, String name, int creditLimit, Long facultyId, String facultyName) {}
+    public record SubjectDetailDto(
+            Long subjectId,
+            String code,
+            String name,
+            int credits,
+            Long programId,
+            String programName,
+            Long facultyId,
+            String facultyName) {}
+    public record CreateSubjectBody(
+            @Schema(example = "CSCI2104") String code,
+            @Schema(example = "Databases") String name,
+            @Schema(example = "4") int credits,
+            @Schema(example = "1") Long programId) {}
+    public record UpdateSubjectBody(
+            @Schema(example = "CSCI2104") String code,
+            @Schema(example = "Databases") String name,
+            @Schema(example = "4") int credits,
+            @Schema(example = "1") Long programId) {}
+    public record CreatedSubjectDto(
+            Long subjectId,
+            String code,
+            String name,
+            int credits,
+            Long programId,
+            String programName,
+            Long facultyId,
+            String facultyName) {}
+    public record TeacherDetailDto(
+            Long userId,
+            Long teacherId,
+            String email,
+            String fullName,
+            Long facultyId,
+            String facultyName,
+            String department,
+            String positionTitle,
+            String publicEmail,
+            String officeRoom,
+            String bio,
+            String officeHours,
+            Teacher.TeacherRole teacherRole,
+            boolean enabled) {}
+    public record CreateTeacherBody(
+            @Schema(example = "a.testov@kbtu.kz") String email,
+            @Schema(example = "prof123") String password,
+            @Schema(example = "Askar Testov") String fullName,
+            @Schema(example = "1") Long facultyId,
+            @Schema(example = "Information Systems") String department,
+            @Schema(example = "Senior Lecturer") String positionTitle,
+            @Schema(example = "askar.testov@kbtu.kz") String publicEmail,
+            @Schema(example = "417") String officeRoom,
+            @Schema(example = "Teaches software engineering and distributed systems.") String bio,
+            @Schema(example = "Mon 10:00-12:00") String officeHours,
+            Teacher.TeacherRole teacherRole,
+            @Schema(example = "true") Boolean enabled) {}
+    public record CreatedTeacherDto(
+            Long userId,
+            Long teacherId,
+            String email,
+            String fullName,
+            Long facultyId,
+            String facultyName,
+            String department,
+            String positionTitle,
+            Teacher.TeacherRole teacherRole,
+            boolean enabled) {}
     public record CreateStudentBody(
             @Schema(example = "a_testov@kbtu.kz") String email,
             @Schema(example = "student123") String password,
@@ -650,6 +945,19 @@ public class AdminAcademicV1Controller {
             @Schema(example = "Almaty") String address,
             @Schema(example = "+77010000000") String phone,
             @Schema(example = "+77020000000") String emergencyContact,
+            @Schema(example = "true") Boolean enabled) {}
+    public record UpdateTeacherBody(
+            @Schema(example = "a.testov@kbtu.kz") String email,
+            @Schema(example = "prof123") String password,
+            @Schema(example = "Askar Testov") String fullName,
+            @Schema(example = "1") Long facultyId,
+            @Schema(example = "Information Systems") String department,
+            @Schema(example = "Senior Lecturer") String positionTitle,
+            @Schema(example = "askar.testov@kbtu.kz") String publicEmail,
+            @Schema(example = "417") String officeRoom,
+            @Schema(example = "Teaches software engineering and distributed systems.") String bio,
+            @Schema(example = "Mon 10:00-12:00") String officeHours,
+            Teacher.TeacherRole teacherRole,
             @Schema(example = "true") Boolean enabled) {}
     public record CreatedStudentDto(
             Long userId,

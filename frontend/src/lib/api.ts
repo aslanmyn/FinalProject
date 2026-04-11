@@ -12,6 +12,12 @@ import type {
   AdminProgramItem,
   AdminRequestPage,
   AdminSectionItem,
+  AdminSubjectDetail,
+  AdminSubjectUpsertPayload,
+  AdminSubjectUpsertResult,
+  AdminTeacherDetail,
+  AdminTeacherUpsertPayload,
+  AdminTeacherUpsertResult,
   AdminStudentDetail,
   AdminSimpleStudentItem,
   AdminStudentUpsertPayload,
@@ -751,8 +757,16 @@ export async function fetchAdminSubjects(): Promise<AdminSimpleSubjectItem[]> {
   return request<AdminSimpleSubjectItem[]>("/api/v1/admin/subjects");
 }
 
+export async function fetchAdminSubjectDetail(subjectId: number): Promise<AdminSubjectDetail> {
+  return request<AdminSubjectDetail>(`/api/v1/admin/subjects/${subjectId}`);
+}
+
 export async function fetchAdminTeachers(): Promise<AdminSimpleTeacherItem[]> {
   return request<AdminSimpleTeacherItem[]>("/api/v1/admin/teachers");
+}
+
+export async function fetchAdminTeacherDetail(teacherId: number): Promise<AdminTeacherDetail> {
+  return request<AdminTeacherDetail>(`/api/v1/admin/teachers/${teacherId}`);
 }
 
 export async function fetchAdminStudents(): Promise<AdminSimpleStudentItem[]> {
@@ -779,11 +793,45 @@ export async function createAdminStudent(payload: AdminStudentUpsertPayload): Pr
   });
 }
 
+export async function createAdminTeacher(payload: AdminTeacherUpsertPayload): Promise<AdminTeacherUpsertResult> {
+  return request<AdminTeacherUpsertResult>("/api/v1/admin/teachers", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export async function createAdminSubject(payload: AdminSubjectUpsertPayload): Promise<AdminSubjectUpsertResult> {
+  return request<AdminSubjectUpsertResult>("/api/v1/admin/subjects", {
+    method: "POST",
+    body: payload
+  });
+}
+
 export async function updateAdminStudent(
   studentId: number,
   payload: AdminStudentUpsertPayload
 ): Promise<AdminStudentUpsertResult> {
   return request<AdminStudentUpsertResult>(`/api/v1/admin/students/${studentId}`, {
+    method: "PUT",
+    body: payload
+  });
+}
+
+export async function updateAdminTeacher(
+  teacherId: number,
+  payload: AdminTeacherUpsertPayload
+): Promise<AdminTeacherUpsertResult> {
+  return request<AdminTeacherUpsertResult>(`/api/v1/admin/teachers/${teacherId}`, {
+    method: "PUT",
+    body: payload
+  });
+}
+
+export async function updateAdminSubject(
+  subjectId: number,
+  payload: AdminSubjectUpsertPayload
+): Promise<AdminSubjectUpsertResult> {
+  return request<AdminSubjectUpsertResult>(`/api/v1/admin/subjects/${subjectId}`, {
     method: "PUT",
     body: payload
   });

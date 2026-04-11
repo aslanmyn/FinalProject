@@ -21,6 +21,7 @@ public class AdminAcademicService {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final SubjectPrerequisiteRepository subjectPrerequisiteRepository;
     private final TeacherRepository teacherRepository;
+    private final ProgramRepository programRepository;
     private final MeetingTimeRepository meetingTimeRepository;
     private final RegistrationWindowRepository registrationWindowRepository;
     private final RegistrationRepository registrationRepository;
@@ -73,19 +74,64 @@ public class AdminAcademicService {
 
     @Transactional
     public Subject createSubject(String code, String name, int credits, Long programId, User actor) {
+        String normalizedCode = normalizeSubjectCode(code);
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Subject name is required");
+        }
+        if (credits < 1) {
+            throw new IllegalArgumentException("Credits must be at least 1");
+        }
+        if (subjectRepository.findByCode(normalizedCode).isPresent()) {
+            throw new IllegalStateException("Subject with this code already exists");
+        }
+
         Program programRef = null;
         if (programId != null) {
-            programRef = new Program();
-            programRef.setId(programId);
+            programRef = programRepository.findById(programId)
+                    .orElseThrow(() -> new IllegalArgumentException("Program not found"));
         }
         Subject subject = Subject.builder()
-                .code(code)
-                .name(name)
+                .code(normalizedCode)
+                .name(name.trim())
                 .credits(credits)
                 .program(programRef)
                 .build();
         Subject saved = subjectRepository.save(subject);
-        auditService.logUserAction(actor, "SUBJECT_CREATED", "Subject", saved.getId(), "code=" + code);
+        auditService.logUserAction(actor, "SUBJECT_CREATED", "Subject", saved.getId(), "code=" + normalizedCode);
+        return saved;
+    }
+
+    @Transactional
+    public Subject updateSubject(Long subjectId, String code, String name, int credits, Long programId, User actor) {
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new IllegalArgumentException("Subject not found"));
+
+        String normalizedCode = normalizeSubjectCode(code);
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Subject name is required");
+        }
+        if (credits < 1) {
+            throw new IllegalArgumentException("Credits must be at least 1");
+        }
+
+        subjectRepository.findByCode(normalizedCode)
+                .filter(existing -> !existing.getId().equals(subjectId))
+                .ifPresent(existing -> {
+                    throw new IllegalStateException("Subject with this code already exists");
+                });
+
+        Program program = null;
+        if (programId != null) {
+            program = programRepository.findById(programId)
+                    .orElseThrow(() -> new IllegalArgumentException("Program not found"));
+        }
+
+        subject.setCode(normalizedCode);
+        subject.setName(name.trim());
+        subject.setCredits(credits);
+        subject.setProgram(program);
+        Subject saved = subjectRepository.save(subject);
+        auditService.logUserAction(actor, "SUBJECT_UPDATED", "Subject", saved.getId(), "code=" + normalizedCode);
         return saved;
     }
 
@@ -283,10 +329,17 @@ public class AdminAcademicService {
     }
 
     public List<Subject> listSubjects() {
-        return subjectRepository.findAll();
+        return subjectRepository.findAllByOrderByCodeAsc();
     }
 
     public List<Teacher> listTeachers() {
         return teacherRepository.findAllByOrderByNameAsc();
+    }
+
+    private String normalizeSubjectCode(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Subject code is required");
+        }
+        return code.trim().toUpperCase();
     }
 }

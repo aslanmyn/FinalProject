@@ -44,12 +44,90 @@ export interface AdminSimpleSubjectItem {
   code: string;
   name: string;
   credits: number;
+  programId?: number | null;
+  programName?: string | null;
+  facultyId?: number | null;
+  facultyName?: string | null;
+}
+
+export interface AdminSubjectDetail {
+  subjectId: number;
+  code: string;
+  name: string;
+  credits: number;
+  programId: number | null;
+  programName: string | null;
+  facultyId: number | null;
+  facultyName: string | null;
+}
+
+export interface AdminSubjectUpsertPayload {
+  code: string;
+  name: string;
+  credits: number;
+  programId: number;
+}
+
+export interface AdminSubjectUpsertResult {
+  subjectId: number;
+  code: string;
+  name: string;
+  credits: number;
+  programId: number | null;
+  programName: string | null;
+  facultyId: number | null;
+  facultyName: string | null;
 }
 
 export interface AdminSimpleTeacherItem {
   id: number;
   name: string;
   email: string;
+}
+
+export interface AdminTeacherDetail {
+  userId: number;
+  teacherId: number;
+  email: string;
+  fullName: string;
+  facultyId: number | null;
+  facultyName: string | null;
+  department: string | null;
+  positionTitle: string | null;
+  publicEmail: string | null;
+  officeRoom: string | null;
+  bio: string | null;
+  officeHours: string | null;
+  teacherRole: "TEACHER" | "TA";
+  enabled: boolean;
+}
+
+export interface AdminTeacherUpsertPayload {
+  email: string;
+  password: string;
+  fullName: string;
+  facultyId: number;
+  department: string;
+  positionTitle: string;
+  publicEmail: string;
+  officeRoom: string;
+  bio: string;
+  officeHours: string;
+  teacherRole: "TEACHER" | "TA";
+  enabled: boolean;
+}
+
+export interface AdminTeacherUpsertResult {
+  userId: number;
+  teacherId: number;
+  email: string;
+  fullName: string;
+  facultyId: number;
+  facultyName: string;
+  department: string | null;
+  positionTitle: string | null;
+  teacherRole: "TEACHER" | "TA";
+  enabled: boolean;
 }
 
 export interface AdminSimpleStudentItem {

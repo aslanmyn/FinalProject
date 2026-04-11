@@ -5,6 +5,8 @@ import {
   assignAdminProfessor,
   createAdminExam,
   createAdminSection,
+  createAdminSubject,
+  createAdminTeacher,
   createAdminStudent,
   createAdminTerm,
   deleteAdminExam,
@@ -12,11 +14,15 @@ import {
   fetchAdminFaculties,
   fetchAdminPrograms,
   fetchAdminSections,
+  fetchAdminSubjectDetail,
+  fetchAdminTeacherDetail,
   fetchAdminStudentDetail,
   fetchAdminStudents,
   fetchAdminSubjects,
   fetchAdminTeachers,
   fetchAdminTerms,
+  updateAdminSubject,
+  updateAdminTeacher,
   updateAdminStudent,
   upsertAdminWindow
 } from "../../lib/api";
@@ -25,6 +31,10 @@ import type {
   AdminFacultyItem,
   AdminProgramItem,
   AdminSectionItem,
+  AdminSubjectDetail,
+  AdminSubjectUpsertPayload,
+  AdminTeacherDetail,
+  AdminTeacherUpsertPayload,
   AdminSimpleStudentItem,
   AdminSimpleSubjectItem,
   AdminSimpleTeacherItem,
@@ -37,8 +47,18 @@ const lessonTypes = ["LECTURE", "PRACTICE", "LAB"] as const;
 const windowTypes = ["REGISTRATION", "ADD_DROP", "FX", "GRADE_PUBLISH"] as const;
 const weekDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] as const;
 const studentStatuses = ["ACTIVE", "ON_LEAVE", "GRADUATED"] as const;
+const teacherRoles = ["TEACHER", "TA"] as const;
 
 type StudentStatus = (typeof studentStatuses)[number];
+type TeacherRole = (typeof teacherRoles)[number];
+
+type SubjectFormState = {
+  code: string;
+  name: string;
+  credits: number;
+  facultyId: number | "";
+  programId: number | "";
+};
 
 type StudentFormState = {
   email: string;
@@ -57,6 +77,31 @@ type StudentFormState = {
   emergencyContact: string;
   enabled: boolean;
 };
+
+type TeacherFormState = {
+  email: string;
+  password: string;
+  fullName: string;
+  facultyId: number | "";
+  department: string;
+  positionTitle: string;
+  publicEmail: string;
+  officeRoom: string;
+  bio: string;
+  officeHours: string;
+  teacherRole: TeacherRole;
+  enabled: boolean;
+};
+
+function createEmptySubjectForm(): SubjectFormState {
+  return {
+    code: "",
+    name: "",
+    credits: 3,
+    facultyId: "",
+    programId: ""
+  };
+}
 
 function createEmptyStudentForm(): StudentFormState {
   return {
@@ -78,6 +123,33 @@ function createEmptyStudentForm(): StudentFormState {
   };
 }
 
+function createEmptyTeacherForm(): TeacherFormState {
+  return {
+    email: "",
+    password: "prof123",
+    fullName: "",
+    facultyId: "",
+    department: "",
+    positionTitle: "",
+    publicEmail: "",
+    officeRoom: "",
+    bio: "",
+    officeHours: "",
+    teacherRole: "TEACHER",
+    enabled: true
+  };
+}
+
+function buildSubjectFormDefaults(faculties: AdminFacultyItem[], programs: AdminProgramItem[]): SubjectFormState {
+  const facultyId = faculties[0]?.id ?? "";
+  const programId = facultyId ? programs.find((program) => program.facultyId === facultyId)?.id ?? "" : "";
+  return {
+    ...createEmptySubjectForm(),
+    facultyId,
+    programId
+  };
+}
+
 function buildStudentFormDefaults(
   faculties: AdminFacultyItem[],
   programs: AdminProgramItem[],
@@ -91,6 +163,13 @@ function buildStudentFormDefaults(
     facultyId,
     programId,
     currentSemesterId: terms[0]?.id ?? ""
+  };
+}
+
+function buildTeacherFormDefaults(faculties: AdminFacultyItem[]): TeacherFormState {
+  return {
+    ...createEmptyTeacherForm(),
+    facultyId: faculties[0]?.id ?? ""
   };
 }
 
@@ -114,6 +193,46 @@ function mapStudentDetailToForm(detail: AdminStudentDetail): StudentFormState {
   };
 }
 
+function mapSubjectDetailToForm(detail: AdminSubjectDetail): SubjectFormState {
+  return {
+    code: detail.code,
+    name: detail.name,
+    credits: detail.credits,
+    facultyId: detail.facultyId ?? "",
+    programId: detail.programId ?? ""
+  };
+}
+
+function mapTeacherDetailToForm(detail: AdminTeacherDetail): TeacherFormState {
+  return {
+    email: detail.email,
+    password: "",
+    fullName: detail.fullName,
+    facultyId: detail.facultyId ?? "",
+    department: detail.department ?? "",
+    positionTitle: detail.positionTitle ?? "",
+    publicEmail: detail.publicEmail ?? "",
+    officeRoom: detail.officeRoom ?? "",
+    bio: detail.bio ?? "",
+    officeHours: detail.officeHours ?? "",
+    teacherRole: detail.teacherRole,
+    enabled: detail.enabled
+  };
+}
+
+function toSubjectPayload(form: SubjectFormState): AdminSubjectUpsertPayload {
+  if (!form.programId) {
+    throw new Error("Program is required");
+  }
+
+  return {
+    code: form.code.trim(),
+    name: form.name.trim(),
+    credits: Number(form.credits),
+    programId: Number(form.programId)
+  };
+}
+
 function toStudentPayload(form: StudentFormState): AdminStudentUpsertPayload {
   if (!form.facultyId || !form.programId || !form.currentSemesterId) {
     throw new Error("Faculty, program, and semester are required");
@@ -134,6 +253,27 @@ function toStudentPayload(form: StudentFormState): AdminStudentUpsertPayload {
     address: form.address.trim(),
     phone: form.phone.trim(),
     emergencyContact: form.emergencyContact.trim(),
+    enabled: form.enabled
+  };
+}
+
+function toTeacherPayload(form: TeacherFormState): AdminTeacherUpsertPayload {
+  if (!form.facultyId) {
+    throw new Error("Faculty is required");
+  }
+
+  return {
+    email: form.email.trim(),
+    password: form.password,
+    fullName: form.fullName.trim(),
+    facultyId: Number(form.facultyId),
+    department: form.department.trim(),
+    positionTitle: form.positionTitle.trim(),
+    publicEmail: form.publicEmail.trim(),
+    officeRoom: form.officeRoom.trim(),
+    bio: form.bio.trim(),
+    officeHours: form.officeHours.trim(),
+    teacherRole: form.teacherRole,
     enabled: form.enabled
   };
 }
@@ -199,6 +339,18 @@ export default function AdminAcademicPage() {
   const [examRoom, setExamRoom] = useState("Main Hall");
   const [examFormat, setExamFormat] = useState("WRITTEN");
 
+  const [createSubjectForm, setCreateSubjectForm] = useState<SubjectFormState>(createEmptySubjectForm());
+  const [editSubjectForm, setEditSubjectForm] = useState<SubjectFormState>(createEmptySubjectForm());
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | "">("");
+  const [selectedSubjectMeta, setSelectedSubjectMeta] = useState<AdminSubjectDetail | null>(null);
+  const [loadingSubjectDetails, setLoadingSubjectDetails] = useState(false);
+
+  const [createTeacherForm, setCreateTeacherForm] = useState<TeacherFormState>(createEmptyTeacherForm());
+  const [editTeacherForm, setEditTeacherForm] = useState<TeacherFormState>(createEmptyTeacherForm());
+  const [selectedTeacherId, setSelectedTeacherId] = useState<number | "">("");
+  const [selectedTeacherMeta, setSelectedTeacherMeta] = useState<AdminTeacherDetail | null>(null);
+  const [loadingTeacherDetails, setLoadingTeacherDetails] = useState(false);
+
   const [createStudentForm, setCreateStudentForm] = useState<StudentFormState>(createEmptyStudentForm());
   const [editStudentForm, setEditStudentForm] = useState<StudentFormState>(createEmptyStudentForm());
   const [selectedStudentId, setSelectedStudentId] = useState<number | "">("");
@@ -208,6 +360,14 @@ export default function AdminAcademicPage() {
   const createPrograms = useMemo(
     () => programs.filter((program) => !createStudentForm.facultyId || program.facultyId === createStudentForm.facultyId),
     [programs, createStudentForm.facultyId]
+  );
+  const createSubjectPrograms = useMemo(
+    () => programs.filter((program) => !createSubjectForm.facultyId || program.facultyId === createSubjectForm.facultyId),
+    [programs, createSubjectForm.facultyId]
+  );
+  const editSubjectPrograms = useMemo(
+    () => programs.filter((program) => !editSubjectForm.facultyId || program.facultyId === editSubjectForm.facultyId),
+    [programs, editSubjectForm.facultyId]
   );
   const editPrograms = useMemo(
     () => programs.filter((program) => !editStudentForm.facultyId || program.facultyId === editStudentForm.facultyId),
@@ -245,7 +405,11 @@ export default function AdminAcademicPage() {
       setMeetingSectionId((current) => current || sectionsData[0]?.id || "");
       setWindowSemesterId((current) => current || termsData[0]?.id || "");
       setExamSectionId((current) => current || sectionsData[0]?.id || "");
+      setSelectedSubjectId((current) => current || subjectsData[0]?.id || "");
+      setSelectedTeacherId((current) => current || teachersData[0]?.id || "");
       setSelectedStudentId((current) => current || studentsData[0]?.id || "");
+      setCreateSubjectForm((current) => (current.facultyId ? current : buildSubjectFormDefaults(facultiesData, programsData)));
+      setCreateTeacherForm((current) => (current.facultyId ? current : buildTeacherFormDefaults(facultiesData)));
       setCreateStudentForm((current) =>
         current.facultyId || current.currentSemesterId ? current : buildStudentFormDefaults(facultiesData, programsData, termsData)
       );
@@ -259,6 +423,70 @@ export default function AdminAcademicPage() {
   useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedSubjectId) {
+      setSelectedSubjectMeta(null);
+      setEditSubjectForm(createEmptySubjectForm());
+      return;
+    }
+
+    let active = true;
+    setLoadingSubjectDetails(true);
+    setError(null);
+
+    void fetchAdminSubjectDetail(Number(selectedSubjectId))
+      .then((detail) => {
+        if (!active) return;
+        setSelectedSubjectMeta(detail);
+        setEditSubjectForm(mapSubjectDetailToForm(detail));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof ApiError ? err.message : "Failed to load subject details");
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingSubjectDetails(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedSubjectId]);
+
+  useEffect(() => {
+    if (!selectedTeacherId) {
+      setSelectedTeacherMeta(null);
+      setEditTeacherForm(createEmptyTeacherForm());
+      return;
+    }
+
+    let active = true;
+    setLoadingTeacherDetails(true);
+    setError(null);
+
+    void fetchAdminTeacherDetail(Number(selectedTeacherId))
+      .then((detail) => {
+        if (!active) return;
+        setSelectedTeacherMeta(detail);
+        setEditTeacherForm(mapTeacherDetailToForm(detail));
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err instanceof ApiError ? err.message : "Failed to load teacher details");
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingTeacherDetails(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedTeacherId]);
 
   useEffect(() => {
     if (!selectedStudentId) {
@@ -291,6 +519,42 @@ export default function AdminAcademicPage() {
       active = false;
     };
   }, [selectedStudentId]);
+
+  function updateCreateSubjectField<K extends keyof SubjectFormState>(key: K, value: SubjectFormState[K]) {
+    setCreateSubjectForm((prev) => {
+      if (key === "facultyId") {
+        const nextFacultyId = value as SubjectFormState["facultyId"];
+        return {
+          ...prev,
+          facultyId: nextFacultyId,
+          programId: syncProgramForFaculty(nextFacultyId, prev.programId, programs)
+        };
+      }
+      return { ...prev, [key]: value };
+    });
+  }
+
+  function updateEditSubjectField<K extends keyof SubjectFormState>(key: K, value: SubjectFormState[K]) {
+    setEditSubjectForm((prev) => {
+      if (key === "facultyId") {
+        const nextFacultyId = value as SubjectFormState["facultyId"];
+        return {
+          ...prev,
+          facultyId: nextFacultyId,
+          programId: syncProgramForFaculty(nextFacultyId, prev.programId, programs)
+        };
+      }
+      return { ...prev, [key]: value };
+    });
+  }
+
+  function updateCreateTeacherField<K extends keyof TeacherFormState>(key: K, value: TeacherFormState[K]) {
+    setCreateTeacherForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function updateEditTeacherField<K extends keyof TeacherFormState>(key: K, value: TeacherFormState[K]) {
+    setEditTeacherForm((prev) => ({ ...prev, [key]: value }));
+  }
 
   function updateCreateStudentField<K extends keyof StudentFormState>(key: K, value: StudentFormState[K]) {
     setCreateStudentForm((prev) => {
@@ -431,6 +695,71 @@ export default function AdminAcademicPage() {
     }
   }
 
+  async function handleCreateSubject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await createAdminSubject(toSubjectPayload(createSubjectForm));
+      setSuccess(`Subject created: ${created.code}`);
+      await loadData();
+      setSelectedSubjectId(created.subjectId);
+      setSectionSubjectId(created.subjectId);
+      setCreateSubjectForm(buildSubjectFormDefaults(faculties, programs));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to create subject");
+    }
+  }
+
+  async function handleUpdateSubject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedSubjectId) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await updateAdminSubject(Number(selectedSubjectId), toSubjectPayload(editSubjectForm));
+      setSuccess(`Subject updated: ${updated.code}`);
+      await loadData();
+      const refreshed = await fetchAdminSubjectDetail(Number(selectedSubjectId));
+      setSelectedSubjectMeta(refreshed);
+      setEditSubjectForm(mapSubjectDetailToForm(refreshed));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to update subject");
+    }
+  }
+
+  async function handleCreateTeacher(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setSuccess(null);
+    try {
+      const created = await createAdminTeacher(toTeacherPayload(createTeacherForm));
+      setSuccess(`Teacher created: ${created.fullName}`);
+      await loadData();
+      setSelectedTeacherId(created.teacherId);
+      setCreateTeacherForm(buildTeacherFormDefaults(faculties));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to create teacher");
+    }
+  }
+
+  async function handleUpdateTeacher(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selectedTeacherId) return;
+    setError(null);
+    setSuccess(null);
+    try {
+      const updated = await updateAdminTeacher(Number(selectedTeacherId), toTeacherPayload(editTeacherForm));
+      setSuccess(`Teacher updated: ${updated.fullName}`);
+      await loadData();
+      const refreshed = await fetchAdminTeacherDetail(Number(selectedTeacherId));
+      setSelectedTeacherMeta(refreshed);
+      setEditTeacherForm(mapTeacherDetailToForm(refreshed));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Failed to update teacher");
+    }
+  }
+
   async function handleCreateStudent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -475,6 +804,446 @@ export default function AdminAcademicPage() {
 
       {!loading ? (
         <>
+          <section className="card">
+            <h3>Subject Management</h3>
+            <p className="muted">
+              Create new subjects and update existing ones before assigning them to sections and schedules.
+            </p>
+          </section>
+
+          <section className="card">
+            <h3>Create Subject</h3>
+            <form className="form" onSubmit={handleCreateSubject}>
+              <div className="inline-form">
+                <label>
+                  Subject Code
+                  <input
+                    value={createSubjectForm.code}
+                    onChange={(event) => updateCreateSubjectField("code", event.target.value)}
+                    placeholder="CSCI2104"
+                    required
+                  />
+                </label>
+                <label>
+                  Subject Name
+                  <input
+                    value={createSubjectForm.name}
+                    onChange={(event) => updateCreateSubjectField("name", event.target.value)}
+                    placeholder="Databases"
+                    required
+                  />
+                </label>
+                <label>
+                  Credits
+                  <input
+                    type="number"
+                    min={1}
+                    value={createSubjectForm.credits}
+                    onChange={(event) => updateCreateSubjectField("credits", Number(event.target.value))}
+                    required
+                  />
+                </label>
+                <label>
+                  Faculty
+                  <select
+                    value={createSubjectForm.facultyId}
+                    onChange={(event) =>
+                      updateCreateSubjectField("facultyId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Program
+                  <select
+                    value={createSubjectForm.programId}
+                    onChange={(event) =>
+                      updateCreateSubjectField("programId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select program</option>
+                    {createSubjectPrograms.map((program) => (
+                      <option key={program.id} value={program.id}>
+                        {program.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button type="submit">Create Subject</button>
+            </form>
+          </section>
+
+          <section className="card">
+            <h3>Edit Existing Subject</h3>
+            <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
+              <label>
+                Subject
+                <select
+                  value={selectedSubjectId}
+                  onChange={(event) => setSelectedSubjectId(event.target.value ? Number(event.target.value) : "")}
+                >
+                  <option value="">Select subject</option>
+                  {subjects.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.code} - {subject.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </form>
+
+            {loadingSubjectDetails ? <p>Loading subject details...</p> : null}
+
+            {selectedSubjectMeta ? (
+              <form className="form" onSubmit={handleUpdateSubject}>
+                <div className="inline-form">
+                  <label>
+                    Subject Code
+                    <input
+                      value={editSubjectForm.code}
+                      onChange={(event) => updateEditSubjectField("code", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Subject Name
+                    <input
+                      value={editSubjectForm.name}
+                      onChange={(event) => updateEditSubjectField("name", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Credits
+                    <input
+                      type="number"
+                      min={1}
+                      value={editSubjectForm.credits}
+                      onChange={(event) => updateEditSubjectField("credits", Number(event.target.value))}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Faculty
+                    <select
+                      value={editSubjectForm.facultyId}
+                      onChange={(event) =>
+                        updateEditSubjectField("facultyId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select faculty</option>
+                      {faculties.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Program
+                    <select
+                      value={editSubjectForm.programId}
+                      onChange={(event) =>
+                        updateEditSubjectField("programId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select program</option>
+                      {editSubjectPrograms.map((program) => (
+                        <option key={program.id} value={program.id}>
+                          {program.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <button type="submit" disabled={!selectedSubjectId}>
+                  Save Subject Changes
+                </button>
+              </form>
+            ) : selectedSubjectId ? (
+              <p className="muted">No subject details loaded yet.</p>
+            ) : (
+              <p className="muted">Select a subject to edit it.</p>
+            )}
+          </section>
+
+          <section className="card">
+            <h3>Teacher Management</h3>
+            <p className="muted">
+              Add new teachers and maintain their public profile fields, faculty assignment, and login access from one place.
+            </p>
+          </section>
+
+          <section className="card">
+            <h3>Create Teacher</h3>
+            <form className="form" onSubmit={handleCreateTeacher}>
+              <div className="inline-form">
+                <label>
+                  Email
+                  <input
+                    value={createTeacherForm.email}
+                    onChange={(event) => updateCreateTeacherField("email", event.target.value)}
+                    placeholder="a.testov@kbtu.kz"
+                    required
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    value={createTeacherForm.password}
+                    onChange={(event) => updateCreateTeacherField("password", event.target.value)}
+                    minLength={6}
+                    required
+                  />
+                </label>
+                <label>
+                  Full Name
+                  <input
+                    value={createTeacherForm.fullName}
+                    onChange={(event) => updateCreateTeacherField("fullName", event.target.value)}
+                    required
+                  />
+                </label>
+                <label>
+                  Faculty
+                  <select
+                    value={createTeacherForm.facultyId}
+                    onChange={(event) =>
+                      updateCreateTeacherField("facultyId", event.target.value ? Number(event.target.value) : "")
+                    }
+                    required
+                  >
+                    <option value="">Select faculty</option>
+                    {faculties.map((faculty) => (
+                      <option key={faculty.id} value={faculty.id}>
+                        {faculty.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Teacher Role
+                  <select
+                    value={createTeacherForm.teacherRole}
+                    onChange={(event) => updateCreateTeacherField("teacherRole", event.target.value as TeacherRole)}
+                  >
+                    {teacherRoles.map((role) => (
+                      <option key={role} value={role}>
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Department
+                  <input
+                    value={createTeacherForm.department}
+                    onChange={(event) => updateCreateTeacherField("department", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Position
+                  <input
+                    value={createTeacherForm.positionTitle}
+                    onChange={(event) => updateCreateTeacherField("positionTitle", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Public Email
+                  <input
+                    value={createTeacherForm.publicEmail}
+                    onChange={(event) => updateCreateTeacherField("publicEmail", event.target.value)}
+                    placeholder="askar.testov@kbtu.kz"
+                  />
+                </label>
+                <label>
+                  Office Room
+                  <input
+                    value={createTeacherForm.officeRoom}
+                    onChange={(event) => updateCreateTeacherField("officeRoom", event.target.value)}
+                  />
+                </label>
+                <label>
+                  Office Hours
+                  <input
+                    value={createTeacherForm.officeHours}
+                    onChange={(event) => updateCreateTeacherField("officeHours", event.target.value)}
+                    placeholder="Mon 10:00-12:00"
+                  />
+                </label>
+                <label>
+                  Bio
+                  <textarea
+                    rows={3}
+                    value={createTeacherForm.bio}
+                    onChange={(event) => updateCreateTeacherField("bio", event.target.value)}
+                  />
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={createTeacherForm.enabled}
+                    onChange={(event) => updateCreateTeacherField("enabled", event.target.checked)}
+                  />{" "}
+                  Enabled
+                </label>
+              </div>
+              <button type="submit">Create Teacher</button>
+            </form>
+          </section>
+
+          <section className="card">
+            <h3>Edit Existing Teacher</h3>
+            <form className="inline-form" onSubmit={(event) => event.preventDefault()}>
+              <label>
+                Teacher
+                <select
+                  value={selectedTeacherId}
+                  onChange={(event) => setSelectedTeacherId(event.target.value ? Number(event.target.value) : "")}
+                >
+                  <option value="">Select teacher</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.id} - {teacher.name} ({teacher.email})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </form>
+
+            {loadingTeacherDetails ? <p>Loading teacher details...</p> : null}
+
+            {selectedTeacherMeta ? (
+              <form className="form" onSubmit={handleUpdateTeacher}>
+                <div className="inline-form">
+                  <label>
+                    Email
+                    <input
+                      value={editTeacherForm.email}
+                      onChange={(event) => updateEditTeacherField("email", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    New Password
+                    <input
+                      value={editTeacherForm.password}
+                      onChange={(event) => updateEditTeacherField("password", event.target.value)}
+                      placeholder="Leave blank to keep current password"
+                    />
+                  </label>
+                  <label>
+                    Full Name
+                    <input
+                      value={editTeacherForm.fullName}
+                      onChange={(event) => updateEditTeacherField("fullName", event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    Faculty
+                    <select
+                      value={editTeacherForm.facultyId}
+                      onChange={(event) =>
+                        updateEditTeacherField("facultyId", event.target.value ? Number(event.target.value) : "")
+                      }
+                      required
+                    >
+                      <option value="">Select faculty</option>
+                      {faculties.map((faculty) => (
+                        <option key={faculty.id} value={faculty.id}>
+                          {faculty.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Teacher Role
+                    <select
+                      value={editTeacherForm.teacherRole}
+                      onChange={(event) => updateEditTeacherField("teacherRole", event.target.value as TeacherRole)}
+                    >
+                      {teacherRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Department
+                    <input
+                      value={editTeacherForm.department}
+                      onChange={(event) => updateEditTeacherField("department", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Position
+                    <input
+                      value={editTeacherForm.positionTitle}
+                      onChange={(event) => updateEditTeacherField("positionTitle", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Public Email
+                    <input
+                      value={editTeacherForm.publicEmail}
+                      onChange={(event) => updateEditTeacherField("publicEmail", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Office Room
+                    <input
+                      value={editTeacherForm.officeRoom}
+                      onChange={(event) => updateEditTeacherField("officeRoom", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Office Hours
+                    <input
+                      value={editTeacherForm.officeHours}
+                      onChange={(event) => updateEditTeacherField("officeHours", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Bio
+                    <textarea
+                      rows={3}
+                      value={editTeacherForm.bio}
+                      onChange={(event) => updateEditTeacherField("bio", event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={editTeacherForm.enabled}
+                      onChange={(event) => updateEditTeacherField("enabled", event.target.checked)}
+                    />{" "}
+                    Enabled
+                  </label>
+                </div>
+                <button type="submit" disabled={!selectedTeacherId}>
+                  Save Teacher Changes
+                </button>
+              </form>
+            ) : selectedTeacherId ? (
+              <p className="muted">No teacher details loaded yet.</p>
+            ) : (
+              <p className="muted">Select a teacher to edit the existing profile.</p>
+            )}
+          </section>
+
           <section className="card">
             <h3>Student Management</h3>
             <p className="muted">
