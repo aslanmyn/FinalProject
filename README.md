@@ -44,6 +44,7 @@ Public:
 Student:
 - profile and profile photo
 - registration center
+- course detail page with grades, attendance, exam, announcements, and materials
 - schedule
 - enrollments
 - journal

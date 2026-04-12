@@ -32,6 +32,7 @@ Core:
 - `/app/student/schedule`
 - `/app/student/enrollments`
 - `/app/student/journal`
+- `/app/student/sections/:sectionId`
 - `/app/student/transcript`
 - `/app/student/attendance`
 - `/app/student/exams`
@@ -87,6 +88,7 @@ Campus life:
 Covered by React UI:
 - profile and profile photo
 - registration center
+- student section detail page with grades, attendance, exam, announcements, and materials
 - schedule and enrollment filters
 - journal and transcript
 - attendance and self check-in attendance
@@ -180,15 +182,16 @@ API roots used by admin UI:
 4. Added JWT login, refresh, logout, and protected route handling in frontend.
 5. Added public React pages for home, news, professors, and registration.
 6. Added complete student academic and service flows.
-7. Added teacher workflows for course delivery, attendance, and moderation.
-8. Added admin workflows for academic operations, subject and teacher management, finance, support, and analytics.
-9. Added student, teacher, and admin AI assistants.
-10. Added notification centers for all roles.
-11. Added live unread badges and WebSocket-driven notification refresh.
-12. Added live student self check-in attendance flow with teacher control.
-13. Added campus life modules: dorm, food, campus map, laundry.
-14. Added Docker frontend service with SPA-friendly routing.
-15. Kept backend CORS and frontend URL configuration externalized through env variables.
+7. Added a student section detail page backed by an aggregated academic endpoint.
+8. Added teacher workflows for course delivery, attendance, and moderation.
+9. Added admin workflows for academic operations, subject and teacher management, finance, support, and analytics.
+10. Added student, teacher, and admin AI assistants.
+11. Added notification centers for all roles.
+12. Added live unread badges and WebSocket-driven notification refresh.
+13. Added live student self check-in attendance flow with teacher control.
+14. Added campus life modules: dorm, food, campus map, laundry.
+15. Added Docker frontend service with SPA-friendly routing.
+16. Kept backend CORS and frontend URL configuration externalized through env variables.
 
 ## Runtime Notes
 

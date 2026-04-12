@@ -178,6 +178,7 @@ Update profile body:
 |---|---|---|
 | GET | `/api/v1/student/schedule` | Weekly schedule |
 | GET | `/api/v1/student/schedule/options` | Schedule semester filters |
+| GET | `/api/v1/student/sections/{sectionId}` | Full student course detail for one enrolled section |
 | GET | `/api/v1/student/journal` | Journal table |
 | GET | `/api/v1/student/journal/options` | Journal semester filters |
 | GET | `/api/v1/student/transcript` | Transcript and GPA summary |
@@ -190,6 +191,62 @@ Attendance self check-in body:
 ```json
 {
   "code": "OPTIONAL_IF_MODE_IS_CODE"
+}
+```
+
+Student section detail response example:
+```json
+{
+  "registrationId": 15,
+  "sectionId": 8,
+  "subjectId": 4,
+  "subjectCode": "CSCI2104",
+  "subjectName": "Databases",
+  "credits": 4,
+  "registrationStatus": "CONFIRMED",
+  "activeCourseAccess": true,
+  "contentBlockedReason": null,
+  "semesterId": 8,
+  "semesterName": "2025-2026 Fall",
+  "teacher": {
+    "teacherId": 12,
+    "teacherName": "Askar Testov",
+    "teacherEmail": "a.testov@kbtu.kz"
+  },
+  "meetingTimes": [
+    {
+      "dayOfWeek": "MONDAY",
+      "startTime": "10:00:00",
+      "endTime": "10:50:00",
+      "room": "417",
+      "lessonType": "LECTURE"
+    }
+  ],
+  "scoreSummary": {
+    "attestation1": 27.0,
+    "attestation1Max": 30.0,
+    "attestation2": 25.0,
+    "attestation2Max": 30.0,
+    "finalExam": 34.0,
+    "finalExamMax": 40.0,
+    "totalScore": 86.0,
+    "letterValue": "B+",
+    "points": 3.33
+  },
+  "componentGrades": [],
+  "finalGrade": null,
+  "attendanceSummary": {
+    "present": 12,
+    "late": 1,
+    "absent": 2,
+    "total": 15,
+    "percentage": 86.67
+  },
+  "attendanceRecords": [],
+  "activeAttendanceSessions": [],
+  "exam": null,
+  "announcements": [],
+  "materials": []
 }
 ```
 
@@ -674,6 +731,13 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 
 ```bash
 curl http://localhost:8080/api/v1/student/course-registration/overview \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+### Student section detail
+
+```bash
+curl http://localhost:8080/api/v1/student/sections/8 \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 

@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/student")
 @RequiredArgsConstructor
-@Tag(name = "Student Academic", description = "Schedule, journal, transcript, attendance, exams, and academic session actions for the current student.")
+@Tag(name = "Student Academic", description = "Schedule, section detail, journal, transcript, attendance, exams, and academic session actions for the current student.")
 @SecurityRequirement(name = "Bearer")
 public class StudentAcademicV1Controller {
 
@@ -92,7 +92,7 @@ public class StudentAcademicV1Controller {
 
     @GetMapping("/sections/{sectionId}")
     @Transactional(readOnly = true)
-    @Operation(summary = "Get student section detail", description = "Returns a complete section overview for the current student including grades, attendance, exam, announcements, and materials.")
+    @Operation(summary = "Get student section detail", description = "Returns the full student course detail for one section including schedule, score summary, published component grades, final grade, attendance history, live attendance sessions, exam, announcements, and materials.")
     public ResponseEntity<?> sectionDetail(
             @AuthenticationPrincipal User user,
             @PathVariable Long sectionId) {

@@ -1,6 +1,5 @@
 import AssistantConsole from "../../components/AssistantConsole";
 import {
-  ApiError,
   askStudentAssistant,
   fetchStudentScheduleDemo
 } from "../../lib/api";
