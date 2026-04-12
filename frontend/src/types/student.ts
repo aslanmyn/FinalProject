@@ -46,6 +46,136 @@ export interface StudentScheduleOptions {
   semesters: StudentScheduleSemesterOption[];
 }
 
+export interface StudentSectionTeacher {
+  teacherId: number;
+  teacherName: string;
+  teacherEmail: string | null;
+}
+
+export interface StudentSectionMeetingSlot {
+  dayOfWeek: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  room: string | null;
+  lessonType: string | null;
+}
+
+export interface StudentSectionScoreSummary {
+  attestation1: number | null;
+  attestation1Max: number | null;
+  attestation2: number | null;
+  attestation2Max: number | null;
+  finalExam: number | null;
+  finalExamMax: number | null;
+  totalScore: number | null;
+  letterValue: string | null;
+  points: number | null;
+}
+
+export interface StudentSectionComponentGrade {
+  componentId: number | null;
+  componentName: string | null;
+  componentType: string | null;
+  weightPercent: number | null;
+  componentPublished: boolean;
+  componentLocked: boolean;
+  gradeId: number | null;
+  gradeType: string | null;
+  gradeValue: number | null;
+  maxGradeValue: number | null;
+  comment: string | null;
+  createdAt: string | null;
+}
+
+export interface StudentSectionFinalGrade {
+  id: number;
+  numericValue: number;
+  letterValue: string | null;
+  points: number;
+  status: string;
+  publishedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface StudentSectionAttendanceSummary {
+  present: number;
+  late: number;
+  absent: number;
+  total: number;
+  percentage: number;
+}
+
+export interface StudentSectionAttendanceRecord {
+  attendanceId: number;
+  date: string;
+  status: string;
+  reason: string | null;
+  markedBy: string | null;
+  teacherConfirmed: boolean;
+  markedAt: string | null;
+  updatedAt: string | null;
+  sessionId: number | null;
+  sessionDate: string | null;
+}
+
+export interface StudentSectionExam {
+  id: number;
+  examDate: string;
+  examTime: string;
+  room: string | null;
+  format: string | null;
+}
+
+export interface StudentSectionAnnouncement {
+  id: number;
+  title: string;
+  content: string;
+  teacherName: string | null;
+  publishedAt: string | null;
+  pinned: boolean;
+}
+
+export interface StudentSectionMaterial {
+  id: number;
+  title: string;
+  description: string | null;
+  originalFileName: string;
+  contentType: string | null;
+  sizeBytes: number;
+  createdAt: string | null;
+  downloadUrl: string;
+}
+
+export interface StudentSectionDetail {
+  registrationId: number;
+  sectionId: number;
+  subjectId: number;
+  subjectCode: string;
+  subjectName: string;
+  credits: number;
+  registrationStatus: string;
+  activeCourseAccess: boolean;
+  contentBlockedReason: string | null;
+  semesterId: number | null;
+  semesterName: string | null;
+  academicYear: string | null;
+  season: string | null;
+  teacher: StudentSectionTeacher | null;
+  capacity: number;
+  occupiedSeats: number;
+  lessonType: string | null;
+  meetingTimes: StudentSectionMeetingSlot[];
+  scoreSummary: StudentSectionScoreSummary;
+  componentGrades: StudentSectionComponentGrade[];
+  finalGrade: StudentSectionFinalGrade | null;
+  attendanceSummary: StudentSectionAttendanceSummary;
+  attendanceRecords: StudentSectionAttendanceRecord[];
+  activeAttendanceSessions: StudentAttendanceActiveSessionItem[];
+  exam: StudentSectionExam | null;
+  announcements: StudentSectionAnnouncement[];
+  materials: StudentSectionMaterial[];
+}
+
 export interface StudentRequestItem {
   id: number;
   category: string;

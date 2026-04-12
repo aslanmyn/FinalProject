@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, fetchStudentEnrollmentOptions, fetchStudentEnrollments } from "../../lib/api";
 import type {
   StudentEnrollmentItem,
@@ -213,8 +214,16 @@ export default function StudentEnrollmentsPage() {
                     {items.map((item) => (
                       <tr key={item.id}>
                         <td>#{item.sectionId}</td>
-                        <td>{item.subjectCode}</td>
-                        <td>{item.subjectName}</td>
+                        <td>
+                          <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                            {item.subjectCode}
+                          </Link>
+                        </td>
+                        <td>
+                          <Link className="student-course-table-link student-course-table-link-name" to={`/app/student/sections/${item.sectionId}`}>
+                            {item.subjectName}
+                          </Link>
+                        </td>
                         <td>{item.teacherName || "TBA"}</td>
                         <td>{item.credits ?? "-"}</td>
                         <td>{item.semesterName || `${item.academicYear || ""} ${item.season || ""}`.trim() || "-"}</td>

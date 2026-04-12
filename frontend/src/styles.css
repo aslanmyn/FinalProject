@@ -1598,6 +1598,17 @@ button:disabled {
   overflow: hidden;
 }
 
+.schedule-slot-link,
+.schedule-slot-name-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.schedule-slot-link:hover .schedule-slot-course,
+.schedule-slot-name-link:hover .schedule-slot-name {
+  text-decoration: underline;
+}
+
 .schedule-slot-meta {
   font-size: 8px;
   line-height: 1;
@@ -1649,6 +1660,213 @@ button:disabled {
 
 .journal-page {
   gap: 16px;
+}
+
+.student-course-table-link {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.student-course-table-link:hover {
+  text-decoration: underline;
+}
+
+.student-course-table-link-name {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.student-course-inline-link {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.student-course-inline-link:hover {
+  text-decoration: underline;
+}
+
+.student-course-detail-page {
+  gap: 16px;
+}
+
+.student-course-hero-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.student-course-hero {
+  display: grid;
+  grid-template-columns: 1.25fr 0.75fr;
+  gap: 0;
+}
+
+.student-course-hero-main {
+  padding: 24px 28px;
+  display: grid;
+  gap: 18px;
+  background: var(--card);
+}
+
+.student-course-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.student-course-chip-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.student-course-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.student-course-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fffbea 0%, #fffbeb 100%);
+}
+
+.student-course-hero-side {
+  padding: 24px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-subtle);
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.student-course-side-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: var(--card);
+  display: grid;
+  gap: 12px;
+}
+
+.student-course-side-card-compact {
+  gap: 10px;
+}
+
+.student-course-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.student-course-summary-card,
+.student-course-data-card,
+.student-course-feed-card {
+  display: grid;
+  gap: 16px;
+}
+
+.student-course-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.student-course-summary-stat {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  background: var(--bg-subtle);
+  display: grid;
+  gap: 6px;
+}
+
+.student-course-summary-stat span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.student-course-summary-stat strong {
+  font-size: 16px;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.student-course-detail-table td {
+  vertical-align: top;
+}
+
+.student-course-table-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.student-course-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.student-course-feed-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-course-feed-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  display: grid;
+  gap: 6px;
+}
+
+.student-course-feed-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 10px;
+}
+
+.student-course-feed-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.student-course-material-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 980px) {
+  .student-course-hero,
+  .student-course-overview-grid,
+  .student-course-feed-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-course-hero-side {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .student-course-banner {
+    flex-direction: column;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

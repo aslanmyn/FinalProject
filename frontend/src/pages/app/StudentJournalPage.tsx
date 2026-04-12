@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, fetchStudentJournal, fetchStudentJournalOptions } from "../../lib/api";
 import type {
   StudentJournalItem,
@@ -213,8 +214,16 @@ export default function StudentJournalPage() {
                   <tbody>
                     {items.map((item) => (
                       <tr key={`${item.sectionId}-${item.courseCode}`}>
-                        <td>{item.courseCode}</td>
-                        <td>{item.courseName}</td>
+                        <td>
+                          <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                            {item.courseCode}
+                          </Link>
+                        </td>
+                        <td>
+                          <Link className="student-course-table-link student-course-table-link-name" to={`/app/student/sections/${item.sectionId}`}>
+                            {item.courseName}
+                          </Link>
+                        </td>
                         <td>{formatScore(item.attestation1, item.attestation1Max)}</td>
                         <td>{formatScore(item.attestation2, item.attestation2Max)}</td>
                         <td>{formatScore(item.finalExam, item.finalExamMax)}</td>

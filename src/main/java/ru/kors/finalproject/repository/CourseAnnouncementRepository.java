@@ -25,6 +25,14 @@ public interface CourseAnnouncementRepository extends JpaRepository<CourseAnnoun
            "LEFT JOIN FETCH a.teacher " +
            "LEFT JOIN FETCH a.subjectOffering so " +
            "LEFT JOIN FETCH so.subject " +
+           "WHERE a.subjectOffering.id = :offeringId AND a.published = true " +
+           "ORDER BY a.pinned DESC, a.publishedAt DESC")
+    List<CourseAnnouncement> findPublishedBySubjectOfferingIdWithDetailsOrderByPinnedDescPublishedAtDesc(Long offeringId);
+
+    @Query("SELECT a FROM CourseAnnouncement a " +
+           "LEFT JOIN FETCH a.teacher " +
+           "LEFT JOIN FETCH a.subjectOffering so " +
+           "LEFT JOIN FETCH so.subject " +
            "WHERE a.teacher.id = :teacherId AND a.publicVisible = true AND a.published = true " +
            "ORDER BY a.pinned DESC, a.publishedAt DESC")
     List<CourseAnnouncement> findByTeacherIdAndPublicVisibleTrueAndPublishedTrueWithDetails(Long teacherId);

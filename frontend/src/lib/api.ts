@@ -57,6 +57,7 @@ import type {
   StudentPlannerSimulation,
   StudentRiskDashboard,
   StudentRequestPage,
+  StudentSectionDetail,
   StudentScheduleItem,
   StudentScheduleOptions,
   StudentTranscriptData,
@@ -249,6 +250,10 @@ export async function fetchStudentSchedule(semesterId?: number): Promise<Student
 
 export async function fetchStudentScheduleOptions(): Promise<StudentScheduleOptions> {
   return request<StudentScheduleOptions>("/api/v1/student/schedule/options");
+}
+
+export async function fetchStudentSectionDetail(sectionId: number): Promise<StudentSectionDetail> {
+  return request<StudentSectionDetail>(`/api/v1/student/sections/${sectionId}`);
 }
 
 export async function fetchStudentEnrollments(semesterId?: number): Promise<StudentEnrollmentItem[]> {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiError, fetchStudentSchedule, fetchStudentScheduleOptions } from "../../lib/api";
 import type {
   StudentScheduleItem,
@@ -301,12 +302,16 @@ export default function StudentSchedulePage() {
                             <td key={key} className="schedule-slot-cell" rowSpan={span}>
                               <article className="schedule-slot-card">
                                 <div className="schedule-slot-top">
-                                  <strong className="schedule-slot-course">{item.courseCode}</strong>
+                                  <Link className="schedule-slot-link" to={`/app/student/sections/${item.sectionId}`}>
+                                    <strong className="schedule-slot-course">{item.courseCode}</strong>
+                                  </Link>
                                   {item.lessonType ? (
                                     <span className="schedule-slot-type">{formatLessonType(item.lessonType)}</span>
                                   ) : null}
                                 </div>
-                                <div className="schedule-slot-name">{item.courseName}</div>
+                                <Link className="schedule-slot-name-link" to={`/app/student/sections/${item.sectionId}`}>
+                                  <div className="schedule-slot-name">{item.courseName}</div>
+                                </Link>
                                 <div className="schedule-slot-meta">{formatTimeRange(item)}</div>
                                 <div className="schedule-slot-meta">{item.room || "Room TBA"}</div>
                                 {item.teacherName ? (

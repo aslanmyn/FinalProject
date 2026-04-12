@@ -14,6 +14,7 @@ import StudentWorkflowsPage from "./pages/app/StudentWorkflowsPage";
 import StudentSchedulePage from "./pages/app/StudentSchedulePage";
 import StudentEnrollmentsPage from "./pages/app/StudentEnrollmentsPage";
 import StudentJournalPage from "./pages/app/StudentJournalPage";
+import StudentSectionDetailPage from "./pages/app/StudentSectionDetailPage";
 import StudentTranscriptPage from "./pages/app/StudentTranscriptPage";
 import StudentAttendancePage from "./pages/app/StudentAttendancePage";
 import StudentExamsPage from "./pages/app/StudentExamsPage";
@@ -152,6 +153,14 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentJournalPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/sections/:sectionId"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentSectionDetailPage />
             </RoleProtectedRoute>
           }
         />

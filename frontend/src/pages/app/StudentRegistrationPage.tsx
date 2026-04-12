@@ -170,8 +170,17 @@ export default function StudentRegistrationPage() {
             {items.map((item) => (
               <tr key={item.sectionId}>
                 <td>
-                  <strong>{item.subjectCode}</strong>
-                  <div>{item.subjectName}</div>
+                  <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                    {item.subjectCode}
+                  </Link>
+                  <div>
+                    <Link
+                      className="student-course-table-link student-course-table-link-name"
+                      to={`/app/student/sections/${item.sectionId}`}
+                    >
+                      {item.subjectName}
+                    </Link>
+                  </div>
                   <div className="muted">
                     {item.credits} credits | {item.semesterName}
                   </div>
@@ -205,6 +214,9 @@ export default function StudentRegistrationPage() {
                 </td>
                 <td>
                   <div className="actions">
+                    <Link className="student-course-inline-link" to={`/app/student/sections/${item.sectionId}`}>
+                      Details
+                    </Link>
                     {!item.registrationStatus ? (
                       <button
                         type="button"
@@ -255,8 +267,17 @@ export default function StudentRegistrationPage() {
             {items.map((item) => (
               <tr key={item.registrationId}>
                 <td>
-                  <strong>{item.subjectCode}</strong>
-                  <div>{item.subjectName}</div>
+                  <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                    {item.subjectCode}
+                  </Link>
+                  <div>
+                    <Link
+                      className="student-course-table-link student-course-table-link-name"
+                      to={`/app/student/sections/${item.sectionId}`}
+                    >
+                      {item.subjectName}
+                    </Link>
+                  </div>
                   <div className="muted">{item.credits} credits</div>
                 </td>
                 <td>{item.teacherName || "TBA"}</td>
@@ -276,14 +297,19 @@ export default function StudentRegistrationPage() {
                   ) : null}
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className="ghost-danger-btn"
-                    onClick={() => handleAction(item.sectionId, "drop")}
-                    disabled={!item.canDrop || busySectionId === item.sectionId}
-                  >
-                    {busySectionId === item.sectionId ? "Saving..." : "Drop course"}
-                  </button>
+                  <div className="actions">
+                    <Link className="student-course-inline-link" to={`/app/student/sections/${item.sectionId}`}>
+                      Details
+                    </Link>
+                    <button
+                      type="button"
+                      className="ghost-danger-btn"
+                      onClick={() => handleAction(item.sectionId, "drop")}
+                      disabled={!item.canDrop || busySectionId === item.sectionId}
+                    >
+                      {busySectionId === item.sectionId ? "Saving..." : "Drop course"}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -343,8 +369,17 @@ export default function StudentRegistrationPage() {
                   {nextSemesterOverview.savedSelections.map((item) => (
                     <tr key={item.plannedRegistrationId}>
                       <td>
-                        <strong>{item.subjectCode}</strong>
-                        <div>{item.subjectName}</div>
+                        <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                          {item.subjectCode}
+                        </Link>
+                        <div>
+                          <Link
+                            className="student-course-table-link student-course-table-link-name"
+                            to={`/app/student/sections/${item.sectionId}`}
+                          >
+                            {item.subjectName}
+                          </Link>
+                        </div>
                         <div className="muted">{item.credits} credits</div>
                       </td>
                       <td>{item.teacherName || "TBA"}</td>
@@ -358,14 +393,19 @@ export default function StudentRegistrationPage() {
                         </div>
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="ghost-danger-btn"
-                          disabled={busySectionId === item.sectionId}
-                          onClick={() => handleNextSemesterAction(item.sectionId, "remove")}
-                        >
-                          {busySectionId === item.sectionId ? "Saving..." : "Remove"}
-                        </button>
+                        <div className="actions">
+                          <Link className="student-course-inline-link" to={`/app/student/sections/${item.sectionId}`}>
+                            Details
+                          </Link>
+                          <button
+                            type="button"
+                            className="ghost-danger-btn"
+                            disabled={busySectionId === item.sectionId}
+                            onClick={() => handleNextSemesterAction(item.sectionId, "remove")}
+                          >
+                            {busySectionId === item.sectionId ? "Saving..." : "Remove"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -436,24 +476,29 @@ export default function StudentRegistrationPage() {
                                 ) : null}
                               </td>
                               <td>
-                                {section.selected ? (
-                                  <button
-                                    type="button"
-                                    className="ghost-danger-btn"
-                                    disabled={busySectionId === section.sectionId}
-                                    onClick={() => handleNextSemesterAction(section.sectionId, "remove")}
-                                  >
-                                    {busySectionId === section.sectionId ? "Saving..." : "Remove"}
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={busySectionId === section.sectionId || !section.canSelect || !nextSemesterOverview.selectionEnabled}
-                                    onClick={() => handleNextSemesterAction(section.sectionId, "save")}
-                                  >
-                                    {busySectionId === section.sectionId ? "Saving..." : "Save section"}
-                                  </button>
-                                )}
+                                <div className="actions">
+                                  <Link className="student-course-inline-link" to={`/app/student/sections/${section.sectionId}`}>
+                                    Details
+                                  </Link>
+                                  {section.selected ? (
+                                    <button
+                                      type="button"
+                                      className="ghost-danger-btn"
+                                      disabled={busySectionId === section.sectionId}
+                                      onClick={() => handleNextSemesterAction(section.sectionId, "remove")}
+                                    >
+                                      {busySectionId === section.sectionId ? "Saving..." : "Remove"}
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      disabled={busySectionId === section.sectionId || !section.canSelect || !nextSemesterOverview.selectionEnabled}
+                                      onClick={() => handleNextSemesterAction(section.sectionId, "save")}
+                                    >
+                                      {busySectionId === section.sectionId ? "Saving..." : "Save section"}
+                                    </button>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -661,8 +706,17 @@ export default function StudentRegistrationPage() {
                         {fxOverview.eligibleCourses.map((item) => (
                           <tr key={item.sectionId}>
                             <td>
-                              <strong>{item.subjectCode}</strong>
-                              <div>{item.subjectName}</div>
+                              <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
+                                {item.subjectCode}
+                              </Link>
+                              <div>
+                                <Link
+                                  className="student-course-table-link student-course-table-link-name"
+                                  to={`/app/student/sections/${item.sectionId}`}
+                                >
+                                  {item.subjectName}
+                                </Link>
+                              </div>
                             </td>
                             <td>{item.finalScore.toFixed(1)}</td>
                             <td>
@@ -728,4 +782,3 @@ export default function StudentRegistrationPage() {
     </div>
   );
 }
-
