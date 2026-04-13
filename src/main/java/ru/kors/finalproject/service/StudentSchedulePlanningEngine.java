@@ -23,6 +23,8 @@ public final class StudentSchedulePlanningEngine {
     private static final Pattern TIME_BEFORE_PATTERN = Pattern.compile("(?:before|до)\\s*(\\d{1,2})(?::(\\d{2}))?");
     private static final List<String> DAY_ORDER = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY");
 
+    private static final Pattern ACTIVE_DAY_COUNT_PATTERN = Pattern.compile("(?<!\\d)([2-6])\\s*(?:days?|\\u0434\\u043d(?:\\u044f|\\u0435\\u0439))(?!\\p{L})");
+
     private StudentSchedulePlanningEngine() {
     }
 
@@ -196,7 +198,20 @@ public final class StudentSchedulePlanningEngine {
             }
         }
 
-        if (preferences.preferCompactSchedule()) {
+        if (preferences.preferredMaxActiveDays() != null) {
+            int usedDays = (int) slotsByDay.values().stream().filter(items -> !items.isEmpty()).count();
+            String label = buildMaxActiveDaysLabel(preferences.preferredMaxActiveDays());
+            if (usedDays <= preferences.preferredMaxActiveDays()) {
+                score += 140;
+                satisfied.add(label);
+            } else {
+                score -= 220;
+                unsatisfied.add(label);
+                warnings.add("Не удалось уложить расписание в " + preferences.preferredMaxActiveDays() + " учебных дня.");
+            }
+        }
+
+        if (preferences.preferredMaxActiveDays() == null && preferences.preferCompactSchedule()) {
             int usedDays = (int) slotsByDay.values().stream().filter(items -> !items.isEmpty()).count();
             int totalGapMinutes = totalGapMinutes(slotsByDay);
             if (usedDays <= 4 && totalGapMinutes <= 120) {
@@ -292,7 +307,10 @@ public final class StudentSchedulePlanningEngine {
     private static int compactnessScore(List<CourseOption> selected, PreferenceProfile preferences) {
         Map<String, List<SlotOccurrence>> slotsByDay = buildSlotsByDay(selected);
         int usedDays = (int) slotsByDay.values().stream().filter(items -> !items.isEmpty()).count();
-        int score = -usedDays * 12;
+        int score = -usedDays * (preferences.preferredMaxActiveDays() != null ? 24 : 12);
+        if (preferences.preferredMaxActiveDays() != null && usedDays > preferences.preferredMaxActiveDays()) {
+            score -= (usedDays - preferences.preferredMaxActiveDays()) * 160;
+        }
         int totalGapMinutes = totalGapMinutes(slotsByDay);
         score -= totalGapMinutes / (preferences.preferCompactSchedule() ? 4 : 10);
         return score;
@@ -369,6 +387,7 @@ public final class StudentSchedulePlanningEngine {
         String normalized = normalize(message);
         Map<String, DayPreference> explicit = new LinkedHashMap<>();
         DayPreference defaultForOtherDays = null;
+        Integer preferredMaxActiveDays = parsePreferredMaxActiveDays(normalized);
 
         for (String clause : splitClauses(normalized)) {
             Set<String> days = detectDays(clause);
@@ -396,16 +415,25 @@ public final class StudentSchedulePlanningEngine {
         }
 
         boolean preferCompact = containsAny(normalized, "без окон", "без больших окон", "compact", "компакт", "минимум окон");
+        preferCompact = preferCompact
+                || preferredMaxActiveDays != null
+                || containsAny(normalized,
+                "free day", "free days", "days free", "day off", "days off",
+                "\u0441\u0432\u043e\u0431\u043e\u0434\u043d", "\u043d\u0435\u0441\u043a\u043e\u043b\u044c\u043a\u043e \u0434\u043d",
+                "\u0443\u043c\u0435\u0441\u0442", "\u0443\u043b\u043e\u0436", "\u0441\u0436\u0430\u0442", "\u0432 3 \u0434\u043d", "\u0432 4 \u0434\u043d");
         List<String> rawPreferences = new ArrayList<>();
         explicit.values().forEach(preference -> rawPreferences.add(preference.label()));
         if (defaultForOtherDays != null) {
             rawPreferences.add(defaultForOtherDays.label());
         }
+        if (preferredMaxActiveDays != null) {
+            rawPreferences.add(buildMaxActiveDaysLabel(preferredMaxActiveDays));
+        }
         if (preferCompact) {
             rawPreferences.add("Компактное расписание");
         }
 
-        return new PreferenceProfile(explicit, defaultForOtherDays, preferCompact, rawPreferences);
+        return new PreferenceProfile(explicit, defaultForOtherDays, preferCompact, preferredMaxActiveDays, rawPreferences);
     }
 
     private static List<String> splitClauses(String normalized) {
@@ -515,6 +543,22 @@ public final class StudentSchedulePlanningEngine {
             return new DayPreference(SIX_PM, null, false, "После 18:00");
         }
         return null;
+    }
+
+    private static Integer parsePreferredMaxActiveDays(String normalized) {
+        Matcher matcher = ACTIVE_DAY_COUNT_PATTERN.matcher(normalized);
+        Integer maxDays = null;
+        while (matcher.find()) {
+            int value = Integer.parseInt(matcher.group(1));
+            if (value >= 2 && value <= DAY_ORDER.size()) {
+                maxDays = maxDays == null ? value : Math.max(maxDays, value);
+            }
+        }
+        return maxDays;
+    }
+
+    private static String buildMaxActiveDaysLabel(int maxDays) {
+        return "Не больше " + maxDays + " учебных дней";
     }
 
     private static LocalTime parseTime(String hours, String minutes) {
@@ -675,6 +719,7 @@ public final class StudentSchedulePlanningEngine {
             Map<String, DayPreference> explicitByDay,
             DayPreference defaultForOtherDays,
             boolean preferCompactSchedule,
+            Integer preferredMaxActiveDays,
             List<String> rawPreferences
     ) {
     }
