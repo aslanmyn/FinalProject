@@ -57,6 +57,7 @@ Student:
 - notifications
 - planner and workflows
 - AI assistant
+- wellbeing / psychological support assistant
 - dorm
 - food ordering
 - campus map

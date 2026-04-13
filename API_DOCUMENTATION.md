@@ -317,11 +317,38 @@ Add request message body:
 | POST | `/api/v1/student/planner/simulate` | Simulate GPA/planner outcome |
 | GET | `/api/v1/student/workflows` | Student workflow overview |
 | POST | `/api/v1/student/assistant/chat` | Student AI assistant |
+| POST | `/api/v1/student/support/assistant/chat` | Student wellbeing / psychological support assistant |
 
 Student assistant request:
 ```json
 {
   "message": "How many points do I need on the final for Calculus II?"
+}
+```
+
+Student support assistant request:
+```json
+{
+  "message": "Мне тревожно и тяжело сосредоточиться, что можно сделать прямо сейчас?"
+}
+```
+
+Student support assistant response:
+```json
+{
+  "answer": "Я рядом. Давайте сосредоточимся на одном спокойном следующем шаге.",
+  "model": "gemini-2.5-flash",
+  "generatedAt": "2026-04-14T10:00:00Z",
+  "riskLevel": "LOW",
+  "needsHumanFollowUp": false,
+  "suggestedActions": [
+    "Сделайте короткую паузу и немного замедлите дыхание.",
+    "Назовите одну мысль, которая тревожит сильнее всего."
+  ],
+  "recommendedResources": [
+    "Student Support Office: KBTU Student Support Office (support@kbtu.kz)",
+    "Часы работы: Mon-Fri 09:00-18:00"
+  ]
 }
 ```
 

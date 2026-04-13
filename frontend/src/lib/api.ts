@@ -37,6 +37,7 @@ import type {
 } from "../types/public";
 import type {
   StudentAssistantReply,
+  StudentPsychSupportReply,
   StudentAttendanceData,
   StudentEnrollmentItem,
   StudentEnrollmentOptions,
@@ -392,6 +393,13 @@ export async function askStudentAssistant(message: string): Promise<StudentAssis
 
 export async function fetchStudentScheduleDemo(): Promise<StudentAssistantReply> {
   return request<StudentAssistantReply>("/api/v1/student/assistant/schedule-demo");
+}
+
+export async function askStudentPsychSupportAssistant(message: string): Promise<StudentPsychSupportReply> {
+  return request<StudentPsychSupportReply>("/api/v1/student/support/assistant/chat", {
+    method: "POST",
+    body: { message }
+  });
 }
 
 export async function fetchStudentRiskDashboard(): Promise<StudentRiskDashboard> {

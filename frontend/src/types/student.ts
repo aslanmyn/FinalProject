@@ -237,6 +237,16 @@ export interface StudentAssistantReply {
   scheduleRecommendation?: StudentAssistantScheduleRecommendation | null;
 }
 
+export interface StudentPsychSupportReply {
+  answer: string;
+  model: string;
+  generatedAt: string;
+  riskLevel: string;
+  needsHumanFollowUp: boolean;
+  suggestedActions: string[];
+  recommendedResources: string[];
+}
+
 export interface StudentAssistantScheduleMeetingTime {
   dayOfWeek: string;
   startTime: string;

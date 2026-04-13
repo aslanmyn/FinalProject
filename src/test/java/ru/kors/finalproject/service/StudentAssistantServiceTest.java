@@ -23,6 +23,7 @@ import ru.kors.finalproject.repository.StudentRequestRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 
 import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -284,6 +285,46 @@ class StudentAssistantServiceTest {
 
         verify(geminiClientService, never())
                 .generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
+    }
+
+    @Test
+    @DisplayName("markdown is stripped from student assistant text replies")
+    void ask_regularQuestion_stripsMarkdownFromGeminiAnswer() {
+        AcademicAnalyticsService.StudentPlannerDashboard plannerDashboard = new AcademicAnalyticsService.StudentPlannerDashboard(
+                student.getId(),
+                student.getName(),
+                currentSemester.getId(),
+                currentSemester.getName(),
+                3.22,
+                0,
+                3.22,
+                List.of()
+        );
+        when(registrationRepository.findByStudentIdWithDetails(student.getId())).thenReturn(List.of());
+        when(gradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId())).thenReturn(List.of());
+        when(finalGradeRepository.findByStudentIdAndPublishedTrueWithDetails(student.getId())).thenReturn(List.of());
+        when(attendanceRepository.findByStudentIdWithDetails(student.getId())).thenReturn(List.of());
+        when(holdRepository.findByStudentIdAndActiveTrue(student.getId())).thenReturn(List.of());
+        when(studentRequestRepository.findByStudentIdWithDetailsOrderByCreatedAtDesc(student.getId())).thenReturn(List.of());
+        when(academicAnalyticsService.buildStudentPlannerDashboard(student)).thenReturn(plannerDashboard);
+        when(gpaCalculationService.calculatePublishedGpa(List.of())).thenReturn(3.22);
+        when(geminiClientService.generate(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt()))
+                .thenReturn(new GeminiClientService.GeminiReply(
+                        "Аружан, вот ваши текущие оценки:\n* **CSCI1204 | Programming Principles I**: 54.10/60\n* **CSCI2106 | Object-Oriented Programming and Design**: 50.20/60",
+                        "gemini-2.5-flash",
+                        Instant.parse("2026-04-14T12:00:00Z")
+                ));
+
+        StudentAssistantService.StudentAssistantReply reply = service.ask(
+                student,
+                "Каковы мои оценки?"
+        );
+
+        assertThat(reply.answer()).contains("Аружан, вот ваши текущие оценки:");
+        assertThat(reply.answer()).contains("- CSCI1204 | Programming Principles I: 54.10/60");
+        assertThat(reply.answer()).contains("- CSCI2106 | Object-Oriented Programming and Design: 50.20/60");
+        assertThat(reply.answer()).doesNotContain("**");
+        assertThat(reply.answer()).doesNotContain("* **");
     }
 
     private SubjectOffering offering(

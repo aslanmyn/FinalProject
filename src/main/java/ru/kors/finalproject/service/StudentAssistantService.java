@@ -81,7 +81,7 @@ public class StudentAssistantService {
                 "message=" + truncate(normalizedMessage, 180)
         );
 
-        return reply;
+        return sanitizeAssistantReply(reply);
     }
 
     public StudentAssistantReply buildDemoScheduleRecommendation(Student student) {
@@ -1244,6 +1244,54 @@ private boolean containsAny(String text, String... tokens) {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private StudentAssistantReply sanitizeAssistantReply(StudentAssistantReply reply) {
+        if (reply == null) {
+            return null;
+        }
+        return new StudentAssistantReply(
+                stripMarkdown(reply.answer()),
+                reply.model(),
+                reply.generatedAt(),
+                reply.scheduleRecommendation()
+        );
+    }
+
+    private String stripMarkdown(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+
+        String normalized = text.replace("\r\n", "\n").replace('\r', '\n');
+        List<String> cleanedLines = normalized.lines()
+                .map(this::stripMarkdownLine)
+                .toList();
+
+        String joined = String.join("\n", cleanedLines)
+                .replaceAll("\n{3,}", "\n\n")
+                .trim();
+        return joined.isBlank() ? text.trim() : joined;
+    }
+
+    private String stripMarkdownLine(String line) {
+        if (line == null || line.isBlank()) {
+            return "";
+        }
+
+        String cleaned = line;
+        cleaned = cleaned.replaceAll("^\\s{0,3}#{1,6}\\s*", "");
+        cleaned = cleaned.replaceAll("^\\s*>\\s?", "");
+        cleaned = cleaned.replaceAll("^\\s*[-*+]\\s+\\[[ xX]\\]\\s+", "- ");
+        cleaned = cleaned.replaceAll("^\\s*[-*+]\\s+", "- ");
+        cleaned = cleaned.replaceAll("\\*\\*(.*?)\\*\\*", "$1");
+        cleaned = cleaned.replaceAll("__(.*?)__", "$1");
+        cleaned = cleaned.replaceAll("(?<!\\*)\\*(?!\\s)(.*?)(?<!\\s)\\*(?!\\*)", "$1");
+        cleaned = cleaned.replaceAll("(?<!_)_(?!\\s)(.*?)(?<!\\s)_(?!_)", "$1");
+        cleaned = cleaned.replace("`", "");
+        cleaned = cleaned.replaceAll("!\\[([^\\]]*)\\]\\(([^)]+)\\)", "$1");
+        cleaned = cleaned.replaceAll("\\[([^\\]]+)\\]\\(([^)]+)\\)", "$1");
+        return cleaned.trim();
     }
 
     private String toJson(Object value) {
