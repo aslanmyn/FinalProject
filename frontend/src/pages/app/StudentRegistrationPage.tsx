@@ -3,13 +3,15 @@ import { Link } from "react-router-dom";
 import {
   addStudentCourse,
   ApiError,
+  clearStudentNextSemesterSection,
   createStudentFxRegistration,
   dropStudentCourse,
   fetchStudentFxOverview,
   fetchStudentNextSemesterOverview,
   fetchStudentRegistrationCatalog,
   fetchStudentRegistrationOverview,
-  removeStudentNextSemesterSection,
+  removeStudentNextSemesterSubject,
+  saveStudentNextSemesterSubject,
   saveStudentNextSemesterSection,
   submitStudentRegistration
 } from "../../lib/api";
@@ -70,6 +72,7 @@ export default function StudentRegistrationPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [tab, setTab] = useState<RegistrationTab>("nextSemester");
   const [busySectionId, setBusySectionId] = useState<number | null>(null);
+  const [busySubjectId, setBusySubjectId] = useState<number | null>(null);
 
   async function loadData() {
     setLoading(true);
@@ -134,19 +137,37 @@ export default function StudentRegistrationPage() {
     }
   }
 
-  async function handleNextSemesterAction(sectionId: number, action: "save" | "remove") {
-    setBusySectionId(sectionId);
+  async function handleNextSemesterSubjectAction(subjectId: number, action: "save" | "remove") {
+    setBusySubjectId(subjectId);
     setError(null);
     setSuccess(null);
     try {
       const result =
         action === "save"
-          ? await saveStudentNextSemesterSection(sectionId)
-          : await removeStudentNextSemesterSection(sectionId);
+          ? await saveStudentNextSemesterSubject(subjectId)
+          : await removeStudentNextSemesterSubject(subjectId);
       setSuccess(result.message);
       await loadData();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Next semester action failed");
+      setError(err instanceof ApiError ? err.message : "Next semester subject action failed");
+    } finally {
+      setBusySubjectId(null);
+    }
+  }
+
+  async function handleNextSemesterSectionAction(subjectId: number, sectionId: number, action: "select" | "clear") {
+    setBusySectionId(sectionId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result =
+        action === "select"
+          ? await saveStudentNextSemesterSection(subjectId, sectionId)
+          : await clearStudentNextSemesterSection(subjectId);
+      setSuccess(result.message);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Next semester section action failed");
     } finally {
       setBusySectionId(null);
     }
@@ -351,59 +372,91 @@ export default function StudentRegistrationPage() {
         ) : null}
 
         <div>
-          <h4>Saved choices</h4>
-          {nextSemesterOverview.savedSelections.length === 0 ? (
-            <p className="muted">No next-semester sections saved yet.</p>
+          <h4>Saved subjects</h4>
+          {nextSemesterOverview.savedSubjects.length === 0 ? (
+            <p className="muted">No next-semester subjects saved yet.</p>
           ) : (
             <div className="registration-table-wrap">
               <table className="table registration-table">
                 <thead>
                   <tr>
                     <th>Course</th>
-                    <th>Teacher</th>
+                    <th>Preferred section</th>
                     <th>Schedule</th>
                     <th>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {nextSemesterOverview.savedSelections.map((item) => (
+                  {nextSemesterOverview.savedSubjects.map((item) => (
                     <tr key={item.plannedRegistrationId}>
                       <td>
-                        <Link className="student-course-table-link" to={`/app/student/sections/${item.sectionId}`}>
-                          {item.subjectCode}
-                        </Link>
-                        <div>
-                          <Link
-                            className="student-course-table-link student-course-table-link-name"
-                            to={`/app/student/sections/${item.sectionId}`}
-                          >
-                            {item.subjectName}
+                        {item.selectedSectionId ? (
+                          <Link className="student-course-table-link" to={`/app/student/sections/${item.selectedSectionId}`}>
+                            {item.subjectCode}
                           </Link>
+                        ) : (
+                          <strong>{item.subjectCode}</strong>
+                        )}
+                        <div>
+                          {item.selectedSectionId ? (
+                            <Link
+                              className="student-course-table-link student-course-table-link-name"
+                              to={`/app/student/sections/${item.selectedSectionId}`}
+                            >
+                              {item.subjectName}
+                            </Link>
+                          ) : (
+                            <span>{item.subjectName}</span>
+                          )}
                         </div>
                         <div className="muted">{item.credits} credits</div>
                       </td>
-                      <td>{item.teacherName || "TBA"}</td>
                       <td>
-                        <div className="schedule-chip-list">
-                          {item.meetingTimes.map((slot, index) => (
-                            <span key={`${item.sectionId}-${index}`} className="schedule-chip">
-                              {formatMeetingSlot(slot)}
-                            </span>
-                          ))}
-                        </div>
+                        {item.sectionSelected ? (
+                          <div>
+                            <div>{item.teacherName || "TBA"}</div>
+                            <div className="muted">Section #{item.selectedSectionId}</div>
+                          </div>
+                        ) : (
+                          <span className="muted">No preferred section selected yet.</span>
+                        )}
+                      </td>
+                      <td>
+                        {item.sectionSelected ? (
+                          <div className="schedule-chip-list">
+                            {item.meetingTimes.map((slot, index) => (
+                              <span key={`${item.subjectId}-${index}`} className="schedule-chip">
+                                {formatMeetingSlot(slot)}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="muted">Choose a section below after saving the subject.</span>
+                        )}
                       </td>
                       <td>
                         <div className="actions">
-                          <Link className="student-course-inline-link" to={`/app/student/sections/${item.sectionId}`}>
-                            Details
-                          </Link>
+                          {item.selectedSectionId ? (
+                            <Link className="student-course-inline-link" to={`/app/student/sections/${item.selectedSectionId}`}>
+                              Details
+                            </Link>
+                          ) : null}
+                          {item.selectedSectionId ? (
+                            <button
+                              type="button"
+                              disabled={busySectionId === item.selectedSectionId}
+                              onClick={() => handleNextSemesterSectionAction(item.subjectId, item.selectedSectionId!, "clear")}
+                            >
+                              {busySectionId === item.selectedSectionId ? "Saving..." : "Clear time"}
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             className="ghost-danger-btn"
-                            disabled={busySectionId === item.sectionId}
-                            onClick={() => handleNextSemesterAction(item.sectionId, "remove")}
+                            disabled={busySubjectId === item.subjectId}
+                            onClick={() => handleNextSemesterSubjectAction(item.subjectId, "remove")}
                           >
-                            {busySectionId === item.sectionId ? "Saving..." : "Remove"}
+                            {busySubjectId === item.subjectId ? "Saving..." : "Remove subject"}
                           </button>
                         </div>
                       </td>
@@ -431,8 +484,37 @@ export default function StudentRegistrationPage() {
                         {subject.credits} credits {subject.required ? "| required" : ""}
                       </div>
                     </div>
-                    {subject.selectedSectionId ? <span className="badge">Saved</span> : null}
+                    <div className="actions">
+                      {subject.saved ? <span className="badge">Saved subject</span> : null}
+                      {subject.saved ? (
+                        <button
+                          type="button"
+                          className="ghost-danger-btn"
+                          disabled={busySubjectId === subject.subjectId}
+                          onClick={() => handleNextSemesterSubjectAction(subject.subjectId, "remove")}
+                        >
+                          {busySubjectId === subject.subjectId ? "Saving..." : "Remove subject"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={busySubjectId === subject.subjectId || !nextSemesterOverview.selectionEnabled}
+                          onClick={() => handleNextSemesterSubjectAction(subject.subjectId, "save")}
+                        >
+                          {busySubjectId === subject.subjectId ? "Saving..." : "Save subject"}
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {subject.saved ? (
+                    <p className="muted compact-text">
+                      {subject.selectedSectionId
+                        ? "This subject is saved and already has a preferred section."
+                        : "This subject is saved. Now choose a preferred section time below."}
+                    </p>
+                  ) : (
+                    <p className="muted compact-text">Save the subject first. After that, you can choose its preferred section time.</p>
+                  )}
                   {subject.sections.length === 0 ? (
                     <p className="muted">No sections published yet for this subject.</p>
                   ) : (
@@ -465,14 +547,19 @@ export default function StudentRegistrationPage() {
                               </td>
                               <td>
                                 {section.selected ? (
-                                  <span className="badge">Saved</span>
+                                  <span className="badge">Preferred</span>
+                                ) : !subject.saved ? (
+                                  <span className="badge badge-neutral">Save subject first</span>
                                 ) : section.canSelect ? (
-                                  <span className="badge badge-warning">Can save</span>
+                                  <span className="badge badge-warning">Can choose</span>
                                 ) : (
                                   <span className="badge badge-neutral">Blocked</span>
                                 )}
-                                {!section.selected && section.blockedReasons.length > 0 ? (
+                                {!section.selected && subject.saved && section.blockedReasons.length > 0 ? (
                                   <p className="muted compact-text">{joinReasons(section.blockedReasons)}</p>
+                                ) : null}
+                                {!section.selected && !subject.saved ? (
+                                  <p className="muted compact-text">Save the subject first to unlock section selection.</p>
                                 ) : null}
                               </td>
                               <td>
@@ -483,19 +570,27 @@ export default function StudentRegistrationPage() {
                                   {section.selected ? (
                                     <button
                                       type="button"
-                                      className="ghost-danger-btn"
                                       disabled={busySectionId === section.sectionId}
-                                      onClick={() => handleNextSemesterAction(section.sectionId, "remove")}
+                                      onClick={() => handleNextSemesterSectionAction(subject.subjectId, section.sectionId, "clear")}
                                     >
-                                      {busySectionId === section.sectionId ? "Saving..." : "Remove"}
+                                      {busySectionId === section.sectionId ? "Saving..." : "Clear time"}
                                     </button>
                                   ) : (
                                     <button
                                       type="button"
-                                      disabled={busySectionId === section.sectionId || !section.canSelect || !nextSemesterOverview.selectionEnabled}
-                                      onClick={() => handleNextSemesterAction(section.sectionId, "save")}
+                                      disabled={
+                                        busySectionId === section.sectionId ||
+                                        !subject.saved ||
+                                        !section.canSelect ||
+                                        !nextSemesterOverview.selectionEnabled
+                                      }
+                                      onClick={() => handleNextSemesterSectionAction(subject.subjectId, section.sectionId, "select")}
                                     >
-                                      {busySectionId === section.sectionId ? "Saving..." : "Save section"}
+                                      {busySectionId === section.sectionId
+                                        ? "Saving..."
+                                        : subject.saved
+                                          ? "Choose section"
+                                          : "Save subject first"}
                                     </button>
                                   )}
                                 </div>
@@ -525,6 +620,9 @@ export default function StudentRegistrationPage() {
           </p>
         </div>
         <div className="actions">
+          <Link className="link-btn" to="/app/student/subjects">
+            Open subject explorer
+          </Link>
           <Link className="link-btn" to="/app/student/notifications">
             Open notifications
           </Link>

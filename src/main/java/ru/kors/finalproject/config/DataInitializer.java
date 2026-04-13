@@ -552,6 +552,127 @@ public class DataInitializer implements CommandLineRunner {
             }
             getOrCreateOffering(context, subject, nextSemester);
         }
+
+        seedAlternativeNextSemesterOfferings(context, nextSemester);
+    }
+
+    private void seedAlternativeNextSemesterOfferings(SeedContext context, Semester nextSemester) {
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "CSCI2104",
+                "csci2104-alt-a",
+                "r.serikbayev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.TUESDAY, LocalTime.of(8, 0), LocalTime.of(10, 0), "L-427", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.THURSDAY, LocalTime.of(12, 0), LocalTime.of(13, 0), "P-427", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "CSCI2104",
+                "csci2104-alt-b",
+                "a.nurgaliyev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.MONDAY, LocalTime.of(14, 0), LocalTime.of(16, 0), "L-427", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.WEDNESDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "P-427", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "CSCI2105",
+                "csci2105-alt-a",
+                "a.nurgaliyev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.TUESDAY, LocalTime.of(14, 0), LocalTime.of(16, 0), "L-428", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.FRIDAY, LocalTime.of(8, 0), LocalTime.of(9, 0), "P-428", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "CSCI2105",
+                "csci2105-alt-b",
+                "r.serikbayev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.MONDAY, LocalTime.of(16, 0), LocalTime.of(18, 0), "L-428", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.THURSDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "P-428", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "INFT2102",
+                "inft2102-alt-a",
+                "r.serikbayev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.TUESDAY, LocalTime.of(10, 0), LocalTime.of(12, 0), "L-418", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.FRIDAY, LocalTime.of(14, 0), LocalTime.of(15, 0), "P-418", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "INFT2102",
+                "inft2102-alt-b",
+                "a.nurgaliyev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.WEDNESDAY, LocalTime.of(14, 0), LocalTime.of(16, 0), "L-418", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.MONDAY, LocalTime.of(12, 0), LocalTime.of(13, 0), "P-418", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "INFT2205",
+                "inft2205-alt-a",
+                "a.nurgaliyev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.MONDAY, LocalTime.of(12, 0), LocalTime.of(14, 0), "L-382", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.THURSDAY, LocalTime.of(16, 0), LocalTime.of(17, 0), "P-382", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "INFT2205",
+                "inft2205-alt-b",
+                "r.serikbayev@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.TUESDAY, LocalTime.of(16, 0), LocalTime.of(18, 0), "L-382", SubjectOffering.LessonType.LECTURE),
+                        new MeetingSlotSeed(DayOfWeek.FRIDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "P-382", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "HUM1101",
+                "hum1101-alt-a",
+                "a.beketov@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.MONDAY, LocalTime.of(8, 0), LocalTime.of(9, 0), "P-379", SubjectOffering.LessonType.PRACTICE),
+                        new MeetingSlotSeed(DayOfWeek.WEDNESDAY, LocalTime.of(12, 0), LocalTime.of(13, 0), "P-379", SubjectOffering.LessonType.PRACTICE),
+                        new MeetingSlotSeed(DayOfWeek.THURSDAY, LocalTime.of(14, 0), LocalTime.of(15, 0), "P-379", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
+        createOfferingVariant(
+                context,
+                nextSemester,
+                "HUM1101",
+                "hum1101-alt-b",
+                "a.beketov@kbtu.kz",
+                List.of(
+                        new MeetingSlotSeed(DayOfWeek.TUESDAY, LocalTime.of(10, 0), LocalTime.of(11, 0), "P-379", SubjectOffering.LessonType.PRACTICE),
+                        new MeetingSlotSeed(DayOfWeek.THURSDAY, LocalTime.of(8, 0), LocalTime.of(9, 0), "P-379", SubjectOffering.LessonType.PRACTICE),
+                        new MeetingSlotSeed(DayOfWeek.FRIDAY, LocalTime.of(16, 0), LocalTime.of(17, 0), "P-379", SubjectOffering.LessonType.PRACTICE)
+                )
+        );
     }
 
     private void seedStudentsAndAcademics(SeedContext context) {
@@ -642,19 +763,68 @@ public class DataInitializer implements CommandLineRunner {
 
     private SubjectOffering getOrCreateOffering(SeedContext context, Subject subject, Semester semester) {
         String key = subject.getCode() + "|" + semester.getName();
+        return createOffering(
+                context,
+                key,
+                subject,
+                semester,
+                pickTeacher(context, subject.getCode()),
+                20,
+                buildMeetingPattern(subject)
+        );
+    }
+
+    private void createOfferingVariant(
+            SeedContext context,
+            Semester semester,
+            String subjectCode,
+            String keySuffix,
+            String teacherEmail,
+            List<MeetingSlotSeed> slots
+    ) {
+        Subject subject = context.subjects.get(subjectCode);
+        if (subject == null) {
+            return;
+        }
+        Teacher teacher = findTeacherByEmail(context, teacherEmail);
+        createOffering(
+                context,
+                subjectCode + "|" + semester.getName() + "|" + keySuffix,
+                subject,
+                semester,
+                teacher != null ? teacher : pickTeacher(context, subjectCode),
+                20,
+                slots
+        );
+    }
+
+    private Teacher findTeacherByEmail(SeedContext context, String email) {
+        return allTeachers(context).stream()
+                .filter(teacher -> Objects.equals(teacher.getEmail(), email))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private SubjectOffering createOffering(
+            SeedContext context,
+            String key,
+            Subject subject,
+            Semester semester,
+            Teacher teacher,
+            int capacity,
+            List<MeetingSlotSeed> slots
+    ) {
         SubjectOffering existing = context.offerings.get(key);
         if (existing != null) {
             return existing;
         }
 
-        Teacher teacher = pickTeacher(context, subject.getCode());
-        List<MeetingSlotSeed> slots = buildMeetingPattern(subject);
         MeetingSlotSeed primarySlot = slots.get(0);
         SubjectOffering offering = subjectOfferingRepository.save(SubjectOffering.builder()
                 .subject(subject)
                 .semester(semester)
                 .teacher(teacher)
-                .capacity(20)
+                .capacity(capacity)
                 .dayOfWeek(primarySlot.dayOfWeek())
                 .startTime(primarySlot.startTime())
                 .endTime(primarySlot.endTime())

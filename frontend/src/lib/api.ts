@@ -311,17 +311,31 @@ export async function fetchStudentNextSemesterOverview(): Promise<StudentNextSem
   return request<StudentNextSemesterOverview>("/api/v1/student/course-registration/next-semester");
 }
 
-export async function saveStudentNextSemesterSection(sectionId: number): Promise<StudentActionResult> {
-  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/select", {
+export async function saveStudentNextSemesterSubject(subjectId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/subjects/save", {
     method: "POST",
-    body: { sectionId }
+    body: { subjectId }
   });
 }
 
-export async function removeStudentNextSemesterSection(sectionId: number): Promise<StudentActionResult> {
-  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/remove", {
+export async function removeStudentNextSemesterSubject(subjectId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/subjects/remove", {
     method: "POST",
-    body: { sectionId }
+    body: { subjectId }
+  });
+}
+
+export async function saveStudentNextSemesterSection(subjectId: number, sectionId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/sections/select", {
+    method: "POST",
+    body: { subjectId, sectionId }
+  });
+}
+
+export async function clearStudentNextSemesterSection(subjectId: number): Promise<StudentActionResult> {
+  return request<StudentActionResult>("/api/v1/student/course-registration/next-semester/sections/remove", {
+    method: "POST",
+    body: { subjectId }
   });
 }
 

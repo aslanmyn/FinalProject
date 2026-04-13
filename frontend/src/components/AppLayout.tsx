@@ -17,6 +17,7 @@ function getNav(role: string | null, permissions: string[]): NavGroup[] {
         items: [
           { to: "/app/student", label: "Overview" },
           { to: "/app/student/registration", label: "Registration" },
+          { to: "/app/student/subjects", label: "Subjects" },
           { to: "/app/student/planner", label: "Planner & Risk" },
           { to: "/app/student/schedule", label: "Schedule" },
           { to: "/app/student/enrollments", label: "Enrollments" },

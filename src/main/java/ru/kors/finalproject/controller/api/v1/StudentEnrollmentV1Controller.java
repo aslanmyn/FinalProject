@@ -208,30 +208,70 @@ public class StudentEnrollmentV1Controller {
 
     @GetMapping("/course-registration/next-semester")
     @Transactional(readOnly = true)
-    @Operation(summary = "Get next semester planning board", description = "Returns the recommended curriculum subjects, available sections, and saved section selections for the student's next semester.")
+    @Operation(summary = "Get next semester planning board", description = "Returns the recommended curriculum subjects, saved subject picks, and available sections for choosing preferred section times in the student's next semester.")
     public ResponseEntity<?> nextSemesterPlanning(@AuthenticationPrincipal User user) {
         Student student = currentUserHelper.requireStudent(user);
         return ResponseEntity.ok(nextSemesterPlanningService.getOverview(student));
     }
 
+    @PostMapping("/course-registration/next-semester/subjects/save")
+    @Operation(summary = "Save next semester subject", description = "Adds one curriculum subject into the student's next-semester draft without forcing a section/time choice yet.")
+    public ResponseEntity<?> saveNextSemesterSubject(
+            @AuthenticationPrincipal User user,
+            @RequestBody SubjectPlanBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.saveSubject(student, body.subjectId()));
+    }
+
+    @PostMapping("/course-registration/next-semester/subjects/remove")
+    @Operation(summary = "Remove next semester subject", description = "Removes a saved subject from the student's next-semester draft together with any previously chosen preferred section.")
+    public ResponseEntity<?> removeNextSemesterSubject(
+            @AuthenticationPrincipal User user,
+            @RequestBody SubjectPlanBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.removeSubject(student, body.subjectId()));
+    }
+
+    @PostMapping("/course-registration/next-semester/sections/select")
+    @Operation(summary = "Choose preferred next semester section", description = "Assigns a preferred section/time to a subject that is already saved in the student's next-semester draft.")
+    public ResponseEntity<?> chooseNextSemesterSection(
+            @AuthenticationPrincipal User user,
+            @RequestBody NextSemesterSectionActionBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.chooseSection(student, body.subjectId(), body.sectionId()));
+    }
+
+    @PostMapping("/course-registration/next-semester/sections/remove")
+    @Operation(summary = "Clear preferred next semester section", description = "Removes the preferred section/time choice while keeping the saved subject in the student's next-semester draft.")
+    public ResponseEntity<?> clearNextSemesterSection(
+            @AuthenticationPrincipal User user,
+            @RequestBody SubjectPlanBody body
+    ) {
+        Student student = currentUserHelper.requireStudent(user);
+        return ResponseEntity.ok(nextSemesterPlanningService.clearSection(student, body.subjectId()));
+    }
+
     @PostMapping("/course-registration/next-semester/select")
-    @Operation(summary = "Save next semester section", description = "Saves one section into the student's next semester plan, replacing an older section for the same course if needed.")
+    @Operation(summary = "Legacy save next semester section", description = "Backward-compatible endpoint that saves the subject if needed and then assigns the chosen section as the preferred time.")
     public ResponseEntity<?> selectNextSemesterSection(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body
     ) {
         Student student = currentUserHelper.requireStudent(user);
-        return ResponseEntity.ok(nextSemesterPlanningService.selectSection(student, body.sectionId()));
+        return ResponseEntity.ok(nextSemesterPlanningService.legacySaveSection(student, body.sectionId()));
     }
 
     @PostMapping("/course-registration/next-semester/remove")
-    @Operation(summary = "Remove saved next semester section", description = "Removes a saved section from the student's next semester plan.")
+    @Operation(summary = "Legacy remove next semester section", description = "Backward-compatible endpoint that removes the saved subject entry associated with the selected preferred section.")
     public ResponseEntity<?> removeNextSemesterSection(
             @AuthenticationPrincipal User user,
             @RequestBody CourseActionBody body
     ) {
         Student student = currentUserHelper.requireStudent(user);
-        return ResponseEntity.ok(nextSemesterPlanningService.removeSection(student, body.sectionId()));
+        return ResponseEntity.ok(nextSemesterPlanningService.legacyRemoveSection(student, body.sectionId()));
     }
 
     @GetMapping("/financial")
@@ -475,4 +515,7 @@ public class StudentEnrollmentV1Controller {
     public record StudentFinancialDto(List<StudentChargeDto> charges, List<StudentPaymentDto> payments,
                                       java.math.BigDecimal balance, boolean hasFinancialHold) {}
     public record CourseActionBody(@Schema(example = "8") Long sectionId) {}
+    public record SubjectPlanBody(@Schema(example = "27") Long subjectId) {}
+    public record NextSemesterSectionActionBody(@Schema(example = "27") Long subjectId,
+                                                @Schema(example = "467") Long sectionId) {}
 }

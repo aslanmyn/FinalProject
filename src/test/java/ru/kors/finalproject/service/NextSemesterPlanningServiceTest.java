@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ru.kors.finalproject.entity.MeetingTime;
@@ -29,6 +30,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -96,18 +98,24 @@ class NextSemesterPlanningServiceTest {
     }
 
     @Test
-    @DisplayName("overview returns next term curriculum subjects and offerings for a spring student")
-    void getOverview_returnsNextTermPlan() {
-        Subject subject = Subject.builder()
+    @DisplayName("overview returns saved subjects separately from preferred section choices")
+    void getOverview_returnsSubjectFirstPlan() {
+        Subject databases = Subject.builder()
                 .id(101L)
                 .code("CSCI2104")
                 .name("Databases")
                 .credits(4)
                 .build();
+        Subject algorithms = Subject.builder()
+                .id(102L)
+                .code("CSCI2105")
+                .name("Algorithms")
+                .credits(4)
+                .build();
         Teacher teacher = Teacher.builder().id(3L).name("Professor Aidos Nurgaliyev").build();
         SubjectOffering offering = SubjectOffering.builder()
                 .id(44L)
-                .subject(subject)
+                .subject(databases)
                 .semester(nextSemester)
                 .teacher(teacher)
                 .capacity(20)
@@ -118,15 +126,66 @@ class NextSemesterPlanningServiceTest {
                                 .endTime(LocalTime.of(14, 0))
                                 .room("L-201")
                                 .lessonType(SubjectOffering.LessonType.LECTURE)
-                                .build(),
-                        MeetingTime.builder()
-                                .dayOfWeek(DayOfWeek.WEDNESDAY)
-                                .startTime(LocalTime.of(15, 0))
-                                .endTime(LocalTime.of(16, 0))
-                                .room("P-201")
-                                .lessonType(SubjectOffering.LessonType.PRACTICE)
                                 .build()
                 ))
+                .build();
+        ProgramCurriculumItem item1 = ProgramCurriculumItem.builder()
+                .id(1L)
+                .program(program)
+                .subject(databases)
+                .academicYear(2)
+                .semesterNumber(1)
+                .displayOrder(1)
+                .required(true)
+                .build();
+        ProgramCurriculumItem item2 = ProgramCurriculumItem.builder()
+                .id(2L)
+                .program(program)
+                .subject(algorithms)
+                .academicYear(2)
+                .semesterNumber(1)
+                .displayOrder(2)
+                .required(true)
+                .build();
+        PlannedRegistration savedSubject = PlannedRegistration.builder()
+                .id(7L)
+                .student(student)
+                .semester(nextSemester)
+                .subject(databases)
+                .subjectOffering(offering)
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
+        when(programCurriculumItemRepository.findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(1L, 2, 1))
+                .thenReturn(List.of(item1, item2));
+        when(subjectOfferingRepository.findBySemesterIdWithDetails(9L)).thenReturn(List.of(offering));
+        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(15L, 9L)).thenReturn(List.of(savedSubject));
+        when(plannedRegistrationRepository.countBySubjectOfferingId(44L)).thenReturn(1L);
+
+        NextSemesterPlanningService.NextSemesterPlanOverview overview = service.getOverview(student);
+
+        assertThat(overview.selectionEnabled()).isTrue();
+        assertThat(overview.selectedCount()).isEqualTo(1);
+        assertThat(overview.savedSubjects()).hasSize(1);
+        assertThat(overview.savedSubjects().get(0).subjectCode()).isEqualTo("CSCI2104");
+        assertThat(overview.savedSubjects().get(0).sectionSelected()).isTrue();
+        assertThat(overview.subjects()).hasSize(2);
+        assertThat(overview.subjects().get(0).saved()).isTrue();
+        assertThat(overview.subjects().get(0).selectedSectionId()).isEqualTo(44L);
+        assertThat(overview.subjects().get(1).saved()).isFalse();
+        assertThat(overview.subjects().get(1).sections()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("saveSubject rejects saving more than five next-semester subjects")
+    void saveSubject_rejectsMoreThanFiveSelections() {
+        Subject subject = Subject.builder()
+                .id(101L)
+                .code("CSCI2104")
+                .name("Databases")
+                .credits(4)
                 .build();
         ProgramCurriculumItem item = ProgramCurriculumItem.builder()
                 .id(1L)
@@ -141,25 +200,21 @@ class NextSemesterPlanningServiceTest {
         when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
         when(programCurriculumItemRepository.findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(1L, 2, 1))
                 .thenReturn(List.of(item));
-        when(subjectOfferingRepository.findBySemesterIdWithDetails(9L)).thenReturn(List.of(offering));
-        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(15L, 9L)).thenReturn(List.of());
-        when(plannedRegistrationRepository.countBySubjectOfferingId(44L)).thenReturn(0L);
+        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(15L, 9L, 101L))
+                .thenReturn(Optional.empty());
+        when(plannedRegistrationRepository.countByStudentIdAndSemesterId(15L, 9L))
+                .thenReturn(5L);
 
-        NextSemesterPlanningService.NextSemesterPlanOverview overview = service.getOverview(student);
+        assertThatThrownBy(() -> service.saveSubject(student, 101L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no more than 5 subjects");
 
-        assertThat(overview.selectionEnabled()).isTrue();
-        assertThat(overview.academicYear()).isEqualTo(2);
-        assertThat(overview.semesterNumber()).isEqualTo(1);
-        assertThat(overview.semesterName()).isEqualTo("2026-2027 Fall");
-        assertThat(overview.subjects()).hasSize(1);
-        assertThat(overview.subjects().get(0).subjectCode()).isEqualTo("CSCI2104");
-        assertThat(overview.subjects().get(0).sections()).hasSize(1);
-        assertThat(overview.subjects().get(0).sections().get(0).meetingTimes()).hasSize(2);
+        verify(plannedRegistrationRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("selectSection rejects saving more than five next-semester subjects")
-    void selectSection_rejectsMoreThanFiveSelections() {
+    @DisplayName("chooseSection keeps subject draft and stores preferred section")
+    void chooseSection_savesPreferredSection() {
         Subject subject = Subject.builder()
                 .id(101L)
                 .code("CSCI2104")
@@ -180,81 +235,40 @@ class NextSemesterPlanningServiceTest {
                                 .build()
                 ))
                 .build();
-        ProgramCurriculumItem item = ProgramCurriculumItem.builder()
-                .id(1L)
-                .program(program)
-                .subject(subject)
-                .academicYear(2)
-                .semesterNumber(1)
-                .displayOrder(1)
-                .required(true)
-                .build();
-        List<PlannedRegistration> existingSelections = List.of(
-                planned(1L, student, nextSemester, 201L, "CSCI2105"),
-                planned(2L, student, nextSemester, 202L, "INFT2205"),
-                planned(3L, student, nextSemester, 203L, "INFT2102"),
-                planned(4L, student, nextSemester, 204L, "HUM1101"),
-                planned(5L, student, nextSemester, 205L, "STAT2201")
-        );
-
-        when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
-        when(subjectOfferingRepository.findByIdWithDetails(44L)).thenReturn(Optional.of(offering));
-        when(programCurriculumItemRepository.findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(1L, 2, 1))
-                .thenReturn(List.of(item));
-        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(15L, 9L))
-                .thenReturn(existingSelections);
-
-        assertThatThrownBy(() -> service.selectSection(student, 44L))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("no more than 5 subjects");
-
-        verify(plannedRegistrationRepository, never()).save(org.mockito.ArgumentMatchers.any());
-    }
-
-    @Test
-    @DisplayName("removeSection deletes saved next-semester section by student and offering")
-    void removeSection_deletesSavedSelection() {
-        PlannedRegistration existing = planned(7L, student, nextSemester, 467L, "CSCI2104");
-
-        when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
-        when(plannedRegistrationRepository.findByStudentIdAndSubjectOfferingId(15L, 467L))
-                .thenReturn(Optional.of(existing));
-        when(plannedRegistrationRepository.deleteByStudentIdAndSubjectOfferingId(15L, 467L))
-                .thenReturn(1);
-
-        NextSemesterPlanningService.PlanActionResult result = service.removeSection(student, 467L);
-
-        assertThat(result.success()).isTrue();
-        verify(plannedRegistrationRepository).deleteByStudentIdAndSubjectOfferingId(15L, 467L);
-    }
-
-    private PlannedRegistration planned(Long id, Student student, Semester semester, Long offeringId, String subjectCode) {
-        Subject subject = Subject.builder()
-                .id(offeringId)
-                .code(subjectCode)
-                .name(subjectCode)
-                .credits(4)
-                .build();
-        SubjectOffering offering = SubjectOffering.builder()
-                .id(offeringId)
-                .subject(subject)
-                .semester(semester)
-                .meetingTimes(List.of(
-                        MeetingTime.builder()
-                                .dayOfWeek(DayOfWeek.MONDAY)
-                                .startTime(LocalTime.of(8, 0))
-                                .endTime(LocalTime.of(9, 0))
-                                .lessonType(SubjectOffering.LessonType.LECTURE)
-                                .build()
-                ))
-                .build();
-        return PlannedRegistration.builder()
-                .id(id)
+        PlannedRegistration draft = PlannedRegistration.builder()
+                .id(7L)
                 .student(student)
-                .semester(semester)
-                .subjectOffering(offering)
+                .semester(nextSemester)
+                .subject(subject)
+                .subjectOffering(null)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
+
+        when(semesterRepository.findAll()).thenReturn(List.of(currentSemester, nextSemester));
+        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(15L, 9L, 101L))
+                .thenReturn(Optional.of(draft));
+        when(subjectOfferingRepository.findByIdWithDetails(44L)).thenReturn(Optional.of(offering));
+        when(plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(15L, 9L))
+                .thenReturn(List.of(draft));
+        when(programCurriculumItemRepository.findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(1L, 2, 1))
+                .thenReturn(List.of(ProgramCurriculumItem.builder()
+                        .id(1L)
+                        .program(program)
+                        .subject(subject)
+                        .academicYear(2)
+                        .semesterNumber(1)
+                        .displayOrder(1)
+                        .required(true)
+                        .build()));
+        when(plannedRegistrationRepository.save(any(PlannedRegistration.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        NextSemesterPlanningService.PlanActionResult result = service.chooseSection(student, 101L, 44L);
+
+        assertThat(result.success()).isTrue();
+        ArgumentCaptor<PlannedRegistration> captor = ArgumentCaptor.forClass(PlannedRegistration.class);
+        verify(plannedRegistrationRepository).save(captor.capture());
+        assertThat(captor.getValue().getSubject()).isEqualTo(subject);
+        assertThat(captor.getValue().getSubjectOffering()).isEqualTo(offering);
     }
 }

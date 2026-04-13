@@ -8,13 +8,16 @@ import ru.kors.finalproject.entity.PlannedRegistration;
 import ru.kors.finalproject.entity.ProgramCurriculumItem;
 import ru.kors.finalproject.entity.Semester;
 import ru.kors.finalproject.entity.Student;
+import ru.kors.finalproject.entity.Subject;
 import ru.kors.finalproject.entity.SubjectOffering;
 import ru.kors.finalproject.repository.PlannedRegistrationRepository;
 import ru.kors.finalproject.repository.ProgramCurriculumItemRepository;
 import ru.kors.finalproject.repository.SemesterRepository;
 import ru.kors.finalproject.repository.SubjectOfferingRepository;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -23,7 +26,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -60,7 +62,10 @@ public class NextSemesterPlanningService {
                         student.getProgram().getId(),
                         target.academicYear(),
                         target.semesterNumber()
-                );
+                ).stream()
+                .sorted(Comparator.comparingInt(ProgramCurriculumItem::getDisplayOrder))
+                .toList();
+
         if (curriculumItems.isEmpty()) {
             return new NextSemesterPlanOverview(
                     target.semester().getId(),
@@ -84,34 +89,56 @@ public class NextSemesterPlanningService {
                 .toList();
 
         List<PlannedRegistration> selections = plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(student.getId(), target.semester().getId());
-        Set<Long> selectedOfferingIds = selections.stream()
-                .map(selection -> selection.getSubjectOffering().getId())
-                .collect(Collectors.toSet());
         Map<Long, PlannedRegistration> selectedBySubjectId = selections.stream()
-                .filter(selection -> selection.getSubjectOffering() != null && selection.getSubjectOffering().getSubject() != null)
+                .filter(selection -> selection.getSubject() != null)
                 .collect(Collectors.toMap(
-                        selection -> selection.getSubjectOffering().getSubject().getId(),
+                        selection -> selection.getSubject().getId(),
                         selection -> selection,
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
 
-        List<NextSemesterSelectionDto> savedSelections = selections.stream()
-                .map(this::toSelectionDto)
+        Map<Long, Integer> displayOrderBySubjectId = curriculumItems.stream()
+                .collect(Collectors.toMap(
+                        item -> item.getSubject().getId(),
+                        ProgramCurriculumItem::getDisplayOrder,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+
+        List<NextSemesterSavedSubjectDto> savedSubjects = selections.stream()
+                .sorted(Comparator
+                        .comparing((PlannedRegistration selection) -> displayOrderBySubjectId.getOrDefault(selection.getSubject().getId(), Integer.MAX_VALUE))
+                        .thenComparing(selection -> selection.getSubject().getCode(), Comparator.nullsLast(String::compareTo)))
+                .map(this::toSavedSubjectDto)
                 .toList();
 
         List<NextSemesterSubjectOptionDto> subjectOptions = curriculumItems.stream()
                 .map(item -> {
+                    PlannedRegistration savedSubject = selectedBySubjectId.get(item.getSubject().getId());
+                    boolean saved = savedSubject != null;
+                    Long selectedSectionId = savedSubject != null && savedSubject.getSubjectOffering() != null
+                            ? savedSubject.getSubjectOffering().getId()
+                            : null;
+
                     List<SubjectOffering> subjectOfferings = offerings.stream()
                             .filter(offering -> Objects.equals(offering.getSubject().getId(), item.getSubject().getId()))
                             .toList();
-                    PlannedRegistration selected = selectedBySubjectId.get(item.getSubject().getId());
+
                     List<NextSemesterSectionOptionDto> sectionOptions = subjectOfferings.stream()
                             .map(offering -> {
-                                List<String> reasons = evaluateSelection(student, target, offering, selections);
-                                boolean selectedFlag = selectedOfferingIds.contains(offering.getId());
-                                if (selectedFlag) {
+                                boolean selected = Objects.equals(selectedSectionId, offering.getId());
+                                List<String> reasons;
+                                boolean canSelect;
+                                if (!saved) {
+                                    reasons = List.of("Save this subject first, then choose a preferred section time.");
+                                    canSelect = false;
+                                } else if (selected) {
                                     reasons = List.of();
+                                    canSelect = true;
+                                } else {
+                                    reasons = evaluateSectionSelection(student, target, item.getSubject(), offering, selections);
+                                    canSelect = reasons.isEmpty();
                                 }
                                 return new NextSemesterSectionOptionDto(
                                         offering.getId(),
@@ -119,12 +146,13 @@ public class NextSemesterPlanningService {
                                         offering.getCapacity(),
                                         plannedRegistrationRepository.countBySubjectOfferingId(offering.getId()),
                                         buildMeetingTimes(offering),
-                                        selectedFlag,
+                                        selected,
                                         reasons,
-                                        reasons.isEmpty() || selectedFlag
+                                        canSelect
                                 );
                             })
                             .toList();
+
                     return new NextSemesterSubjectOptionDto(
                             item.getSubject().getId(),
                             item.getSubject().getCode(),
@@ -132,7 +160,8 @@ public class NextSemesterPlanningService {
                             item.getSubject().getCredits(),
                             item.isRequired(),
                             item.getDisplayOrder(),
-                            selected != null ? selected.getSubjectOffering().getId() : null,
+                            saved,
+                            selectedSectionId,
                             sectionOptions
                     );
                 })
@@ -145,105 +174,191 @@ public class NextSemesterPlanningService {
                 target.semesterNumber(),
                 true,
                 MAX_SELECTIONS,
-                savedSelections.size(),
-                "Choose up to %d subjects for the next semester and save your preferred section times.".formatted(MAX_SELECTIONS),
+                savedSubjects.size(),
+                "Save up to %d subjects for the next semester. After that, choose your preferred section times.".formatted(MAX_SELECTIONS),
                 subjectOptions,
-                savedSelections
+                savedSubjects
         );
     }
 
     @Transactional
-    public PlanActionResult selectSection(Student student, Long sectionId) {
+    public PlanActionResult saveSubject(Student student, Long subjectId) {
         PlanningTarget target = resolvePlanningTarget(student)
                 .orElseThrow(() -> new IllegalArgumentException("Next-semester planning is not available for this student"));
-        SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(sectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Section not found"));
-        if (offering.getSemester() == null || !Objects.equals(offering.getSemester().getId(), target.semester().getId())) {
-            throw new IllegalArgumentException("Section is not part of the target next semester");
-        }
 
-        List<ProgramCurriculumItem> curriculumItems = programCurriculumItemRepository
+        ProgramCurriculumItem curriculumItem = programCurriculumItemRepository
                 .findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(
                         student.getProgram().getId(),
                         target.academicYear(),
                         target.semesterNumber()
-                );
-        boolean allowedSubject = curriculumItems.stream()
-                .anyMatch(item -> Objects.equals(item.getSubject().getId(), offering.getSubject().getId()));
-        if (!allowedSubject) {
-            throw new IllegalArgumentException("Section is not part of the recommended next-semester curriculum");
+                ).stream()
+                .filter(item -> Objects.equals(item.getSubject().getId(), subjectId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Subject is not part of the recommended next-semester curriculum"));
+
+        Optional<PlannedRegistration> existing = plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(
+                student.getId(),
+                target.semester().getId(),
+                subjectId
+        );
+        if (existing.isPresent()) {
+            return new PlanActionResult(true, "Subject is already saved for your next-semester plan.");
         }
 
-        List<PlannedRegistration> selections = plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(student.getId(), target.semester().getId());
-        Optional<PlannedRegistration> sameOffering = selections.stream()
-                .filter(selection -> Objects.equals(selection.getSubjectOffering().getId(), offering.getId()))
-                .findFirst();
-        if (sameOffering.isPresent()) {
-            return new PlanActionResult(true, "Section is already saved in your next-semester plan.");
-        }
-
-        Optional<PlannedRegistration> sameSubject = selections.stream()
-                .filter(selection -> selection.getSubjectOffering() != null && selection.getSubjectOffering().getSubject() != null)
-                .filter(selection -> Objects.equals(selection.getSubjectOffering().getSubject().getId(), offering.getSubject().getId()))
-                .findFirst();
-
-        List<PlannedRegistration> competingSelections = selections.stream()
-                .filter(selection -> sameSubject.isEmpty() || !Objects.equals(selection.getId(), sameSubject.get().getId()))
-                .toList();
-
-        if (sameSubject.isEmpty() && competingSelections.size() >= MAX_SELECTIONS) {
+        if (plannedRegistrationRepository.countByStudentIdAndSemesterId(student.getId(), target.semester().getId()) >= MAX_SELECTIONS) {
             throw new IllegalArgumentException("You can save no more than %d subjects for the next semester.".formatted(MAX_SELECTIONS));
         }
-
-        List<String> reasons = evaluateSelection(student, target, offering, competingSelections);
-        if (!reasons.isEmpty()) {
-            throw new IllegalArgumentException(reasons.get(0));
-        }
-
-        sameSubject.ifPresent(plannedRegistrationRepository::delete);
 
         PlannedRegistration selection = plannedRegistrationRepository.save(PlannedRegistration.builder()
                 .student(student)
                 .semester(target.semester())
-                .subjectOffering(offering)
+                .subject(curriculumItem.getSubject())
+                .subjectOffering(null)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build());
 
         auditService.logStudentAction(
                 student,
-                "NEXT_SEMESTER_SELECTION_SAVED",
+                "NEXT_SEMESTER_SUBJECT_SAVED",
                 "PlannedRegistration",
                 selection.getId(),
-                "sectionId=" + sectionId
+                "subjectId=" + subjectId
         );
-        return new PlanActionResult(true, "Next-semester section saved.");
+        return new PlanActionResult(true, "Subject saved. You can choose a preferred section time later.");
     }
 
     @Transactional
-    public PlanActionResult removeSection(Student student, Long sectionId) {
+    public PlanActionResult removeSubject(Student student, Long subjectId) {
         PlanningTarget target = resolvePlanningTarget(student)
                 .orElseThrow(() -> new IllegalArgumentException("Next-semester planning is not available for this student"));
-        PlannedRegistration selection = plannedRegistrationRepository.findByStudentIdAndSubjectOfferingId(student.getId(), sectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Saved next-semester section not found"));
-        if (!Objects.equals(selection.getSemester().getId(), target.semester().getId())) {
-            throw new IllegalArgumentException("Saved section is not part of the active next-semester plan");
-        }
 
-        plannedRegistrationRepository.deleteByStudentIdAndSubjectOfferingId(student.getId(), sectionId);
+        PlannedRegistration selection = plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(
+                        student.getId(),
+                        target.semester().getId(),
+                        subjectId
+                )
+                .orElseThrow(() -> new IllegalArgumentException("Saved next-semester subject not found"));
+
+        plannedRegistrationRepository.deleteByStudentIdAndSemesterIdAndSubjectId(student.getId(), target.semester().getId(), subjectId);
         auditService.logStudentAction(
                 student,
-                "NEXT_SEMESTER_SELECTION_REMOVED",
+                "NEXT_SEMESTER_SUBJECT_REMOVED",
                 "PlannedRegistration",
                 selection.getId(),
-                "sectionId=" + sectionId
+                "subjectId=" + subjectId
         );
-        return new PlanActionResult(true, "Next-semester section removed.");
+        return new PlanActionResult(true, "Subject removed from your next-semester plan.");
     }
 
-    private List<String> evaluateSelection(
+    @Transactional
+    public PlanActionResult chooseSection(Student student, Long subjectId, Long sectionId) {
+        PlanningTarget target = resolvePlanningTarget(student)
+                .orElseThrow(() -> new IllegalArgumentException("Next-semester planning is not available for this student"));
+
+        PlannedRegistration selection = plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(
+                        student.getId(),
+                        target.semester().getId(),
+                        subjectId
+                )
+                .orElseThrow(() -> new IllegalArgumentException("Save the subject first before choosing a section"));
+
+        SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("Section not found"));
+
+        if (offering.getSemester() == null || !Objects.equals(offering.getSemester().getId(), target.semester().getId())) {
+            throw new IllegalArgumentException("Section is not part of the target next semester");
+        }
+        if (offering.getSubject() == null || !Objects.equals(offering.getSubject().getId(), subjectId)) {
+            throw new IllegalArgumentException("Section does not belong to the selected subject");
+        }
+
+        List<PlannedRegistration> currentSelections = plannedRegistrationRepository.findByStudentIdAndSemesterIdWithDetails(student.getId(), target.semester().getId());
+        List<String> reasons = evaluateSectionSelection(student, target, selection.getSubject(), offering, currentSelections);
+        if (!reasons.isEmpty()) {
+            throw new IllegalArgumentException(reasons.get(0));
+        }
+
+        selection.setSubjectOffering(offering);
+        selection.setUpdatedAt(Instant.now());
+        plannedRegistrationRepository.save(selection);
+
+        auditService.logStudentAction(
+                student,
+                "NEXT_SEMESTER_SECTION_SELECTED",
+                "PlannedRegistration",
+                selection.getId(),
+                "subjectId=" + subjectId + ",sectionId=" + sectionId
+        );
+        return new PlanActionResult(true, "Preferred section saved for the selected subject.");
+    }
+
+    @Transactional
+    public PlanActionResult clearSection(Student student, Long subjectId) {
+        PlanningTarget target = resolvePlanningTarget(student)
+                .orElseThrow(() -> new IllegalArgumentException("Next-semester planning is not available for this student"));
+
+        PlannedRegistration selection = plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(
+                        student.getId(),
+                        target.semester().getId(),
+                        subjectId
+                )
+                .orElseThrow(() -> new IllegalArgumentException("Saved next-semester subject not found"));
+
+        if (selection.getSubjectOffering() == null) {
+            return new PlanActionResult(true, "No preferred section was selected for this subject.");
+        }
+
+        Long previousSectionId = selection.getSubjectOffering().getId();
+        selection.setSubjectOffering(null);
+        selection.setUpdatedAt(Instant.now());
+        plannedRegistrationRepository.save(selection);
+
+        auditService.logStudentAction(
+                student,
+                "NEXT_SEMESTER_SECTION_CLEARED",
+                "PlannedRegistration",
+                selection.getId(),
+                "subjectId=" + subjectId + ",sectionId=" + previousSectionId
+        );
+        return new PlanActionResult(true, "Preferred section cleared. The subject remains in your next-semester plan.");
+    }
+
+    @Transactional
+    public PlanActionResult legacySaveSection(Student student, Long sectionId) {
+        SubjectOffering offering = subjectOfferingRepository.findByIdWithDetails(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("Section not found"));
+        if (offering.getSubject() == null) {
+            throw new IllegalArgumentException("Section subject is missing");
+        }
+        saveSubjectIfMissing(student, offering.getSubject());
+        return chooseSection(student, offering.getSubject().getId(), sectionId);
+    }
+
+    @Transactional
+    public PlanActionResult legacyRemoveSection(Student student, Long sectionId) {
+        PlannedRegistration selection = plannedRegistrationRepository.findByStudentIdAndSubjectOfferingId(student.getId(), sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("Saved next-semester section not found"));
+        return removeSubject(student, selection.getSubject().getId());
+    }
+
+    private void saveSubjectIfMissing(Student student, Subject subject) {
+        PlanningTarget target = resolvePlanningTarget(student)
+                .orElseThrow(() -> new IllegalArgumentException("Next-semester planning is not available for this student"));
+        boolean exists = plannedRegistrationRepository.findByStudentIdAndSemesterIdAndSubjectIdWithDetails(
+                student.getId(),
+                target.semester().getId(),
+                subject.getId()
+        ).isPresent();
+        if (!exists) {
+            saveSubject(student, subject.getId());
+        }
+    }
+
+    private List<String> evaluateSectionSelection(
             Student student,
             PlanningTarget target,
+            Subject subject,
             SubjectOffering offering,
             List<PlannedRegistration> currentSelections
     ) {
@@ -254,55 +369,54 @@ public class NextSemesterPlanningService {
             return reasons;
         }
 
-        if (offering.getSubject() == null) {
+        if (subject == null || offering.getSubject() == null) {
             reasons.add("Section subject is missing");
             return reasons;
         }
 
-        List<ProgramCurriculumItem> curriculumItems = programCurriculumItemRepository
+        if (!Objects.equals(subject.getId(), offering.getSubject().getId())) {
+            reasons.add("Section does not belong to the saved subject");
+            return reasons;
+        }
+
+        boolean allowedSubject = programCurriculumItemRepository
                 .findByProgramIdAndAcademicYearAndSemesterNumberWithDetails(
                         student.getProgram().getId(),
                         target.academicYear(),
                         target.semesterNumber()
-                );
-        boolean allowedSubject = curriculumItems.stream()
-                .anyMatch(item -> Objects.equals(item.getSubject().getId(), offering.getSubject().getId()));
+                ).stream()
+                .anyMatch(item -> Objects.equals(item.getSubject().getId(), subject.getId()));
         if (!allowedSubject) {
             reasons.add("Section does not belong to your next-semester curriculum");
         }
 
-        boolean duplicateSubject = currentSelections.stream()
-                .anyMatch(selection -> selection.getSubjectOffering() != null
-                        && selection.getSubjectOffering().getSubject() != null
-                        && Objects.equals(selection.getSubjectOffering().getSubject().getId(), offering.getSubject().getId()));
-        if (duplicateSubject) {
-            reasons.add("Another section for this subject is already saved");
-        }
-
-        if (hasScheduleConflict(currentSelections, offering)) {
-            reasons.add("Saved next-semester sections would conflict in time");
+        if (hasScheduleConflict(currentSelections, subject.getId(), offering)) {
+            reasons.add("Preferred section would conflict with another selected section time.");
         }
 
         return reasons;
     }
 
-    private boolean hasScheduleConflict(List<PlannedRegistration> currentSelections, SubjectOffering candidate) {
-        List<MeetingTime> candidateTimes = candidate.getMeetingTimes() != null ? candidate.getMeetingTimes() : List.of();
+    private boolean hasScheduleConflict(List<PlannedRegistration> currentSelections, Long subjectIdToIgnore, SubjectOffering candidate) {
+        List<TimeSlot> candidateTimes = extractTimeSlots(candidate);
         if (candidateTimes.isEmpty()) {
             return false;
         }
 
         for (PlannedRegistration selection : currentSelections) {
-            SubjectOffering existing = selection.getSubjectOffering();
-            if (existing == null || Objects.equals(existing.getId(), candidate.getId())) {
+            if (selection.getSubject() == null || Objects.equals(selection.getSubject().getId(), subjectIdToIgnore)) {
                 continue;
             }
-            List<MeetingTime> existingTimes = existing.getMeetingTimes() != null ? existing.getMeetingTimes() : List.of();
-            for (MeetingTime existingSlot : existingTimes) {
-                for (MeetingTime candidateSlot : candidateTimes) {
-                    if (existingSlot.getDayOfWeek() == candidateSlot.getDayOfWeek()
-                            && existingSlot.getStartTime().isBefore(candidateSlot.getEndTime())
-                            && candidateSlot.getStartTime().isBefore(existingSlot.getEndTime())) {
+            SubjectOffering existing = selection.getSubjectOffering();
+            if (existing == null) {
+                continue;
+            }
+            List<TimeSlot> existingTimes = extractTimeSlots(existing);
+            for (TimeSlot existingSlot : existingTimes) {
+                for (TimeSlot candidateSlot : candidateTimes) {
+                    if (existingSlot.dayOfWeek() == candidateSlot.dayOfWeek()
+                            && existingSlot.startTime().isBefore(candidateSlot.endTime())
+                            && candidateSlot.startTime().isBefore(existingSlot.endTime())) {
                         return true;
                     }
                 }
@@ -340,33 +454,67 @@ public class NextSemesterPlanningService {
     }
 
     private List<MeetingTimeDto> buildMeetingTimes(SubjectOffering offering) {
-        if (offering.getMeetingTimes() == null) {
-            return List.of();
-        }
-        return offering.getMeetingTimes().stream()
-                .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+        return extractTimeSlots(offering).stream()
                 .map(slot -> new MeetingTimeDto(
-                        slot.getDayOfWeek().name(),
-                        slot.getStartTime().toString(),
-                        slot.getEndTime().toString(),
-                        slot.getRoom(),
-                        slot.getLessonType() != null ? slot.getLessonType().name() : null
+                        slot.dayOfWeek().name(),
+                        slot.startTime().toString(),
+                        slot.endTime().toString(),
+                        slot.room(),
+                        slot.lessonType()
                 ))
                 .toList();
     }
 
-    private NextSemesterSelectionDto toSelectionDto(PlannedRegistration selection) {
+    private List<TimeSlot> extractTimeSlots(SubjectOffering offering) {
+        if (offering == null) {
+            return List.of();
+        }
+        if (offering.getMeetingTimes() != null && !offering.getMeetingTimes().isEmpty()) {
+            return offering.getMeetingTimes().stream()
+                    .sorted(Comparator.comparing(MeetingTime::getDayOfWeek).thenComparing(MeetingTime::getStartTime))
+                    .map(slot -> new TimeSlot(
+                            slot.getDayOfWeek(),
+                            slot.getStartTime(),
+                            slot.getEndTime(),
+                            slot.getRoom(),
+                            slot.getLessonType() != null ? slot.getLessonType().name() : null
+                    ))
+                    .toList();
+        }
+        if (offering.getDayOfWeek() == null || offering.getStartTime() == null || offering.getEndTime() == null) {
+            return List.of();
+        }
+        return List.of(new TimeSlot(
+                offering.getDayOfWeek(),
+                offering.getStartTime(),
+                offering.getEndTime(),
+                offering.getRoom(),
+                offering.getLessonType() != null ? offering.getLessonType().name() : null
+        ));
+    }
+
+    private NextSemesterSavedSubjectDto toSavedSubjectDto(PlannedRegistration selection) {
         SubjectOffering offering = selection.getSubjectOffering();
-        return new NextSemesterSelectionDto(
+        return new NextSemesterSavedSubjectDto(
                 selection.getId(),
-                offering.getId(),
-                offering.getSubject().getCode(),
-                offering.getSubject().getName(),
-                offering.getSubject().getCredits(),
-                offering.getTeacher() != null ? offering.getTeacher().getName() : null,
-                buildMeetingTimes(offering)
+                selection.getSubject().getId(),
+                selection.getSubject().getCode(),
+                selection.getSubject().getName(),
+                selection.getSubject().getCredits(),
+                offering != null ? offering.getId() : null,
+                offering != null && offering.getTeacher() != null ? offering.getTeacher().getName() : null,
+                buildMeetingTimes(offering),
+                offering != null
         );
     }
+
+    private record TimeSlot(
+            DayOfWeek dayOfWeek,
+            LocalTime startTime,
+            LocalTime endTime,
+            String room,
+            String lessonType
+    ) {}
 
     private record PlanningTarget(Semester semester, int academicYear, int semesterNumber) {}
 
@@ -380,7 +528,7 @@ public class NextSemesterPlanningService {
             int selectedCount,
             String message,
             List<NextSemesterSubjectOptionDto> subjects,
-            List<NextSemesterSelectionDto> savedSelections
+            List<NextSemesterSavedSubjectDto> savedSubjects
     ) {}
 
     public record NextSemesterSubjectOptionDto(
@@ -390,6 +538,7 @@ public class NextSemesterPlanningService {
             int credits,
             boolean required,
             int displayOrder,
+            boolean saved,
             Long selectedSectionId,
             List<NextSemesterSectionOptionDto> sections
     ) {}
@@ -405,14 +554,16 @@ public class NextSemesterPlanningService {
             boolean canSelect
     ) {}
 
-    public record NextSemesterSelectionDto(
+    public record NextSemesterSavedSubjectDto(
             Long plannedRegistrationId,
-            Long sectionId,
+            Long subjectId,
             String subjectCode,
             String subjectName,
             int credits,
+            Long selectedSectionId,
             String teacherName,
-            List<MeetingTimeDto> meetingTimes
+            List<MeetingTimeDto> meetingTimes,
+            boolean sectionSelected
     ) {}
 
     public record MeetingTimeDto(

@@ -8,6 +8,7 @@ import ProfessorsPage from "./pages/ProfessorsPage";
 import ProfessorProfilePage from "./pages/ProfessorProfilePage";
 import StudentDashboardPage from "./pages/app/StudentDashboardPage";
 import StudentRegistrationPage from "./pages/app/StudentRegistrationPage";
+import StudentSubjectsPage from "./pages/app/StudentSubjectsPage";
 import StudentNotificationsPage from "./pages/app/StudentNotificationsPage";
 import StudentPlannerPage from "./pages/app/StudentPlannerPage";
 import StudentWorkflowsPage from "./pages/app/StudentWorkflowsPage";
@@ -97,6 +98,14 @@ export default function App() {
           element={
             <RoleProtectedRoute roles={["STUDENT"]}>
               <StudentRegistrationPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="student/subjects"
+          element={
+            <RoleProtectedRoute roles={["STUDENT"]}>
+              <StudentSubjectsPage />
             </RoleProtectedRoute>
           }
         />

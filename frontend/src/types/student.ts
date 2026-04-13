@@ -488,18 +488,21 @@ export interface StudentNextSemesterSubjectOption {
   credits: number;
   required: boolean;
   displayOrder: number;
+  saved: boolean;
   selectedSectionId: number | null;
   sections: StudentNextSemesterSectionOption[];
 }
 
-export interface StudentNextSemesterSelection {
+export interface StudentNextSemesterSavedSubject {
   plannedRegistrationId: number;
-  sectionId: number;
+  subjectId: number;
   subjectCode: string;
   subjectName: string;
   credits: number;
+  selectedSectionId: number | null;
   teacherName: string | null;
   meetingTimes: StudentRegistrationMeetingSlot[];
+  sectionSelected: boolean;
 }
 
 export interface StudentNextSemesterOverview {
@@ -512,7 +515,7 @@ export interface StudentNextSemesterOverview {
   selectedCount: number;
   message: string;
   subjects: StudentNextSemesterSubjectOption[];
-  savedSelections: StudentNextSemesterSelection[];
+  savedSubjects: StudentNextSemesterSavedSubject[];
 }
 
 export interface StudentCourseCatalogItem {
