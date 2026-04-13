@@ -2,6 +2,7 @@ package ru.kors.finalproject.service;
 
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -425,10 +426,13 @@ public final class StudentSchedulePlanningEngine {
     }
 
     private static Set<String> detectDays(String clause) {
-        Map<String, List<String>> tokens = dayTokens();
+        Map<String, DayTokens> tokens = dayTokenRules();
+        List<String> words = tokenizeWords(clause);
         Set<String> days = new LinkedHashSet<>();
-        for (Map.Entry<String, List<String>> entry : tokens.entrySet()) {
-            boolean matched = entry.getValue().stream().anyMatch(clause::contains);
+        for (Map.Entry<String, DayTokens> entry : tokens.entrySet()) {
+            boolean matched = words.stream().anyMatch(word ->
+                    entry.getValue().exact().contains(word)
+                            || entry.getValue().prefixes().stream().anyMatch(word::startsWith));
             if (matched) {
                 days.add(entry.getKey());
             }
@@ -444,6 +448,41 @@ public final class StudentSchedulePlanningEngine {
         tokens.put("THURSDAY", List.of("thursday", "thu", "четв", "чт"));
         tokens.put("FRIDAY", List.of("friday", "fri", "пят", "пт"));
         tokens.put("SATURDAY", List.of("saturday", "sat", "суб", "сб"));
+        return tokens;
+    }
+
+    private static List<String> tokenizeWords(String clause) {
+        return Arrays.stream(clause.split("[^\\p{L}\\p{N}]+"))
+                .filter(word -> !word.isBlank())
+                .toList();
+    }
+
+    private static Map<String, DayTokens> dayTokenRules() {
+        Map<String, DayTokens> tokens = new LinkedHashMap<>();
+        tokens.put("MONDAY", new DayTokens(
+                Set.of("monday", "mon", "\u043f\u043d"),
+                Set.of("\u043f\u043e\u043d\u0435\u0434")
+        ));
+        tokens.put("TUESDAY", new DayTokens(
+                Set.of("tuesday", "tue", "\u0432\u0442"),
+                Set.of("\u0432\u0442\u043e\u0440")
+        ));
+        tokens.put("WEDNESDAY", new DayTokens(
+                Set.of("wednesday", "wed", "\u0441\u0440"),
+                Set.of("\u0441\u0440\u0435\u0434")
+        ));
+        tokens.put("THURSDAY", new DayTokens(
+                Set.of("thursday", "thu", "\u0447\u0442"),
+                Set.of("\u0447\u0435\u0442\u0432\u0435\u0440")
+        ));
+        tokens.put("FRIDAY", new DayTokens(
+                Set.of("friday", "fri", "\u043f\u0442"),
+                Set.of("\u043f\u044f\u0442")
+        ));
+        tokens.put("SATURDAY", new DayTokens(
+                Set.of("saturday", "sat", "\u0441\u0431"),
+                Set.of("\u0441\u0443\u0431")
+        ));
         return tokens;
     }
 
@@ -638,6 +677,9 @@ public final class StudentSchedulePlanningEngine {
             boolean preferCompactSchedule,
             List<String> rawPreferences
     ) {
+    }
+
+    private record DayTokens(Set<String> exact, Set<String> prefixes) {
     }
 
     private record DayEvaluation(boolean satisfied, int score, List<String> blockingCourses) {
