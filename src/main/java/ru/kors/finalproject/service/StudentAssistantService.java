@@ -549,31 +549,88 @@ private SchedulePlanningContext buildSchedulePlanningContext(Student student) {
     }
 
     private String buildScheduleAnswer(ScheduleRecommendation recommendation, AiSchedulePlan plan) {
+        boolean useRussian = shouldUseRussianScheduleAnswer(plan, recommendation);
         StringBuilder answer = new StringBuilder();
-        if (plan.chatResponse() != null && !plan.chatResponse().isBlank()) {
-            answer.append(plan.chatResponse().trim());
-        } else if (recommendation.summary() != null) {
-            answer.append(recommendation.summary().trim());
+        String semesterName = blankToNull(recommendation.semesterName());
+        if (semesterName != null) {
+            answer.append(semesterName);
         } else {
-            answer.append("I prepared a next-semester schedule recommendation based on the available section times.");
+            answer.append(useRussian ? "Следующий семестр" : "Next semester");
         }
 
-        if (!recommendation.warnings().isEmpty()) {
-            answer.append("\n\nWarnings:");
-            recommendation.warnings().forEach(warning -> answer.append("\n- ").append(warning));
-        }
-
-        if (!recommendation.unsatisfiedPreferences().isEmpty()) {
-            answer.append("\n\nCould not fully satisfy:");
-            recommendation.unsatisfiedPreferences().forEach(item -> answer.append("\n- ").append(item));
-        }
-
+        List<String> issues = new ArrayList<>(sanitizeStrings(recommendation.unsatisfiedPreferences()));
+        issues.addAll(sanitizeStrings(recommendation.warnings()));
         if (!recommendation.blockingCourses().isEmpty()) {
-            answer.append("\n\nBlocking courses:");
-            recommendation.blockingCourses().forEach(item -> answer.append("\n- ").append(item));
+            issues.add((useRussian ? "Блокирует: " : "Blocked by: ") + String.join(", ", recommendation.blockingCourses()));
+        }
+
+        issues = issues.stream().distinct().toList();
+        if (!issues.isEmpty()) {
+            answer.append("\n")
+                    .append(useRussian ? "Проблемы:" : "Issues:");
+            issues.forEach(issue -> answer.append("\n- ").append(issue));
+        }
+
+        List<String> scheduleLines = buildCompactScheduleLines(recommendation, useRussian);
+        if (!scheduleLines.isEmpty()) {
+            answer.append("\n\n");
+            answer.append(String.join("\n", scheduleLines));
+        } else if (recommendation.selectedSections().isEmpty()) {
+            answer.append("\n")
+                    .append(useRussian ? "Занятия не найдены." : "No classes found.");
         }
 
         return answer.toString().trim();
+    }
+
+    private boolean shouldUseRussianScheduleAnswer(AiSchedulePlan plan, ScheduleRecommendation recommendation) {
+        StringBuilder sample = new StringBuilder();
+        if (plan.chatResponse() != null) {
+            sample.append(plan.chatResponse()).append(' ');
+        }
+        if (recommendation.summary() != null) {
+            sample.append(recommendation.summary()).append(' ');
+        }
+        sanitizeStrings(recommendation.satisfiedPreferences()).forEach(item -> sample.append(item).append(' '));
+        sanitizeStrings(recommendation.unsatisfiedPreferences()).forEach(item -> sample.append(item).append(' '));
+        sanitizeStrings(recommendation.warnings()).forEach(item -> sample.append(item).append(' '));
+        return sample.toString().chars().anyMatch(ch -> ch >= 0x0400 && ch <= 0x04FF);
+    }
+
+    private List<String> buildCompactScheduleLines(ScheduleRecommendation recommendation, boolean useRussian) {
+        Map<String, List<VisualScheduleItem>> visualSchedule = recommendation.visualSchedule() != null
+                ? recommendation.visualSchedule()
+                : Map.of();
+        List<String> lines = new ArrayList<>();
+        for (String day : List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")) {
+            List<VisualScheduleItem> items = sanitizeVisualItems(visualSchedule.get(day));
+            if (items.isEmpty()) {
+                continue;
+            }
+            lines.add(formatScheduleDay(day, useRussian));
+            items.forEach(item -> lines.add("- " + formatScheduleLine(item, useRussian)));
+        }
+        return lines;
+    }
+
+    private String formatScheduleDay(String day, boolean useRussian) {
+        return switch (day) {
+            case "MONDAY" -> useRussian ? "ПН" : "Mon";
+            case "TUESDAY" -> useRussian ? "ВТ" : "Tue";
+            case "WEDNESDAY" -> useRussian ? "СР" : "Wed";
+            case "THURSDAY" -> useRussian ? "ЧТ" : "Thu";
+            case "FRIDAY" -> useRussian ? "ПТ" : "Fri";
+            case "SATURDAY" -> useRussian ? "СБ" : "Sat";
+            default -> day;
+        };
+    }
+
+    private String formatScheduleLine(VisualScheduleItem item, boolean useRussian) {
+        String room = blankToNull(item.room());
+        String courseName = blankToNull(item.courseName());
+        String subject = courseName != null ? item.courseCode() + " " + courseName : item.courseCode();
+        String roomLabel = room != null ? room : (useRussian ? "ауд. не указана" : "room TBA");
+        return item.startTime() + "-" + item.endTime() + " | " + roomLabel + " | " + subject;
     }
 
     private boolean isScheduleRecommendationRequest(String message) {

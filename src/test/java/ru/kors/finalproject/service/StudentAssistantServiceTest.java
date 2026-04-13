@@ -164,6 +164,11 @@ class StudentAssistantServiceTest {
         assertThat(reply.scheduleRecommendation().visualSchedule().get("MONDAY").get(0).startTime()).isEqualTo("16:00");
         assertThat(reply.scheduleRecommendation().visualSchedule().get("FRIDAY").get(0).startTime()).isEqualTo("15:00");
         assertThat(reply.scheduleRecommendation().visualSchedule().get("TUESDAY").get(0).startTime()).isEqualTo("09:00");
+        assertThat(reply.answer()).contains("2025-2026 Spring");
+        assertThat(reply.answer()).contains("16:00-18:00 | L-430 | CSCI2107");
+        assertThat(reply.answer()).contains("15:00-17:00 | M-201 | MATH2201");
+        assertThat(reply.answer()).doesNotContain("Warnings:");
+        assertThat(reply.answer()).doesNotContain("Could not fully satisfy:");
 
         verify(geminiClientService, never()).generateJson(anyString(), anyString(), anyString(), anyString(), anyDouble(), anyInt());
         verify(auditService).logStudentAction(
