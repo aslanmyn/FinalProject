@@ -16,6 +16,7 @@ import ru.kors.finalproject.repository.SubjectOfferingRepository;
 import ru.kors.finalproject.repository.TeacherRepository;
 import ru.kors.finalproject.service.AnnouncementService;
 import ru.kors.finalproject.service.FileLinkService;
+import ru.kors.finalproject.service.FileStorageService;
 
 import java.time.Instant;
 import java.time.LocalTime;
@@ -33,6 +34,7 @@ public class PublicV1Controller {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final AnnouncementService announcementService;
     private final FileLinkService fileLinkService;
+    private final FileStorageService fileStorageService;
 
     @GetMapping("/news")
     public ResponseEntity<?> news() {
@@ -42,10 +44,25 @@ public class PublicV1Controller {
                         n.getTitle(),
                         n.getContent(),
                         n.getCategory() != null ? n.getCategory() : "",
-                        n.getCreatedAt()
+                        n.getCreatedAt(),
+                        resolveNewsImageUrl(n)
                 ))
                 .toList();
         return ResponseEntity.ok(payload);
+    }
+
+    @GetMapping("/news/{id}/image")
+    public ResponseEntity<?> newsImage(@PathVariable Long id) {
+        News news = newsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("News not found"));
+        if (news.getImageStoragePath() == null || news.getImageStoragePath().isBlank()) {
+            throw new IllegalArgumentException("News image not found");
+        }
+        return fileStorageService.buildDownloadResponse(
+                news.getImageStoragePath(),
+                news.getImageOriginalName() != null ? news.getImageOriginalName() : "news-image",
+                news.getImageContentType() != null ? news.getImageContentType() : "image/jpeg"
+        );
     }
 
     @GetMapping("/professors")
@@ -163,7 +180,14 @@ public class PublicV1Controller {
         return teacher.getPhotoUrl() != null ? teacher.getPhotoUrl() : "";
     }
 
-    public record NewsDto(Long id, String title, String content, String category, Instant createdAt) {}
+    private String resolveNewsImageUrl(News news) {
+        if (news.getImageStoragePath() == null || news.getImageStoragePath().isBlank()) {
+            return null;
+        }
+        return "/api/v1/public/news/" + news.getId() + "/image";
+    }
+
+    public record NewsDto(Long id, String title, String content, String category, Instant createdAt, String imageUrl) {}
 
     public record ProfessorListItemDto(
             Long id,

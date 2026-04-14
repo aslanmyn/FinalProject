@@ -4,6 +4,7 @@ export interface PublicNewsItem {
   content: string;
   category: string;
   createdAt: string;
+  imageUrl: string | null;
 }
 
 export interface PublicProfessorListItem {

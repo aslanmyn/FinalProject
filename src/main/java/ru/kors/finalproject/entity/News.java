@@ -20,5 +20,8 @@ public class News {
     @Column(columnDefinition = "TEXT")
     private String content;
     private String category;
+    private String imageStoragePath;
+    private String imageOriginalName;
+    private String imageContentType;
     private Instant createdAt;
 }

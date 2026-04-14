@@ -486,6 +486,17 @@ button:disabled {
   align-items: baseline;
 }
 
+.news-image {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  margin: 14px 0;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #f3f6fb;
+}
+
 /* ─── Badge ──────────────────────────────────────────────── */
 
 .badge {

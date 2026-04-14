@@ -38,13 +38,16 @@ public class StudentContentV1Controller {
     @GetMapping("/news")
     @Operation(summary = "Get public news feed", description = "Returns news entries visible to students.")
     public ResponseEntity<?> news(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(newsRepository.findByOrderByCreatedAtDesc().stream().map(n -> Map.of(
-                "id", (Object) n.getId(),
-                "title", n.getTitle(),
-                "content", n.getContent(),
-                "category", n.getCategory() != null ? n.getCategory() : "",
-                "createdAt", n.getCreatedAt().toString()
-        )).toList());
+        return ResponseEntity.ok(newsRepository.findByOrderByCreatedAtDesc().stream()
+                .map(n -> new NewsDto(
+                        n.getId(),
+                        n.getTitle(),
+                        n.getContent(),
+                        n.getCategory() != null ? n.getCategory() : "",
+                        n.getCreatedAt() != null ? n.getCreatedAt().toString() : null,
+                        resolveNewsImageUrl(n)
+                ))
+                .toList());
     }
 
     @GetMapping("/announcements")
@@ -130,10 +133,18 @@ public class StudentContentV1Controller {
 
     public record AnnouncementDto(Long id, String title, String content, Long sectionId,
                                   String sectionCode, Instant publishedAt, boolean pinned) {}
+    public record NewsDto(Long id, String title, String content, String category, String createdAt, String imageUrl) {}
     public record NotificationDto(Long id, Notification.NotificationType type, String title,
                                   String message, String link, boolean read, Instant createdAt) {}
     public record MaterialDto(Long id, String title, String description, String originalFileName,
                               String contentType, long sizeBytes, Instant createdAt, String downloadUrl) {}
     public record StudentFileDto(Long id, String fileName, FileAsset.FileCategory category,
                                  String contentType, long sizeBytes, Instant uploadedAt, String downloadUrl) {}
+
+    private String resolveNewsImageUrl(News news) {
+        if (news.getImageStoragePath() == null || news.getImageStoragePath().isBlank()) {
+            return null;
+        }
+        return "/api/v1/public/news/" + news.getId() + "/image";
+    }
 }

@@ -1073,10 +1073,22 @@ export async function updateAdminStudentStatus(
   });
 }
 
-export async function createAdminNews(title: string, content: string, category: string): Promise<void> {
+export async function createAdminNews(
+  title: string,
+  content: string,
+  category: string,
+  image?: File | null
+): Promise<void> {
+  const formData = new FormData();
+  formData.append("title", title);
+  formData.append("content", content);
+  formData.append("category", category);
+  if (image) {
+    formData.append("image", image);
+  }
   await request("/api/v1/admin/news", {
     method: "POST",
-    body: { title, content, category }
+    body: formData
   });
 }
 

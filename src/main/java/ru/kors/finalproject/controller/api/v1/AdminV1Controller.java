@@ -4,10 +4,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import ru.kors.finalproject.entity.*;
 import ru.kors.finalproject.repository.*;
 import ru.kors.finalproject.service.*;
@@ -44,6 +46,7 @@ public class AdminV1Controller {
     private final SubjectOfferingRepository subjectOfferingRepository;
     private final StudentRequestRepository studentRequestRepository;
     private final NewsRepository newsRepository;
+    private final FileStorageService fileStorageService;
     private final AuditLogRepository auditLogRepository;
     private final ApiPageableFactory apiPageableFactory;
 
@@ -278,20 +281,23 @@ public class AdminV1Controller {
                 request.getAssignedTo() != null ? request.getAssignedTo().getId() : null));
     }
 
-    @PostMapping("/news")
+    @PostMapping(value = "/news", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_CONTENT')")
     public ResponseEntity<?> createNews(
             @AuthenticationPrincipal User admin,
             @RequestBody NewsBody body) {
-        News news = News.builder()
-                .title(body.title())
-                .content(body.content())
-                .category(body.category())
-                .createdAt(Instant.now())
-                .build();
-        News saved = newsRepository.save(news);
-        return ResponseEntity.ok(new NewsDto(saved.getId(), saved.getTitle(), saved.getContent(),
-                saved.getCategory(), saved.getCreatedAt()));
+        return ResponseEntity.ok(toNewsDto(saveNews(body.title(), body.content(), body.category(), null)));
+    }
+
+    @PostMapping(value = "/news", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyAuthority('PERM_SUPER', 'PERM_CONTENT')")
+    public ResponseEntity<?> createNewsWithImage(
+            @AuthenticationPrincipal User admin,
+            @RequestParam String title,
+            @RequestParam String content,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) MultipartFile image) {
+        return ResponseEntity.ok(toNewsDto(saveNews(title, content, category, image)));
     }
 
     @GetMapping("/checklist-templates")
@@ -489,7 +495,46 @@ public class AdminV1Controller {
                               Instant createdAt, Instant updatedAt, Long assignedToUserId) {}
     public record AssignBody(Long userId) {}
     public record RequestStatusBody(StudentRequest.RequestStatus status) {}
-    public record NewsDto(Long id, String title, String content, String category, Instant createdAt) {}
+    private News saveNews(String title, String content, String category, MultipartFile image) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("News title is required");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("News content is required");
+        }
+
+        News.NewsBuilder builder = News.builder()
+                .title(title.trim())
+                .content(content.trim())
+                .category(category == null ? "" : category.trim())
+                .createdAt(Instant.now());
+
+        if (image != null && !image.isEmpty()) {
+            String contentType = image.getContentType() == null ? "" : image.getContentType().trim().toLowerCase();
+            if (!contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("News image must be an image file");
+            }
+            FileStorageService.StoredFile storedFile = fileStorageService.store(image, "news");
+            builder.imageStoragePath(storedFile.storagePath())
+                    .imageOriginalName(storedFile.originalName())
+                    .imageContentType(storedFile.contentType());
+        }
+
+        return newsRepository.save(builder.build());
+    }
+
+    private NewsDto toNewsDto(News news) {
+        return new NewsDto(
+                news.getId(),
+                news.getTitle(),
+                news.getContent(),
+                news.getCategory(),
+                news.getCreatedAt(),
+                news.getImageStoragePath() != null ? "/api/v1/public/news/" + news.getId() + "/image" : null
+        );
+    }
+
+    public record NewsDto(Long id, String title, String content, String category, Instant createdAt, String imageUrl) {}
     public record NewsBody(String title, String content, String category) {}
     public record NotificationDto(Long id, Notification.NotificationType type, String title,
                                   String message, String link, boolean read, Instant createdAt) {}

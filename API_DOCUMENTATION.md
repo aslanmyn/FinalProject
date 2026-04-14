@@ -148,6 +148,7 @@ Auth: none
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/v1/public/news` | Public news feed |
+| GET | `/api/v1/public/news/{id}/image` | Public news image |
 | GET | `/api/v1/public/professors` | Public professor list |
 | GET | `/api/v1/public/professors/{id}` | Public professor profile |
 
@@ -661,6 +662,17 @@ Update student request example:
 | GET | `/api/v1/admin/workflows` | `SUPER` | Workflow overview |
 | GET | `/api/v1/admin/workflows/{type}/{id}/timeline` | `SUPER` | Workflow timeline |
 | POST | `/api/v1/admin/assistant/chat` | `SUPER` | Admin AI assistant |
+
+Admin create news supports either JSON or `multipart/form-data`.
+Use `multipart/form-data` when attaching an optional image with the `image` field.
+
+Public and student news items now include:
+- `id`
+- `title`
+- `content`
+- `category`
+- `createdAt`
+- `imageUrl`
 
 ## 8. Chat API
 

@@ -53,6 +53,7 @@ export default function NewsPage() {
               <p className="muted">
                 {item.category || "General"} | {new Date(item.createdAt).toLocaleString()}
               </p>
+              {item.imageUrl ? <img className="news-image" src={item.imageUrl} alt={item.title} /> : null}
               <p>{item.content}</p>
             </section>
           ))

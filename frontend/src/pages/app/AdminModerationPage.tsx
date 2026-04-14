@@ -19,6 +19,8 @@ export default function AdminModerationPage() {
   const [newsTitle, setNewsTitle] = useState("");
   const [newsContent, setNewsContent] = useState("");
   const [newsCategory, setNewsCategory] = useState("GENERAL");
+  const [newsImage, setNewsImage] = useState<File | null>(null);
+  const [newsImageInputKey, setNewsImageInputKey] = useState(0);
   const [reviewComment, setReviewComment] = useState("Reviewed by registrar");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,11 +69,13 @@ export default function AdminModerationPage() {
     setError(null);
     setSuccess(null);
     try {
-      await createAdminNews(newsTitle.trim(), newsContent.trim(), newsCategory.trim());
+      await createAdminNews(newsTitle.trim(), newsContent.trim(), newsCategory.trim(), newsImage);
       setSuccess("News post created");
       setNewsTitle("");
       setNewsContent("");
       setNewsCategory("GENERAL");
+      setNewsImage(null);
+      setNewsImageInputKey((value) => value + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create news");
     }
@@ -204,6 +208,15 @@ export default function AdminModerationPage() {
               <label>
                 Category
                 <input value={newsCategory} onChange={(event) => setNewsCategory(event.target.value)} />
+              </label>
+              <label>
+                Photo
+                <input
+                  key={newsImageInputKey}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  onChange={(event) => setNewsImage(event.target.files?.[0] ?? null)}
+                />
               </label>
               <button type="submit">Create News</button>
             </form>

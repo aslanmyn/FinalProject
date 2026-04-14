@@ -600,6 +600,7 @@ export interface StudentNewsItem {
   content: string;
   category: string;
   createdAt: string;
+  imageUrl: string | null;
 }
 
 export interface StudentChargeItem {

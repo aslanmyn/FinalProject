@@ -50,6 +50,7 @@ export default function StudentNewsPage() {
                   <strong>{item.title}</strong>
                   <span>{item.createdAt}</span>
                 </div>
+                {item.imageUrl ? <img className="news-image" src={item.imageUrl} alt={item.title} /> : null}
                 <p>{item.content}</p>
                 <span className="badge">{item.category || "General"}</span>
               </article>
