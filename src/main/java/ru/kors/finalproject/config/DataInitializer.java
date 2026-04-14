@@ -1506,13 +1506,13 @@ public class DataInitializer implements CommandLineRunner {
             for (int i = 0; i < 3; i++) {
                 DayOfWeek day = days[(dayIndex + i) % days.length];
                 LocalTime start = starts[(startIndex + i) % starts.length];
-                slots.add(new MeetingSlotSeed(
+                slots.add(adjustPracticeOnlySlot(subjectCode, new MeetingSlotSeed(
                         day,
                         start,
                         start.plusHours(1),
                         roomCode(subjectCode, "P"),
                         SubjectOffering.LessonType.PRACTICE
-                ));
+                )));
             }
             return slots;
         }
@@ -1537,6 +1537,19 @@ public class DataInitializer implements CommandLineRunner {
                         roomCode(subjectCode, "P"),
                         SubjectOffering.LessonType.PRACTICE
                 )
+        );
+    }
+
+    private MeetingSlotSeed adjustPracticeOnlySlot(String subjectCode, MeetingSlotSeed slot) {
+        if (!"PHE101".equals(subjectCode) || !LocalTime.of(18, 0).equals(slot.startTime())) {
+            return slot;
+        }
+        return new MeetingSlotSeed(
+                slot.dayOfWeek(),
+                LocalTime.of(19, 0),
+                LocalTime.of(20, 0),
+                slot.room(),
+                slot.lessonType()
         );
     }
 
